@@ -1,0 +1,42 @@
+# vendor/versions.toml
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr.
+
+[[component]]
+name = "nginx"
+channel = "stable"
+pinned_version = "1.30.6"
+upstream_url = "https://nginx.org/download/nginx-1.30.6.tar.gz"
+sha256 = "TO_BE_FILLED_FROM_NGINX.ORG"
+gpg_fingerprint = "TO_BE_FILLED_FROM_NGINX.ORG"
+release_info = "https://nginx.org/en/CHANGES"
+version_api = "https://nginx.org/en/download.html"
+policy = "security-only"
+tested_matrix = []
+source_of_truth_checked_at = "2026-11-12"
+
+[[component]]
+name = "php"
+channel = "8.5"
+pinned_version = "8.5.12"
+upstream_url = "https://www.php.net/distributions/php-8.5.12.tar.gz"
+sha256 = "TO_BE_FILLED_FROM_PHP.NET"
+gpg_fingerprint = "TO_BE_FILLED_FROM_PHP.NET"
+release_info = "https://www.php.net/ChangeLog-8.php"
+version_api = "https://www.php.net/releases/index.php?json"
+policy = "security-only"
+tested_matrix = []
+source_of_truth_checked_at = "2026-11-12"
+
+[[component]]
+name = "mariadb"
+channel = "12.3"
+pinned_version = "12.3.3"
+upstream_url = "https://downloads.mariadb.org/rest-api/mariadb/"
+sha256 = "TO_BE_FILLED_FROM_MARIADB.ORG"
+gpg_fingerprint = "TO_BE_FILLED_FROM_MARIADB.ORG"
+release_info = "https://mariadb.com/kb/en/release-notes/"
+version_api = "https://downloads.mariadb.org/rest-api/mariadb/"
+policy = "security-only"
+tested_matrix = []
+source_of_truth_checked_at = "2026-11-12"
