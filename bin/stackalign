@@ -19,7 +19,7 @@ set -u
 SA_VERSION="0.0.0-dev"
 SA_ROOT=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
 SA_CONF_PATH=/etc/stackalign/stackalign.conf
-GPLAN=0; YES=0
+GPLAN=0
 
 # cmd|milestone|purpose
 _sa_cmds() { cat <<'EOF'
@@ -186,7 +186,7 @@ main() {
       --version) cmd_version; exit 0 ;;          # ignores --plan: no side effects
       -h|--help) cmd_help; exit 0 ;;
       --plan) GPLAN=1 ;;
-      --yes)  YES=1 ;;
+      --yes)  : ;;
       --config) [ $# -ge 2 ] || _sa_die "--config needs a file"; SA_CONF_PATH=$2; shift ;;
       --config=*) SA_CONF_PATH=${1#--config=} ;;
       --) shift; break ;;

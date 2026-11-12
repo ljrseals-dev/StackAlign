@@ -9,6 +9,7 @@ pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }
 
+# shellcheck disable=SC2034 # Passed by name to sa_render_apply/sa_render_plan.
 declare -A M=( [A]="alpha" [B]='{{A}}' )
 printf 'x={{A}} y={{B}}\nend\n' > "$T/t.tpl"
 

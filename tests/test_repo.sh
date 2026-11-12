@@ -40,7 +40,7 @@ source "$ROOT/lib/repo.sh"
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }
-reset() { : > "$FAKE_LOG"; rm -rf "$FAKE_STATE"/* "$SA_YUM_REPOS_DIR"; }
+reset() { : > "$FAKE_LOG"; rm -rf "${FAKE_STATE:?}"/* "${SA_YUM_REPOS_DIR:?}"; }
 URL=https://example.invalid/el9/x86_64/; KEY=https://example.invalid/RPM-GPG-KEY
 
 # setup writes repo file + imports key
