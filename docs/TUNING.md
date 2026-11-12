@@ -17,7 +17,17 @@ Inputs include RAM, swap, CPU count, requested profile, workload, server role, a
 
 The prior illustrative local-service decomposition was OS 200 + MariaDB base 120 + PHP master 15 + Nginx 10 + OPcache 32 + safety margin 140 + X-Cart worker 128 + Redis sessions 32 + Redis cache 64 = **741 MiB**. The 120 MiB MariaDB and 32/64 MiB Redis terms apply only when those services are local and configured at those values. The fixed reserve is the sum of supplied local fixed costs: OS, locally hosted MariaDB base, PHP master, Nginx, OPcache, safety margin, workload worker memory, and locally hosted Redis session/cache memory. The engine consumes these as inputs; it does not assume every service is local. For example, slave_web normally supplies zero local MariaDB cost, and externally hosted Redis contributes zero local Redis memory cost. If Redis is local, its configured memory is a cost, not a search variable.
 
-For the standard profile, the current design allocates 40% of memory remaining after the reserve to PHP workers; the remainder is database-available budget. Candidate max_children is the integer PHP budget divided by the workload child RSS assumption. The buffer-pool target is 60% of database-available memory, bounded by the documented minimum and by leaving required non-buffer-pool database headroom. Exact integer rounding and boundary handling must be implemented once and tested before any generated table is published.
+For the standard profile, the implementation uses the following integer-MiB expressions, where `remaining` is memory after the fixed reserve:
+
+```text
+php_budget = floor(remaining * 40 / 100)
+db_available = remaining - php_budget
+max_children = floor(php_budget / child_rss)
+raw_60 = floor(db_available * 60 / 100)
+buffer_pool = max(128, min(raw_60, db_available - 512))
+```
+
+The buffer-pool expression is valid only when `db_available - 512 >= 128`; otherwise the implementation refuses with `buffer_pool_no_valid_range`. The implementation computes the raw target, then clamps it to the inclusive 128 MiB lower bound and the `db_available - 512` upper bound. If `max_children < 1`, it refuses with `no_candidate_fits`. These expressions use Bash integer arithmetic, which truncates positive integer division and therefore implements the stated floors.
 
 For the lean profile, search child counts {1, 2, 3, 4} and buffer sizes {32, 48, 64} MiB. Select the feasible candidate with the greatest child count; when child counts tie, select the largest buffer. The implementation must use the comparison equivalent to:
 
