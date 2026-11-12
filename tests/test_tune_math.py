@@ -77,7 +77,7 @@ class TuningContract(unittest.TestCase):
 
     # T6: policy floor does not replace arithmetic refusal.
     def test_T6_wordpress_low_ram_is_arithmetic_refusal(self):
-        env = {**PLAIN, "SA_PHP_CHILD_MIB": 128, "SA_WORKER_MIB": 64}
+        env = {**PLAIN, "SA_WORKLOAD": "wordpress", "SA_PHP_CHILD_MIB": 128, "SA_WORKER_MIB": 64}
         rc, v, *_ = run(512, 0, "lean", env=env)
         self.assertNotEqual(rc, 0)
         self.assertIn(v.get("error"), {"no_room_after_fixed", "no_candidate_fits"})
@@ -95,7 +95,7 @@ class TuningContract(unittest.TestCase):
 
     # T8: guarded X-Cart workload can fit at 2 GiB with explicit costs.
     def test_T8_xcart_2048_standard(self):
-        env = {**PLAIN, "SA_WORKER_MIB": 128, "SA_REDIS_SESSIONS_MIB": 32,
+        env = {**PLAIN, "SA_WORKLOAD": "xcart_5_6", "SA_WORKER_MIB": 128, "SA_REDIS_SESSIONS_MIB": 32,
                "SA_REDIS_CACHE_MIB": 64, "SA_SAFETY_MIB": 140}
         rc, v, *_ = run(2048, 0, "standard", env=env)
         self.assertEqual(rc, 0)
@@ -104,7 +104,8 @@ class TuningContract(unittest.TestCase):
 
     # T9: below advisory floor may refuse only for arithmetic reasons.
     def test_T9_xcart_1536_advisory_or_arithmetic(self):
-        env = {**PLAIN, "SA_WORKER_MIB": 128, "SA_REDIS_SESSIONS_MIB": 32,
+        env = {**PLAIN, "SA_WORKLOAD": "xcart_5_6", "SA_MIN_RAM_MIB": 2048,
+               "SA_WORKER_MIB": 128, "SA_REDIS_SESSIONS_MIB": 32,
                "SA_REDIS_CACHE_MIB": 64, "SA_SAFETY_MIB": 140}
         rc, v, *_ = run(1536, 0, "standard", env=env)
         self.assertEqual(v.get("warning"), "advisory_ram")
@@ -211,7 +212,7 @@ class TuningContract(unittest.TestCase):
 
     # T22: arithmetic refusal is reported, not converted into policy success.
     def test_T22_refusal_is_explicit(self):
-        rc, v, *_ = run(256, 0, "lean", env=PLAIN)
+        rc, v, *_ = run(256, 0, "lean", env={**PLAIN, "SA_MIN_RAM_MIB": 1024})
         self.assertNotEqual(rc, 0)
         self.assertEqual(v["warning"], "advisory_ram")
         self.assertEqual(v["error"], "no_room_after_fixed")
