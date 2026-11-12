@@ -1,6 +1,6 @@
 # Workload registry design
 
-**Status: design only.** Main contains a provisional `lib/tune.sh` and five provisional tuner tests, but no workload registry resolver or role-aware service-cost integration. This document specifies data consumed by one tuning engine; it is not a separate tuner or workload-specific algorithm.
+**Status: M2a registry behavior implemented; input values remain assumptions pending M2b measurement.** The registry and role-aware service-cost handling are implemented in `lib/tune.sh` on `main` and covered by the T1–T28 suite. This document specifies the data contract consumed by one tuning engine; it is not a separate tuner or workload-specific algorithm.
 
 ## Proposed registry fields
 
