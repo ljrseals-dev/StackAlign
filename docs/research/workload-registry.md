@@ -1,6 +1,6 @@
 # Workload registry design
 
-**Status: design only; lib/tune.sh and tests do not exist in the repository yet.** The registry is data consumed by one tuning engine. It is not a separate tuner or workload-specific algorithm.
+**Status: design only.** Main contains a provisional `lib/tune.sh` and five provisional tuner tests, but no workload registry resolver or role-aware service-cost integration. This document specifies data consumed by one tuning engine; it is not a separate tuner or workload-specific algorithm.
 
 ## Proposed registry fields
 
