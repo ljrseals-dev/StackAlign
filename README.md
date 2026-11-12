@@ -4,7 +4,11 @@ A standalone Bash-based LEMP installer and manager for supported EL-family Linux
 
 ## Project status
 
-**Design documents complete for M0/M1/M2a scope; implementation pending.** This repository contains reviewed design documentation only. It does not yet contain the installer, configuration parser, workload tuner, tenant isolation implementation, or runtime deployment workflows. A design discussed or drafted in a conversation is not repository implementation.
+**Bootstrap implementation present; frozen M2a and later milestone contracts are not yet implemented or validated.** The `main` branch contains an initial CLI, configuration parser, support libraries, shell test suites, and a provisional tuner. These files are repository artifacts, but their presence does not mean the full installer or the frozen tuning contract is complete.
+
+In particular, `lib/tune.sh` is explicitly provisional: it implements only a lean-profile calculation, uses an unmeasured 32 MiB child assumption, and refuses the standard profile as unimplemented. The five tests in `tests/test_tune_math.py` are provisional checks, not the frozen T1–T28 suite. The CLI's `tune` command is not wired to this function. The design documents in this branch define the intended contract and take precedence over conflicting provisional behavior.
+
+A passing CI run for a pull-request merge commit is evidence only for the code and tests in that run. It is not proof of production deployment, runtime behavior on every supported distribution, M2a contract compliance, or a green `main` branch.
 
 ## Scope
 
@@ -23,7 +27,7 @@ A slave_web role is a web-only node behind an upstream load balancer or DNS rota
 - [Slave-web node design](docs/research/slave-web-node.md)
 - [Implementation and validation status](docs/STATUS.md)
 
-These are design documents pending implementation and validation. Two-site isolation must be tested with two live tenants; configuration strings alone do not prove isolation.
+These documents describe intended behavior. Existing bootstrap code must not be treated as implementation of a design requirement unless the relevant behavior is explicitly implemented and tested. Two-site isolation must be tested with two live tenants; configuration strings alone do not prove isolation.
 
 ## Operating principles
 
