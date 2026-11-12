@@ -72,7 +72,7 @@ sa_secret_gen() {  # <name> [mode]
       val=$(openssl rand -base64 32) || return 5
       hash="sha256:$(printf '%s' "$val" | sha256sum | awk '{print $1}')" ;;
     human-passphrase)
-      for tries in 1 2 3 4 5; do
+      for _ in 1 2 3 4 5; do
         val=$(_sa_secret_passphrase) || return $?
         _sa_secret_breached "$val"; case $? in
           0) val=""; continue ;;                       # breached: draw again
