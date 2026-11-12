@@ -4,8 +4,9 @@
 #
 # StackAlign M2a memory tuner.
 # Inputs are MiB unless otherwise stated. SA_* variables are explicit cost
-# inputs; workload/role discovery is intentionally outside this arithmetic
-# function and must supply effective values before calling it.
+# inputs. Supported workload/role identifiers are validated here, and
+# slave_web defaults to zero local MariaDB base cost. Runtime workload discovery
+# and measured workload-specific memory costs remain caller/registry duties.
 #
 # Usage: tune.sh RAM_MIB SWAP_MIB lean|standard|auto [floor]
 set -euo pipefail
