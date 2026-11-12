@@ -1,6 +1,6 @@
 # Workload tuning contract
 
-**Status: design contract; production implementation pending.** The main branch does contain `lib/tune.sh` and `tests/test_tune_math.py`, but both are explicitly provisional and do not implement this complete contract. The current tuner is lean-only, uses a 32 MiB child assumption, refuses the standard profile, and does not resolve the workload/role/service-cost registry. The current Python harness contains five provisional tests, not the frozen T1–T28 suite. The generic `lib/config.sh` parser also does not implement the schema proposal by virtue of parsing INI syntax. Values below are design inputs and assumptions, not measured results or executable behavior.
+**Status: M2a contract implemented and CI-tested on `main`.** PR #3 merged the lean and standard arithmetic engine, workload/role/service-cost handling, advisory policy behavior, and T1–T28 contract tests. CI run [43251330070](https://github.com/ljrseals-dev/StackAlign/actions/runs/43251330070) passed lint and tests on Ubuntu 24.04 and AlmaLinux 9. This document remains the normative arithmetic and policy contract. Values explicitly marked as assumptions are not measured results; M2b host measurement and production validation remain outstanding.
 
 ## One engine, workload data
 
