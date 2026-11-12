@@ -52,7 +52,7 @@ EOF
     echo
     echo "=== $label: launching 20 concurrent requests ==="
     for _ in {1..20}; do
-        curl -fsS --max-time 30 http://127.0.0.1/test.php >/dev/null &
+        curl -fsS --max-time 120 http://127.0.0.1/test.php >/dev/null &
         pids+=("$!")
     done
 
