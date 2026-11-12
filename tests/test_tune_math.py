@@ -139,7 +139,7 @@ class TuningContract(unittest.TestCase):
 
     # T13: standard buffer-pool lower boundary 639/640/641.
     def test_T13_buffer_pool_lower_boundary(self):
-        # Fixed reserve is chosen so remaining == db_available for these fixtures.
+        # Fixtures derive db_available from the specified 40/60 PHP/DB split.
         fixtures = ((639, 1064, None), (640, 1066, 128), (641, 1067, 129))
         for db, remaining, expected in fixtures:
             reserve = 3686 - remaining
@@ -200,9 +200,10 @@ class TuningContract(unittest.TestCase):
 
     # T20: reject values outside the supported unsigned range.
     def test_T20_numeric_overflow(self):
-        rc, v, *_ = run(4294967296, 0, "lean", env=PLAIN)
-        self.assertNotEqual(rc, 0)
-        self.assertEqual(v["error"], "numeric_input_overflow")
+        for value in (4294967296, "18446744073709551616", "9" * 100):
+            rc, v, *_ = run(value, 0, "lean", env=PLAIN)
+            self.assertNotEqual(rc, 0)
+            self.assertEqual(v["error"], "numeric_input_overflow")
 
     # T21: zero child RSS is invalid.
     def test_T21_zero_child_rss(self):
