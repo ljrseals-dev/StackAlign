@@ -21,6 +21,10 @@ set -euo pipefail
 : "${SA_REDIS_CACHE_MIB:=0}"
 : "${SA_PHP_CHILD_MIB:=32}"
 : "${SA_WORKER_DB_CONNECTIONS:=0}"
+: "${SA_WORKLOAD:=generic_php}"
+: "${SA_ROLE:=primary}"
+: "${SA_MIN_RAM_MIB:=0}"
+: "${SA_MIN_PROFILE:=lean}"
 
 sa_is_uint() {
   [[ $1 =~ ^(0|[1-9][0-9]*)$ ]]
@@ -53,6 +57,10 @@ sa_emit_reserve() {
 sa_tune_compute() {
   local ram=$1 swap=$2 requested_profile=$3
   local name value
+  case "$SA_WORKLOAD" in generic_php|wordpress|woocommerce|laravel|xcart_5_6) ;; *) printf "error=unknown_workload\\n"; return 2 ;; esac
+  case "$SA_ROLE" in primary|slave_web) ;; *) printf "error=unknown_role\\n"; return 2 ;; esac
+  sa_validate_uint min_ram_mib "$SA_MIN_RAM_MIB" || return $?
+  case "$SA_MIN_PROFILE" in lean|standard) ;; *) printf "error=invalid_min_profile\\n"; return 2 ;; esac
   for name in ram_mib swap_mib os_mib db_base_mib php_master_mib nginx_mib opcache_mib safety_mib worker_mib redis_sessions_mib redis_cache_mib php_child_mib worker_db_connections; do
     case "$name" in
       ram_mib) value=$ram ;; swap_mib) value=$swap ;;
@@ -89,6 +97,9 @@ sa_tune_compute() {
   printf 'ram_mib=%s\nswap_mib=%s\nusable_mib=%s\nceiling_mib=%s\n' "$ram" "$swap" "$usable" "$ceiling"
   sa_emit_reserve
   printf 'reserve_mib=%s\nremaining_mib=%s\n' "$reserve" "$remaining"
+
+  if (( ram < SA_MIN_RAM_MIB )); then printf "warning=advisory_ram\\n"; fi
+  if [[ $profile == lean && $SA_MIN_PROFILE == standard ]]; then printf "warning=advisory_profile\\n"; fi
 
   if (( remaining <= 0 )); then
     printf 'error=no_room_after_fixed\n'
@@ -157,7 +168,7 @@ main() {
   fi
   sa_tune_compute "$1" "$2" "$3" || return $?
   if [[ ${4:-} == floor ]]; then
-    printf 'arithmetic_floor_mib=%s\n' "$(sa_tune_floor "$2" "$3" "$3")"
+    printf 'arithmetic_floor_mib=%s\n' "$(sa_tune_floor "$2" "$3")"
   elif [[ -n ${4:-} ]]; then
     printf 'error=unknown_option\n' >&2
     return 64
