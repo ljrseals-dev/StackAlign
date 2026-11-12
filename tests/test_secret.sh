@@ -56,8 +56,12 @@ reset; out=$(SA_MODE=plan sa_secret_gen pl machine 2>&1); rc=$?
 { [ $rc -eq 0 ] && [ ! -e "$SA_SECRETS_DIR" ] && [[ $out == plan:* ]]; } && ok "plan mode: nothing generated or written" || bad "plan mode"
 
 # --- HIBP lookup logic
+# These calls use the implementation loaded from lib/secret.sh; later overrides are test fixtures.
+# shellcheck disable=SC2218
 reset; _sa_secret_breached password; r1=$?
+# shellcheck disable=SC2218
 _sa_secret_breached 'definitely-not-breached-zzz'; r2=$?
+# shellcheck disable=SC2218
 touch "$T_FAIL"; _sa_secret_breached anything; r3=$?; rm "$T_FAIL"
 { [ $r1 -eq 0 ] && [ $r2 -eq 1 ] && [ $r3 -eq 2 ]; } && ok "HIBP: breached=0, clean=1, unreachable=2" || bad "HIBP logic ($r1 $r2 $r3)"
 grep -q 'range/5BAA6$' "$FAKE_LOG" && ! grep -q '1E4C9B93F3F0' "$FAKE_LOG" && ok "HIBP: only the 5-char prefix is sent (k-anonymity)" || bad "HIBP k-anonymity"
