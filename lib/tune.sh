@@ -10,6 +10,8 @@
 # Usage: tune.sh RAM_MIB SWAP_MIB lean|standard|auto [floor]
 set -euo pipefail
 
+SA_DB_BASE_MIB_EXPLICIT=0
+[[ -v SA_DB_BASE_MIB ]] && SA_DB_BASE_MIB_EXPLICIT=1
 : "${SA_OS_MIB:=200}"
 : "${SA_DB_BASE_MIB:=120}"
 : "${SA_PHP_MASTER_MIB:=15}"
@@ -44,7 +46,7 @@ sa_validate_uint() {
 
 sa_emit_reserve() {
   printf 'reserve_os_mib=%s\n' "$SA_OS_MIB"
-  printf 'reserve_db_base_mib=%s\n' "$SA_DB_BASE_MIB"
+  printf 'reserve_db_base_mib=%s\n' "$db_base_effective"
   printf 'reserve_php_master_mib=%s\n' "$SA_PHP_MASTER_MIB"
   printf 'reserve_nginx_mib=%s\n' "$SA_NGINX_MIB"
   printf 'reserve_opcache_mib=%s\n' "$SA_OPCACHE_MIB"
@@ -56,7 +58,8 @@ sa_emit_reserve() {
 
 sa_tune_compute() {
   local ram=$1 swap=$2 requested_profile=$3
-  local name value
+  local name value db_base_effective=$SA_DB_BASE_MIB
+  if [[ $SA_ROLE == slave_web && $SA_DB_BASE_MIB_EXPLICIT == 0 ]]; then db_base_effective=0; fi
   case "$SA_WORKLOAD" in generic_php|wordpress|woocommerce|laravel|xcart_5_6) ;; *) printf "error=unknown_workload\\n"; return 2 ;; esac
   case "$SA_ROLE" in primary|slave_web) ;; *) printf "error=unknown_role\\n"; return 2 ;; esac
   sa_validate_uint min_ram_mib "$SA_MIN_RAM_MIB" || return $?
@@ -64,7 +67,7 @@ sa_tune_compute() {
   for name in ram_mib swap_mib os_mib db_base_mib php_master_mib nginx_mib opcache_mib safety_mib worker_mib redis_sessions_mib redis_cache_mib php_child_mib worker_db_connections; do
     case "$name" in
       ram_mib) value=$ram ;; swap_mib) value=$swap ;;
-      os_mib) value=$SA_OS_MIB ;; db_base_mib) value=$SA_DB_BASE_MIB ;;
+      os_mib) value=$SA_OS_MIB ;; db_base_mib) value=$db_base_effective ;;
       php_master_mib) value=$SA_PHP_MASTER_MIB ;; nginx_mib) value=$SA_NGINX_MIB ;;
       opcache_mib) value=$SA_OPCACHE_MIB ;; safety_mib) value=$SA_SAFETY_MIB ;;
       worker_mib) value=$SA_WORKER_MIB ;; redis_sessions_mib) value=$SA_REDIS_SESSIONS_MIB ;;
@@ -82,7 +85,7 @@ sa_tune_compute() {
   local extra=$(( half < cap ? half : cap ))
   local usable=$(( ram + extra ))
   local ceiling=$(( usable * 90 / 100 ))
-  local reserve=$(( SA_OS_MIB + SA_DB_BASE_MIB + SA_PHP_MASTER_MIB + SA_NGINX_MIB + SA_OPCACHE_MIB + SA_SAFETY_MIB + SA_WORKER_MIB + SA_REDIS_SESSIONS_MIB + SA_REDIS_CACHE_MIB ))
+  local reserve=$(( SA_OS_MIB + db_base_effective + SA_PHP_MASTER_MIB + SA_NGINX_MIB + SA_OPCACHE_MIB + SA_SAFETY_MIB + SA_WORKER_MIB + SA_REDIS_SESSIONS_MIB + SA_REDIS_CACHE_MIB ))
   local remaining=$(( ceiling - reserve ))
   local profile=$requested_profile
 
