@@ -1,6 +1,6 @@
 # Workload tuning contract
 
-**Status: design only; implementation pending.** The repository does not yet contain lib/tune.sh, lib/config.sh, or tests/test_tune_math.py. Values below are design inputs and assumptions, not measured results or executable behavior.
+**Status: design contract; production implementation pending.** The main branch does contain `lib/tune.sh` and `tests/test_tune_math.py`, but both are explicitly provisional and do not implement this complete contract. The current tuner is lean-only, uses a 32 MiB child assumption, refuses the standard profile, and does not resolve the workload/role/service-cost registry. The current Python harness contains five provisional tests, not the frozen T1–T28 suite. The generic `lib/config.sh` parser also does not implement the schema proposal by virtue of parsing INI syntax. Values below are design inputs and assumptions, not measured results or executable behavior.
 
 ## One engine, workload data
 
@@ -45,7 +45,7 @@ All child RSS values, worker costs, fixed service costs, and worker connection c
 
 The previously discussed worked sizing table is **retracted**. It used a reserve of 756 MiB even though the listed components sum to 741 MiB, and its reported child counts did not follow the stated standard formula. Do not replace it with another hand-computed table.
 
-**Rule:** every sizing table must be produced by running the actual implemented function against a checked script or test harness; paste the actual command and output into the review record and this document. If the function does not yet exist, publish no worked sizing table. The arithmetic script and tests must be committed with the implementation, not represented as conversation-only artifacts.
+**Rule:** every sizing table must be produced by running the actual implemented function against a checked script or test harness; paste the actual command and output into the review record and this document. If the function does not yet exist as a contract-compliant implementation, publish no worked sizing table. The arithmetic script and tests must be committed with the implementation, not represented as conversation-only artifacts.
 
 ## Role-aware service-cost inputs
 
