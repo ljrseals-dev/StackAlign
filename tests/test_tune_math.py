@@ -107,10 +107,9 @@ class TuningContract(unittest.TestCase):
         env = {**PLAIN, "SA_WORKER_MIB": 128, "SA_REDIS_SESSIONS_MIB": 32,
                "SA_REDIS_CACHE_MIB": 64, "SA_SAFETY_MIB": 140}
         rc, v, *_ = run(1536, 0, "standard", env=env)
+        self.assertEqual(v.get("warning"), "advisory_ram")
         if rc != 0:
             self.assertIn(v.get("error"), {"no_room_after_fixed", "buffer_pool_no_valid_range", "no_candidate_fits"})
-        else:
-            self.assertEqual(v.get("warning"), "advisory_ram")
 
     # T10: role selection is represented by effective local-cost inputs.
     def test_T10_slave_web_local_db_cost_can_be_zero(self):
@@ -137,17 +136,10 @@ class TuningContract(unittest.TestCase):
     # T13: standard buffer-pool lower boundary 639/640/641.
     def test_T13_buffer_pool_lower_boundary(self):
         # Fixed reserve is chosen so remaining == db_available for these fixtures.
-        def calc(db_available):
-            remaining = (db_available * 100 + 59) // 60
-            php = remaining * 40 // 100
-            db = remaining - php
-            return db
-        for db, expected in ((639, None), (640, 128), (641, 129)):
-            remaining = db
-            # Use a direct fixture whose 40/60 split yields target db_available.
-            remaining = (db * 100 + 59) // 60
-            reserve = 1843 - remaining
-            rc, v, *_ = run(2048, 0, "standard", env={**PLAIN, "SA_OS_MIB": reserve,
+        fixtures = ((639, 1064, None), (640, 1066, 128), (641, 1067, 129))
+        for db, remaining, expected in fixtures:
+            reserve = 3686 - remaining - 57
+            rc, v, *_ = run(4096, 0, "standard", env={**PLAIN, "SA_OS_MIB": reserve,
                 "SA_DB_BASE_MIB": 0, "SA_PHP_MASTER_MIB": 0, "SA_NGINX_MIB": 0,
                 "SA_OPCACHE_MIB": 0})
             if expected is None:
@@ -158,24 +150,27 @@ class TuningContract(unittest.TestCase):
 
     # T14: standard upper/raw clamp crossover and large values.
     def test_T14_buffer_pool_upper_and_raw(self):
-        cases = ((854, 342), (1280, 768), (1281, 768), (2000, 1200))
-        for db, expected in cases:
-            remaining = (db * 100 + 59) // 60
-            reserve = 1843 - remaining
+        cases = ((854, 1422, 342), (1280, 2132, 768),
+                 (1281, 2134, 768), (2000, 3332, 1200))
+        for db, remaining, expected in cases:
+            reserve = 3686 - remaining - 57
             env = {**PLAIN, "SA_OS_MIB": reserve, "SA_DB_BASE_MIB": 0,
-                   "SA_PHP_MASTER_MIB": 0, "SA_NGINX_MIB": 0, "SA_OPCACHE_MIB": 0}
-            rc, v, *_ = run(2048, 0, "standard", env=env)
+                   "SA_PHP_MASTER_MIB": 15, "SA_NGINX_MIB": 10, "SA_OPCACHE_MIB": 32}
+            rc, v, *_ = run(4096, 0, "standard", env=env)
             self.assertEqual(rc, 0)
             self.assertEqual(int(v["buffer_pool_mib"]), expected)
 
-    # T15: unknown workload must be rejected by the caller/registry, not guessed.
-    def test_T15_unknown_workload_is_not_silently_defaulted(self):
-        # Arithmetic layer deliberately has no workload-name parameter.
-        self.assertNotIn("SA_WORKLOAD", os.environ)
+    # T15: unknown workload is rejected rather than silently defaulted.
+    def test_T15_unknown_workload(self):
+        rc, v, *_ = run(512, 0, "lean", env={**PLAIN, "SA_WORKLOAD": "mystery"})
+        self.assertNotEqual(rc, 0)
+        self.assertEqual(v["error"], "unknown_workload")
 
-    # T16: unknown role must be rejected by the caller/registry, not guessed.
-    def test_T16_unknown_role_is_not_silently_defaulted(self):
-        self.assertNotIn("SA_ROLE", os.environ)
+    # T16: unknown role is rejected rather than silently defaulted.
+    def test_T16_unknown_role(self):
+        rc, v, *_ = run(512, 0, "lean", env={**PLAIN, "SA_ROLE": "database_slave"})
+        self.assertNotEqual(rc, 0)
+        self.assertEqual(v["error"], "unknown_role")
 
     # T17: independent Redis overrides are consumed independently.
     def test_T17_redis_overrides_independent(self):
@@ -215,6 +210,7 @@ class TuningContract(unittest.TestCase):
     def test_T22_refusal_is_explicit(self):
         rc, v, *_ = run(256, 0, "lean", env=PLAIN)
         self.assertNotEqual(rc, 0)
+        self.assertEqual(v["warning"], "advisory_ram")
         self.assertEqual(v["error"], "no_room_after_fixed")
 
     # T23: advisory policy metadata does not enter arithmetic reserve.
