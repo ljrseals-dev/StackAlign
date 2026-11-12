@@ -47,9 +47,14 @@ sa_render_plan() {  # <template> <output> <map-var-name>
 sa_render_apply() {  # <template> <output> <map-var-name>
   local tpl=$1 output=$2 mapname=$3 rendered tmp
   _sa_render_to_var "$tpl" "$mapname" rendered || return $?
-  if [ -f "$output" ] && cmp -s -- "$output" <(printf '%s' "$rendered"); then
+  local _sa_cmp
+  _sa_cmp=$(mktemp) || return 1
+  printf '%s' "$rendered" > "$_sa_cmp" || { rm -f -- "$_sa_cmp"; return 1; }
+  if [ -f "$output" ] && cmp -s -- "$output" "$_sa_cmp"; then
+    rm -f -- "$_sa_cmp"
     echo "unchanged: $output"; return 0
   fi
+  rm -f -- "$_sa_cmp"
   if declare -F sa_history_snapshot >/dev/null; then
     sa_history_snapshot "$output" render >/dev/null || return $?
   fi
