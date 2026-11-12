@@ -21,8 +21,8 @@ The eventual common function should accept RAM, swap, cores, requested profile, 
 
 Two functional corrections are mandatory:
 
-1. **Lean-search tie-break:** maximize child count, then maximize buffer size at the winning child count. Use the comparison c > best_c || (c == best_c && b > best_b). The former condition updated the buffer only when child count increased and therefore retained the smallest buffer among tied winning child counts.
-2. **Worker DB connections:** derive max_connections = max_children * 2 + worker_db_connections + 5. X-Cart defaults to four worker DB connections pending measurement at M2b; other listed workloads default to zero. This prevents a supervised queue worker's persistent connections from being omitted from the connection budget.
+1. **Lean-search tie-break:** maximize child count, then maximize buffer size at the winning child count. The former condition updated the buffer only when child count increased and therefore retained the smallest buffer among tied winning child counts. The exact selection rule belongs in docs/TUNING.md and must be covered by tests.
+2. **Worker DB connections:** include worker_db_connections in the derived MariaDB connection budget as specified in docs/TUNING.md. X-Cart defaults to four worker DB connections pending measurement at M2b; other listed workloads default to zero. This prevents a supervised queue worker's persistent connections from being omitted.
 
 The arithmetic must distinguish infeasible candidates from advisory policy floors. Redis maxmemory remains a configured cost, never a search variable.
 
