@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr.
+#
+# WRITTEN, NOT RUN. This workflow has never executed on a real runner; M1's exit
+# criterion ("CI green on real runners") is NOT met by this file's existence.
+#
+# VERSION PIN: actions/checkout@v6 is TO_BE_VERIFIED. It comes from a third-party
+# registry (packages.ecosyste.ms: latest_release_number v6.0.2, published
+# 2026-01-09) whose own tag list was inconsistent. Confirm on
+# https://github.com/actions/checkout/releases before relying on it.
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: make lint
+      - run: make test
+
+  almalinux9:
+    # The project targets EL-family; this runs the same suites in an EL9 userland.
+    # (Container tests of real nginx/PHP/MariaDB are M2b, not this job.)
+    runs-on: ubuntu-latest
+    container: almalinux:9
+    steps:
+      - name: Install test dependencies
+        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git
+      - uses: actions/checkout@v6
+      - run: make lint
+      - run: make test

@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr.
+#
+# bin/stackalign -- CLI dispatcher. Written from master prompt v8 Part III.
+# Implemented now: version, help, plan (alias), doctor (read-only), rollback.
+# Every other subcommand is a recognised STUB that refuses with rc 2.
+#
+# ASSUMPTIONS (spec is partly contradictory/silent; unmeasured design choices):
+#   * "--plan before command" and "each command has --plan" are reconciled as:
+#     global flags (--plan --yes --config) go BEFORE the command; after the
+#     command only that command's declared options are accepted (--plan/--apply,
+#     rollback's --list/--to). Any other trailing option => "unexpected argument".
+#   * Mutating commands default to plan mode; --apply is required to mutate.
+#   * VERSION is a placeholder constant, not a release claim.
+#   * `tune` is NOT wired: its config keys live in docs/TUNING.md (unavailable).
+set -u
+
+SA_VERSION="0.0.0-dev"
+SA_ROOT=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+SA_CONF_PATH=/etc/stackalign/stackalign.conf
+GPLAN=0; YES=0
+
+# cmd|milestone|purpose
+_sa_cmds() { cat <<'EOF'
+version|M1|print version
+help|M1|per-subcommand help
+plan|M1|dry-run alias: plan <command> [args]
+install|M2a|plan then apply the full stack
+doctor|M1|read-only host and drift inspection
+tune|M2a|sizing planner
+rollback|M2a|snapshot restore: rollback [--list] [--to <id>]
+update|M5|update engine: check|plan|apply|pin|status
+site|M3|tenant lifecycle: add|list|remove|isolate|doctor
+db|M3|database lifecycle: create|drop|list
+tls|M3|certificate management: issue|renew|status
+backup|M4|backup driver: run|list|verify
+restore|M4|restore driver: --from <id>
+bench|M6|reproducible benchmark
+secret|M2a|password and token generation: gen|list
+xcart|M3|guarded X-Cart profile: plan|preflight|build|deploy
+routine|M3|routine subsystem: plan|install|doctor|run|run-builtin
+contain|M4|evidence preservation before rebuild
+EOF
+}
+
+_sa_known() { _sa_cmds | awk -F'|' -v c="$1" '$1==c{f=1} END{exit !f}'; }
+_sa_ms()    { _sa_cmds | awk -F'|' -v c="$1" '$1==c{print $2}'; }
+
+_sa_die() { echo "stackalign: $*" >&2; exit 64; }
+
+cmd_version() { echo "stackalign $SA_VERSION"; }
+
+cmd_help() {
+  if [ $# -ge 1 ]; then
+    _sa_known "$1" || _sa_die "unknown command: $1"
+    _sa_cmds | awk -F'|' -v c="$1" '$1==c{printf "stackalign %s  [%s]\n  %s\n", $1, $2, $3}'
+    return 0
+  fi
+  cat <<'EOF'
+usage: stackalign [--plan] [--yes] [--config <file>] <command> [args]
+       stackalign --version
+
+Global flags go BEFORE the command. Mutating commands only plan unless --apply.
+
+commands:
+EOF
+  _sa_cmds | awk -F'|' '{printf "  %-9s %-5s %s\n", $1, $2, $3}'
+}
+
+# _sa_parse "<allowed options>" args...   sets APPLY PLAN_FLAG POS[] LIST TO
+_sa_parse() {
+  local allowed=" $1 "; shift
+  APPLY=0; PLAN_FLAG=$GPLAN; POS=(); LIST=0; TO=""
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --plan|--apply|--list)
+        [[ $allowed == *" $1 "* ]] || _sa_die "unexpected argument: $1"
+        case $1 in --plan) PLAN_FLAG=1 ;; --apply) APPLY=1 ;; --list) LIST=1 ;; esac ;;
+      --to)
+        [[ $allowed == *" --to "* ]] || _sa_die "unexpected argument: $1"
+        [ $# -ge 2 ] || _sa_die "--to needs an id"
+        TO=$2; shift ;;
+      -*) _sa_die "unexpected argument: $1" ;;
+      *) POS+=("$1") ;;
+    esac
+    shift
+  done
+  [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 1 ] && _sa_die "--plan and --apply are mutually exclusive"
+  return 0
+}
+
+cmd_doctor() {
+  _sa_parse "" "$@"; [ ${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: ${POS[0]}"
+  local crit=0 daemon
+  echo "doctor: read-only (no changes made)"
+  if [ -f "$SA_CONF_PATH" ]; then
+    source "$SA_ROOT/lib/config.sh"
+    local errf; errf=$(mktemp) || return 1
+    if sa_config_load "$SA_CONF_PATH" 2>"$errf"; then
+      echo "config: ok ($SA_CONF_PATH)"
+    else
+      echo "config: ERROR ($SA_CONF_PATH): $(tr '\n' ' ' <"$errf")"; crit=1
+    fi
+    rm -f "$errf"
+  else
+    echo "config: not found ($SA_CONF_PATH), skipped"
+  fi
+  for daemon in vsftpd pure-ftpd proftpd; do
+    if rpm -q "$daemon" >/dev/null 2>&1; then
+      echo "CRITICAL: FTP daemon installed: $daemon"; crit=1
+    fi
+  done
+  [ $crit -eq 0 ] && echo "doctor: no critical findings" || echo "doctor: critical findings present"
+  return $crit
+}
+
+cmd_rollback() {
+  _sa_parse "--plan --apply --list --to" "$@"
+  [ ${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: ${POS[0]}"
+  source "$SA_ROOT/lib/history.sh"
+  if [ "$LIST" = 1 ]; then sa_history_list; return 0; fi
+  [ -n "$TO" ] || _sa_die "rollback needs --list or --to <id>"
+  local dir; dir=$(sa_history_path "$TO")
+  [ -f "$dir/manifest" ] || { echo "stackalign: unknown snapshot id: $TO" >&2; return 1; }
+  if [ "$APPLY" = 1 ]; then
+    sa_history_rollback "$TO" && echo "rolled back: $TO"
+  else
+    echo "plan: would restore snapshot $TO; paths:"; cut -f2 "$dir/manifest" | sed 's/^/  /'
+    echo "(re-run with --apply to make changes)"
+  fi
+}
+
+cmd_secret() {  # secret gen <name> | secret list
+  _sa_parse "--plan --apply" "$@"
+  local sub=${POS[0]:-}
+  source "$SA_ROOT/lib/secret.sh"
+  case $sub in
+    list)
+      [ ${#POS[@]} -eq 1 ] || _sa_die "unexpected argument: ${POS[1]}"
+      sa_secret_list ;;
+    gen)
+      [ ${#POS[@]} -eq 2 ] || _sa_die "usage: stackalign secret gen <name>"
+      local mode=machine
+      if [ -f "$SA_CONF_PATH" ]; then
+        source "$SA_ROOT/lib/config.sh"
+        sa_config_load "$SA_CONF_PATH" 2>/dev/null || { echo "stackalign: config error in $SA_CONF_PATH (run: stackalign doctor)" >&2; return 1; }
+        mode=$(sa_config_get security.password_mode machine)
+        [ -n "${SA_WORDLIST:-}" ] || SA_WORDLIST=$(sa_config_get security.passphrase_wordlist "")
+        export SA_WORDLIST
+      fi
+      if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then SA_MODE=apply; else SA_MODE=plan; fi
+      export SA_MODE
+      local grc=0
+      sa_secret_gen "${POS[1]}" "$mode" || grc=$?
+      if [ "$SA_MODE" = plan ] && [ $grc -eq 0 ]; then echo "(re-run with --apply to make changes)"; fi
+      return $grc ;;
+    *) _sa_die "usage: stackalign secret <gen <name>|list>" ;;
+  esac
+}
+
+_sa_stub() {  # <cmd> args...
+  local c=$1; shift
+  _sa_parse "--plan --apply" "$@"
+  echo "stackalign: '$c' is not implemented yet (milestone $(_sa_ms "$c"))" >&2
+  return 2
+}
+
+_sa_dispatch() {  # <cmd> args...
+  local c=$1; shift
+  _sa_known "$c" || _sa_die "unknown command: $c (try: stackalign help)"
+  case $c in
+    version)  _sa_parse "" "$@"; [ ${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: ${POS[0]}"; cmd_version ;;
+    help)     cmd_help "$@" ;;
+    plan)     [ $# -ge 1 ] || _sa_die "plan needs a command"; GPLAN=1; _sa_dispatch "$@" ;;
+    doctor)   cmd_doctor "$@" ;;
+    rollback) cmd_rollback "$@" ;;
+    secret)   cmd_secret "$@" ;;
+    *)        _sa_stub "$c" "$@" ;;
+  esac
+}
+
+main() {
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --version) cmd_version; exit 0 ;;          # ignores --plan: no side effects
+      -h|--help) cmd_help; exit 0 ;;
+      --plan) GPLAN=1 ;;
+      --yes)  YES=1 ;;
+      --config) [ $# -ge 2 ] || _sa_die "--config needs a file"; SA_CONF_PATH=$2; shift ;;
+      --config=*) SA_CONF_PATH=${1#--config=} ;;
+      --) shift; break ;;
+      -*) _sa_die "unexpected argument: $1" ;;
+      *) break ;;
+    esac
+    shift
+  done
+  [ $# -ge 1 ] || { cmd_help >&2; exit 64; }
+  _sa_dispatch "$@"
+}
+
+main "$@"
