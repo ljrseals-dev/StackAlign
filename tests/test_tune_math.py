@@ -111,13 +111,16 @@ class TuningContract(unittest.TestCase):
         if rc != 0:
             self.assertIn(v.get("error"), {"no_room_after_fixed", "buffer_pool_no_valid_range", "no_candidate_fits"})
 
-    # T10: role selection is represented by effective local-cost inputs.
+    # T10: slave_web defaults to no local MariaDB base cost.
     def test_T10_slave_web_local_db_cost_can_be_zero(self):
-        env = {**PLAIN, "SA_DB_BASE_MIB": 0}
-        rc, v, *_ = run(512, 0, "lean", env=env)
-        self.assertEqual(rc, 0)
-        self.assertEqual(v["reserve_db_base_mib"], "0")
-        self.assertEqual(int(v["reserve_mib"]), 257)
+        env = {k: v for k, v in PLAIN.items() if k != "SA_DB_BASE_MIB"}
+        rc_primary, primary, *_ = run(512, 0, "lean", env=env)
+        rc_slave, slave, *_ = run(512, 0, "lean", env={**env, "SA_ROLE": "slave_web"})
+        self.assertEqual(rc_primary, 0)
+        self.assertEqual(rc_slave, 0)
+        self.assertEqual(primary["reserve_db_base_mib"], "120")
+        self.assertEqual(slave["reserve_db_base_mib"], "0")
+        self.assertEqual(int(primary["reserve_mib"]) - int(slave["reserve_mib"]), 120)
 
     # T11: worker database connections are included exactly once.
     def test_T11_worker_db_connections(self):
