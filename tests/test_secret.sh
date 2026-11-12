@@ -25,6 +25,7 @@ export T_FAIL="$T/curl_fail"
 printf '00000000000000000000000000000000000:1\n' > "$FAKE_HIBP_BODY"
 printf 'w%04d\n' $(seq 1 7776) > "$T/words.txt"; export SA_WORDLIST="$T/words.txt"
 
+# shellcheck source=../lib/secret.sh
 source "$ROOT/lib/secret.sh"
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }

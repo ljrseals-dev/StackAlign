@@ -39,7 +39,7 @@ sa_validate_uint() {
     printf 'error=invalid_numeric_input\ninvalid_field=%s\n' "$name"
     return 2
   fi
-  if (( ${#value} > 10 )) || { (( ${#value} == 10 )) && [[ $value > 4294967295 ]]; }; then
+  if (( ${#value} > 10 )) || { (( ${#value} == 10 )) && (( value > 4294967295 )); }; then
     printf 'error=numeric_input_overflow\ninvalid_field=%s\n' "$name"
     return 2
   fi
