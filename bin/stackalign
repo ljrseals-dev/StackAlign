@@ -186,9 +186,8 @@ main() {
       --version) cmd_version; exit 0 ;;          # ignores --plan: no side effects
       -h|--help) cmd_help; exit 0 ;;
       --plan) GPLAN=1 ;;
-      # TODO(M2b): --yes is reserved until mutating commands have confirmation gates.
-      # shellcheck disable=SC2034
-      --yes)  YES=1 ;;
+      # TODO(M2b): exported for future confirmation-gated mutating commands.
+      --yes)  YES=1; export YES ;;
       --config) [ $# -ge 2 ] || _sa_die "--config needs a file"; SA_CONF_PATH=$2; shift ;;
       --config=*) SA_CONF_PATH=${1#--config=} ;;
       --) shift; break ;;

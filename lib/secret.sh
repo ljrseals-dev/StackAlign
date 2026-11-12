@@ -57,7 +57,7 @@ _sa_secret_passphrase() {  # -> passphrase on stdout
 _sa_secret_legacy() { LC_ALL=C tr -dc 'A-Za-z0-9_-' </dev/urandom | head -c "$SA_LEGACY_LEN"; }
 
 sa_secret_gen() {  # <name> [mode]
-  local name=${1:-} mode=${2:-machine} file val hash tries
+  local name=${1:-} mode=${2:-machine} file val hash
   _sa_secret_name_ok "$name" || { echo "secret: invalid name (want [a-z0-9_-], <=64)" >&2; return 64; }
   case $mode in machine|human-passphrase|human-legacy) ;; *) echo "secret: unknown mode: $mode" >&2; return 64 ;; esac
   file="$SA_SECRETS_DIR/$name.hash"
