@@ -84,7 +84,7 @@ class TuningContract(unittest.TestCase):
 
     # T7: fixed worker and Redis costs are included in reserve output.
     def test_T7_xcart_fixed_cost_decomposition(self):
-        env = {**PLAIN, "SA_WORKER_MIB": 128, "SA_REDIS_SESSIONS_MIB": 32,
+        env = {**PLAIN, "SA_WORKLOAD": "xcart_5_6", "SA_WORKER_MIB": 128, "SA_REDIS_SESSIONS_MIB": 32,
                "SA_REDIS_CACHE_MIB": 64, "SA_SAFETY_MIB": 140}
         rc, v, *_ = run(512, 512, "lean", env=env)
         self.assertNotEqual(rc, 0)
@@ -141,7 +141,7 @@ class TuningContract(unittest.TestCase):
         # Fixed reserve is chosen so remaining == db_available for these fixtures.
         fixtures = ((639, 1064, None), (640, 1066, 128), (641, 1067, 129))
         for db, remaining, expected in fixtures:
-            reserve = 3686 - remaining - 57
+            reserve = 3686 - remaining
             rc, v, *_ = run(4096, 0, "standard", env={**PLAIN, "SA_OS_MIB": reserve,
                 "SA_DB_BASE_MIB": 0, "SA_PHP_MASTER_MIB": 0, "SA_NGINX_MIB": 0,
                 "SA_OPCACHE_MIB": 0})
@@ -218,9 +218,10 @@ class TuningContract(unittest.TestCase):
 
     # T23: advisory policy metadata does not enter arithmetic reserve.
     def test_T23_policy_floor_not_a_fixed_cost(self):
-        rc, v, *_ = run(512, 512, "lean", env=PLAIN)
+        rc, v, *_ = run(512, 512, "lean", env={**PLAIN, "SA_MIN_RAM_MIB": 1024})
         self.assertEqual(rc, 0)
         self.assertEqual(v["reserve_mib"], "377")
+        self.assertEqual(v["warning"], "advisory_ram")
 
     # T24: explicit fixed-cost override is used exactly once.
     def test_T24_db_base_override(self):
