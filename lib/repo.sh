@@ -62,14 +62,20 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   content=$(printf '[stackalign-%s]\nname=StackAlign %s\nbaseurl=%s\nenabled=1\ngpgcheck=1\ngpgkey=%s\n' \
             "$name" "$name" "$url" "$keyurl"; printf x); content=${content%x}
   mkdir -p -- "$SA_YUM_REPOS_DIR"
-  if [ -f "$file" ] && cmp -s -- "$file" <(printf '%s' "$content"); then
+  # Avoid process-substitution in cmp: under some environments /dev/fd compares
+  # fail even when bytes are identical, which breaks setup idempotency.
+  local cmpfile
+  cmpfile=$(mktemp "$SA_YUM_REPOS_DIR/.sa-repo-cmp.XXXXXX") || { rm -rf "$tmpd"; return 1; }
+  printf '%s' "$content" > "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
+  if [ -f "$file" ] && cmp -s -- "$file" "$cmpfile"; then
+    rm -f -- "$cmpfile"
     echo "repo $name: unchanged"
   else
-    local tmp; tmp=$(mktemp "$SA_YUM_REPOS_DIR/.sa-repo.XXXXXX") || { rm -rf "$tmpd"; return 1; }
-    printf '%s' "$content" > "$tmp" && chmod 0644 "$tmp" && mv -f -- "$tmp" "$file" \
-      || { rm -rf "$tmpd" "$tmp"; return 1; }
+    chmod 0644 -- "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
+    mv -f -- "$cmpfile" "$file" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
     echo "repo $name: written"
   fi
+
   rpm --import "$key" || { rm -rf "$tmpd"; echo "repo: rpm --import failed" >&2; return 1; }
   rm -rf "$tmpd"
 }

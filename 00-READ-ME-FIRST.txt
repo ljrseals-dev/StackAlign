@@ -1,0 +1,17 @@
+StackAlign complete delivery package
+====================================
+Contents: github.com/ljrseals-dev/StackAlign tree at recent main
+PLUS portability fix already applied to:
+  - lib/repo.sh
+  - lib/render.sh
+
+Also included:
+  - 0001-fix-process-substitution-portability.patch (same change as a patch)
+
+This environment cannot push to GitHub. On your machine:
+
+  cd StackAlign-complete-delivery   # after unzip
+  make test
+  # push the two lib files on branch fix/process-substitution-portability
+
+Authoritative remote after you push: https://github.com/ljrseals-dev/StackAlign
