@@ -53,4 +53,28 @@ sa_render_apply "$T/h.tpl" "$T/h.out" M >/dev/null
 grep -vE '^[[:space:]]*#' "$ROOT/lib/render.sh" | grep -E 'sed[[:space:]]+(-[a-zA-Z]*i|--in-place)' >/dev/null \
   && bad "no sed -i" || ok "no sed -i"
 
+# plan must not pass process-substitution paths to diff.
+test_render_plan_no_process_subst() {
+  local dir tpl out rc=0
+  dir=$(mktemp -d) || return 1
+  tpl="$dir/t.tmpl"; out="$dir/out.conf"
+  printf 'x={{A}}\\n' > "$tpl"
+  printf 'x=alpha\\n' > "$out"
+  cat > "$dir/diff" <<'SHIM'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  case "$arg" in
+    /dev/fd/*) echo "diff: /dev/fd refused" >&2; exit 2 ;;
+  esac
+done
+exec /usr/bin/diff "$@"
+SHIM
+  chmod +x "$dir/diff" || rc=1
+  PATH="$dir:$PATH" sa_render_plan "$tpl" "$out" M >/dev/null 2>"$dir/err" || rc=1
+  grep -q '/dev/fd refused' "$dir/err" && rc=1
+  rm -rf -- "$dir"
+  return "$rc"
+}
+test_render_plan_no_process_subst && ok "plan avoids process substitution" || bad "plan avoids process substitution"
+
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
