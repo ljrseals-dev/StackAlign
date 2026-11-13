@@ -33,14 +33,30 @@ _sa_render_to_var() {  # <template> <map-var-name> <out-var-name>
 
 # Read-only diff. Writes nothing.
 sa_render_plan() {  # <template> <output> <map-var-name>
-  local rendered
+  local rendered _sa_cmp rc outdir
   _sa_render_to_var "$1" "$3" rendered || return $?
-  if [ -e "$2" ]; then
-    diff -u -- "$2" <(printf '%s' "$rendered") || true
+  outdir=$(dirname -- "$2")
+  # Keep the plan read-only: use the output directory when it exists, but
+  # do not create it merely to hold a comparison file.
+  if [ -d "$outdir" ]; then
+    _sa_cmp=$(mktemp "$outdir/.sa-render.XXXXXX") || return 1
   else
-    diff -u /dev/null <(printf '%s' "$rendered") || true
+    _sa_cmp=$(mktemp "${TMPDIR:-/tmp}/.sa-render.XXXXXX") || return 1
   fi
-  return 0
+  printf '%s' "$rendered" > "$_sa_cmp" || { rm -f -- "$_sa_cmp"; return 1; }
+
+  if [ -e "$2" ]; then
+    if diff -u -- "$2" "$_sa_cmp"; then rc=0; else rc=$?; fi
+  else
+    if diff -u /dev/null "$_sa_cmp"; then rc=0; else rc=$?; fi
+  fi
+
+  rm -f -- "$_sa_cmp"
+  # diff returns 1 for different files; only 0 and 1 are valid plan results.
+  case "$rc" in
+    0|1) return 0 ;;
+    *)   return "$rc" ;;
+  esac
 }
 
 # Atomic write; byte-identical output is a no-op.
