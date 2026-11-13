@@ -60,7 +60,7 @@ sa_fetch_url() {
     : > "$tmp" || { rm -rf -- "$tmpdir"; return 1; }
     if curl --fail --silent --show-error --location \
         --proto '=https' --proto-redir '=https' \
-        --connect-timeout 10 --max-time 60 \
+        --connect-timeout 10 --max-time 300 \
         --output "$tmp" -- "$url"; then
       if [ ! -f "$tmp" ] || [ -L "$tmp" ]; then
         echo "fetch: downloader did not produce a regular file" >&2
@@ -112,5 +112,58 @@ sa_fetch_verify() {
     echo "fetch: SHA-256 mismatch (expected $expected, got $actual)" >&2
     return 1
   fi
+  return 0
+}
+
+
+# sa_fetch_gpg_key <url> <expected_fingerprint> <output_file>
+# Fetch a single-primary-key OpenPGP file and bind its fingerprint to that
+# primary pub record. Subkey fingerprints are deliberately not candidates.
+# This function inspects the key; it does not import it into any keyring.
+sa_fetch_gpg_key() {
+  [ $# -eq 3 ] || {
+    echo "usage: sa_fetch_gpg_key <https-url> <expected_fingerprint> <output_file>" >&2
+    return 64
+  }
+
+  local url=$1 expected_fpr=${2//[[:space:]]/} out=$3 colon_data pub_count actual_fpr
+  [[ $expected_fpr =~ ^[A-Fa-f0-9]{40}$ ]] || {
+    echo "error=gpg_key_invalid_expected_fingerprint" >&2
+    return 64
+  }
+  expected_fpr=${expected_fpr^^}
+
+  if ! sa_fetch_url "$url" "$out"; then
+    echo "error=gpg_key_fetch_failed:$url" >&2
+    return 1
+  fi
+
+  if ! colon_data=$(gpg --with-colons --import-options show-only --import "$out" 2>/dev/null); then
+    rm -f -- "$out"
+    echo "error=gpg_key_parse_failed" >&2
+    return 1
+  fi
+
+  pub_count=$(printf '%s\n' "$colon_data" | awk -F: '$1 == "pub" { n++ } END { print n+0 }')
+  if [ "$pub_count" -ne 1 ]; then
+    rm -f -- "$out"
+    echo "error=gpg_key_multi_pub:$pub_count" >&2
+    return 1
+  fi
+
+  actual_fpr=$(printf '%s\n' "$colon_data" | awk -F: '
+    $1 == "pub" { awaiting_primary_fpr = 1; next }
+    $1 == "sub" { awaiting_primary_fpr = 0; next }
+    $1 == "fpr" && awaiting_primary_fpr {
+      print toupper($10)
+      exit
+    }
+  ')
+  if [ "$actual_fpr" != "$expected_fpr" ]; then
+    rm -f -- "$out"
+    echo "error=gpg_key_fpr_mismatch:expected=$expected_fpr,got=${actual_fpr:-none}" >&2
+    return 1
+  fi
+
   return 0
 }
