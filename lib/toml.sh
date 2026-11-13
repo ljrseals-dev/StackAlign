@@ -73,24 +73,24 @@ sa_toml_parse() {
                 length=${#raw_value}
                 closed=0
                 while (( i < length )); do
-                    char="${raw_value:i:1}"
+                    char="\${raw_value:i:1}"
                     if [[ "$char" == $'\\' ]]; then
                         ((i += 1))
                         if (( i >= length )); then
                             break
                         fi
-                        next_char="${raw_value:i:1}"
+                        next_char="\${raw_value:i:1}"
                         if [[ "$next_char" != '"' && "$next_char" != $'\\' ]]; then
                             printf 'toml: %s:%d: unsupported string escape\\%s\n' "$file" "$lineno" "$next_char" >&2
                             TOML_DATA=()
                             return 1
                         fi
                         value+="$next_char"
-                    if [[ "$char" == $'\\' ]]; then
+                    elif [[ "$char" == '"' ]]; then
                         closed=1
-                        tail="${raw_value:i+1}"
-                        tail="${tail#"${tail%%[![:space:]]*}"}"
-                        if [[ -n "$tail" && "${tail:0:1}" != '#' ]]; then
+                        tail="\${raw_value:i+1}"
+                        tail="\${tail#"\${tail%%[![:space:]]*}"}"
+                        if [[ -n "$tail" && "\${tail:0:1}" != '#' ]]; then
                             printf 'toml: %s:%d: unexpected text after quoted string\n' "$file" "$lineno" >&2
                             TOML_DATA=()
                             return 1
