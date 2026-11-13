@@ -3,7 +3,7 @@
 # Author: Lewis James Seals Jr.
 # tests/test_ops_modules.sh -- focused validation tests for operational modules.
 set -u
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
 T="$(mktemp -d)"
 trap 'rm -rf -- "$T"' EXIT
 export SA_AUDIT_QUEUE="$T/audit/queue.jsonl"
