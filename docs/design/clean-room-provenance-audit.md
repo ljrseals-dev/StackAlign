@@ -86,3 +86,60 @@ The visible history includes an initial repository commit, a bulk project-file s
 ## Decision rule
 
 The current result is RISK DETECTED — provenance incomplete, not a finding that GPL material is present. No evidence in this initial review establishes that StackAlign contains copied GPL code. Equally, the architectural comparison and SPDX headers are insufficient to certify the entire repository as independently authored and MIT-compliant.
+
+
+## Closed-loop provenance control (StackAlign-only)
+
+The project will use a self-contained evidence loop. No neighboring installer, GPL codebase, fork, mirror, or competitor source is an input to this loop.
+
+For each material implementation change, retain this chain:
+
+1. **Requirement** — a StackAlign-owned requirement with an identifier, rationale, scope, and acceptance condition.
+2. **Functional specification** — independently written behavior, inputs, outputs, failure modes, security boundaries, and non-goals.
+3. **Implementation record** — file paths and commit(s) implementing that specification; identify the author and any external material consulted.
+4. **Tests** — tests mapped to the requirement and failure modes; identify fixture origin and avoid copied third-party fixtures unless their license permits it.
+5. **Verification** — exact CI run, runner, commit SHA, commands, and result. Keep CI evidence distinct from disposable-VM and production evidence.
+6. **Release provenance** — source commit, build procedure, dependency lock/inventory, artifact digest, and included notices.
+
+This is a traceability and change-control mechanism, not proof by assertion. Missing links remain OPEN/UNVERIFIED. A commit author field, SPDX header, passing test, or architecture diagram alone cannot establish copyright ownership.
+
+### Required provenance record for each new or materially changed file
+
+Record: path; first-introduced commit; last substantive change; responsible author; StackAlign requirement/spec ID; whether written from scratch, adapted, generated, or imported; external references consulted; third-party code/text/assets; applicable license/permission; tests; and review disposition. For imported files, preserve the original archive and its digest plus a member-level inventory. Do not rewrite history or remove attribution to make provenance appear cleaner.
+
+### Closed-loop governance rules
+
+- No implementation starts from a neighboring system's source, function names, file layout, or behavioral transcription.
+- Official interface documentation may be consulted for DNF, RPM, systemd, Bash, GitHub Actions, and other tools; record the specific interface and version/date where material.
+- Requirements and specifications must precede implementation where practical. Emergency fixes must receive a retrospective requirement/spec/test record before release.
+- Every security-sensitive behavior needs positive and negative tests, including failure and rollback paths.
+- Every release must be reproducible from a recorded source commit and declared inputs; unpinned or unverifiable inputs block a provenance-complete release.
+- Third-party components retain their own licenses. StackAlign's MIT declaration does not relicense dependencies, bundled documents, copied snippets, or generated assets.
+- A clean-room claim is limited to the process actually followed. It is not a guarantee of non-infringement and does not replace legal review.
+
+## Additional evidence collected in this pass
+
+### Workflow and CI evidence reconciliation
+
+The current `.github/workflows/ci.yml` contains a comment saying the workflow has "never executed on a real runner." That statement is stale: GitHub Actions run 43351689173 is recorded as completed with conclusion SUCCESS for commit ea0f816df44372a658bfb1fc100d7142053e584a, on a pull_request event, with Ubuntu and AlmaLinux 9 jobs. The README also describes earlier CI runs. Correct the workflow comment in a separate documentation change; do not imply this historical run verifies the current branch or current workflow revision. CI success is not live-host or production validation.
+
+### Research documents
+
+- `docs/research/slave-web-node.md` is labeled design-only and implementation-pending. In the inspected text, it contains architecture and configuration proposals but no source citations. Record it as StackAlign design material with external influence/source review still required; absence of citations is not proof that no external material was used.
+- `docs/research/workload-registry.md` describes workload values as assumptions and cites `lib/tune.sh` as implementation context. Its numerical assumptions and policy recommendations should be traceable to StackAlign requirements or explicitly cited external sources. No external citations are present in the inspected text.
+
+### Portability patch
+
+The root patch and `docs/0001-fix-process-substitution-portability.patch` are the same Git blob (bf9e86ff0cbbe037d246a7f35883b1d747ae012b). The patch carries a From line, author identity, date, subject, and a statement that T1-T28 passed. Those are useful attribution claims, not independent proof of authorship or test execution. The file-history query surfaced merge commit 9600b1734ad3ccbb7923a87a7f364d0e9a4d0471 for the patch path; recover the original patch-creation context and verify the referenced test run before treating the claims as substantiated. The duplicate copy should be documented as one artifact, not two independent works.
+
+### Binary evidence limitations
+
+The tracked ZIP `docs/StackAlign-complete-delivery.zip` has blob SHA 56cd6a7e3534f3f6a19cc9502f948d49f7f3219d and size 58,912 bytes. The tracked PDF `docs/Voice_Prompt_Injection_Defense_Guide_FBI.pdf` has blob SHA ede805f48f6069f09c2bf33cdc3fefbf72bed660 and size 12,272 bytes. The available GitHub text-file retrieval interface rejects binary responses, so neither artifact's bytes, archive members, PDF metadata, nor embedded content were inspected in this pass. Both remain UNVERIFIED. Do not claim an archive inventory or redistribution permission until the actual bytes and provenance are examined.
+
+### Commit-signature observation
+
+The audit branch commit 172422dcc7743d2663fb285fb848b10f986e2276 is reported by GitHub as unsigned. This does not determine copyright ownership, but release governance should decide whether signed commits/tags are required and enforce that policy consistently. Historical commits have mixed verification states; do not infer that unsigned means unauthorized or that signed means the content is independently authored.
+
+## Updated disposition
+
+The self-contained traceability model is now defined, but it has not yet been applied file-by-file. Current status remains **RISK DETECTED — provenance incomplete**. In particular, bulk-import origin, ZIP/PDF contents and rights, research-source history, patch creation/test evidence, and third-party dependency/action inventory remain unresolved.
