@@ -4,8 +4,9 @@
 #
 # lib/repo.sh -- package repository setup. Written from master prompt v8 Part III.
 # Every argument is DATA: validated against a strict allowlist, never eval'd,
-# repo file written with printf only. versions.toml is NOT read here (thin
-# wrapper in bin/stackalign, not yet written).
+# repo file written with printf only. versions.toml (vendor/versions.toml,
+# override SA_VERSIONS_TOML) is the source of truth for pinned versions; see
+# _sa_repo_manifest_pin.
 #
 # ASSUMPTIONS (spec is silent; unmeasured design choices):
 #   * sa_repo_install takes optional args 4-6 (repo_url fingerprint key_url) so
@@ -22,6 +23,9 @@
 # Shared HTTPS fetch and primary-key validation implementation.
 # shellcheck source=lib/fetch.sh
 source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
+
+# shellcheck source=lib/toml.sh
+source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
 
 _sa_repo_valid() {  # <kind> <value>
   case $1 in
@@ -155,13 +159,79 @@ sa_repo_versionlock() {  # <name> <package> <version>
   dnf versionlock add -- "$2-$3"
 }
 
-sa_repo_install() {  # <name> <package> <version> [repo_url fingerprint key_url]
-  [ $# -eq 3 ] || [ $# -eq 6 ] || { echo "usage: sa_repo_install <name> <package> <version> [url fpr keyurl]" >&2; return 64; }
-  local name=$1 pkg=$2 ver=$3
-  _sa_repo_valid name "$name"  || { _sa_repo_bad name "$name"; return 64; }
+
+# _sa_repo_manifest_pin <component>   -> prints pinned_version on stdout
+# rc 0 ok | 65 manifest invalid/ambiguous (message on stderr)
+#        | 66 manifest file absent | 67 component not in manifest (both silent)
+# Matches the component by exact `name`; duplicates are rejected.
+_sa_repo_manifest_pin() {
+  local comp=$1
+  local manifest=${SA_VERSIONS_TOML:-${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/vendor/versions.toml}
+  local i=0 hits=0 pin=""
+
+  [ -f "$manifest" ] || return 66
+  declare -gA TOML_DATA
+  sa_toml_parse "$manifest" || {
+    echo "repo: manifest parse failed: $manifest" >&2
+    return 65
+  }
+
+  while [[ -n "${TOML_DATA[component.$i.name]+x}" ]]; do
+    if [ "${TOML_DATA[component.$i.name]}" = "$comp" ]; then
+      hits=$((hits + 1))
+      pin=${TOML_DATA[component.$i.pinned_version]-}
+    fi
+    i=$((i + 1))
+  done
+
+  [ "$hits" -eq 0 ] && return 67
+  [ "$hits" -eq 1 ] || {
+    echo "repo: manifest has $hits entries named $comp; refusing" >&2
+    return 65
+  }
+  _sa_repo_valid version "$pin" || {
+    echo "repo: manifest pinned_version invalid for $comp" >&2
+    return 65
+  }
+  printf '%s\\n' "$pin"
+}
+
+sa_repo_install() {
+  [ $# -eq 3 ] || [ $# -eq 6 ] || {
+    echo "usage: sa_repo_install <name> <package> <version|pinned> [url fpr keyurl]" >&2
+    return 64
+  }
+
+  local name=$1 pkg=$2 ver=$3 pin rc
+
+  _sa_repo_valid name "$name" || { _sa_repo_bad name "$name"; return 64; }
   _sa_repo_valid package "$pkg" || { _sa_repo_bad package "$pkg"; return 64; }
-  _sa_repo_valid version "$ver" || { _sa_repo_bad version "$ver"; return 64; }
-  if _sa_repo_ftp "$pkg"; then echo "error=ftp_daemon_refused" >&2; return 3; fi
+
+  if [ "$ver" = pinned ]; then
+    pin=$(_sa_repo_manifest_pin "$name"); rc=$?
+    case $rc in
+      0) ver=$pin ;;
+      66) echo "repo: versions.toml not found; cannot resolve pinned version" >&2; return 65 ;;
+      67) echo "repo: component $name not in versions.toml" >&2; return 65 ;;
+      *) return 65 ;;
+    esac
+  else
+    _sa_repo_valid version "$ver" || { _sa_repo_bad version "$ver"; return 64; }
+    pin=$(_sa_repo_manifest_pin "$name"); rc=$?
+    case $rc in
+      0) [ "$pin" = "$ver" ] || {
+           echo "repo: $name version $ver != manifest pin $pin; refusing" >&2
+           return 65
+         } ;;
+      66|67) ;;            # no manifest / unlisted component: explicit version as before
+      *) return 65 ;;      # present but broken manifest fails closed
+    esac
+  fi
+
+  if _sa_repo_ftp "$pkg"; then
+    echo "error=ftp_daemon_refused" >&2
+    return 3
+  fi
   if [ $# -eq 6 ]; then
     sa_repo_setup "$name" "$4" "$5" "$6" || return $?
   elif [ ! -f "$SA_YUM_REPOS_DIR/stackalign-$name.repo" ]; then
