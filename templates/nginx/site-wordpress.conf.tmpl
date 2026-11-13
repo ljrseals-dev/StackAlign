@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr.
+#
+# Include this server-level policy only for a WordPress site that has opted in
+# to FastCGI microcaching. Requires 00-performance.conf in the http {} context.
+# The cache is intentionally short-lived; personalized routes should be added
+# to the bypass map/policy before enabling this template.
+
+set $sa_skip_cache 0;
+
+if ($sa_is_ai_crawler) { set $sa_skip_cache 1; }
+if ($request_method !~ ^(GET|HEAD)$) { set $sa_skip_cache 1; }
+if ($query_string != "") { set $sa_skip_cache 1; }
+if ($http_authorization != "") { set $sa_skip_cache 1; }
+if ($sa_has_auth_cookie) { set $sa_skip_cache 1; }
+
+location ~ \.php$ {
+    fastcgi_pass unix:/run/php-fpm/www.sock;
+
+    fastcgi_cache stackalign_cache;
+    fastcgi_cache_key "$scheme|$request_method|$host|$request_uri";
+    fastcgi_cache_valid 200 1s;
+    fastcgi_cache_lock on;
+
+    # Pair lookup bypass with no-cache-write. An upstream Set-Cookie response
+    # must not be stored. Do NOT ignore Set-Cookie, Cache-Control, or Expires:
+    # Nginx must continue honoring upstream private/no-store policy.
+    fastcgi_cache_bypass $sa_skip_cache;
+    fastcgi_no_cache $sa_skip_cache $upstream_http_set_cookie;
+
+    # Keep HTTP conditional request headers untouched.
+    add_header X-FastCGI-Cache $upstream_cache_status always;
+
+    if ($sa_is_ai_crawler) {
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header X-FastCGI-Cache "BYPASS" always;
+    }
+
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+}
