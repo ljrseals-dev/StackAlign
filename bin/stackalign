@@ -38,6 +38,7 @@ backup|M4|backup driver: run|list|verify
 restore|M4|restore driver: --from <id>
 bench|M6|reproducible benchmark
 secret|M2a|password and token generation: gen|list
+repo|M2a|read-only package repository inventory
 xcart|M3|guarded X-Cart profile: plan|preflight|build|deploy
 routine|M3|routine subsystem: plan|install|doctor|run|run-builtin
 contain|M4|evidence preservation before rebuild
@@ -115,6 +116,13 @@ cmd_doctor() {
   return $crit
 }
 
+cmd_repo() {
+  _sa_parse "" "$@"
+  [ ${#POS[@]} -eq 1 ] && [ "${POS[0]}" = inventory ] || _sa_die "usage: stackalign repo inventory"
+  source "$SA_ROOT/lib/repo.sh"
+  sa_repo_inventory
+}
+
 cmd_rollback() {
   _sa_parse "--plan --apply --list --to" "$@"
   [ ${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: ${POS[0]}"
@@ -176,6 +184,7 @@ _sa_dispatch() {  # <cmd> args...
     doctor)   cmd_doctor "$@" ;;
     rollback) cmd_rollback "$@" ;;
     secret)   cmd_secret "$@" ;;
+    repo)     cmd_repo "$@" ;;
     *)        _sa_stub "$c" "$@" ;;
   esac
 }
