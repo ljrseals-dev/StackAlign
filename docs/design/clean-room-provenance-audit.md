@@ -143,3 +143,52 @@ The audit branch commit 172422dcc7743d2663fb285fb848b10f986e2276 is reported by 
 ## Updated disposition
 
 The self-contained traceability model is now defined, but it has not yet been applied file-by-file. Current status remains **RISK DETECTED — provenance incomplete**. In particular, bulk-import origin, ZIP/PDF contents and rights, research-source history, patch creation/test evidence, and third-party dependency/action inventory remain unresolved.
+
+
+## Repository-only audit pass 2 — source, build, packaging, and CI
+
+**Reviewed ref:** main at 00982be62dccc42078a864193fbbc33c56fb1241, except where explicitly noted. This pass inspected the tracked text files listed below. It did not access any neighboring installer source.
+
+### Platform scope and support evidence
+
+The project owner's stated intended deployment target is AlmaLinux and Rocky Linux 9/10. The current README describes the scope more broadly as "EL-family Linux on x86_64"; the CI workflow shown on main has an AlmaLinux 9 container job and an Ubuntu 24.04 CI job. No Rocky Linux or EL10 CI evidence was established in this pass. Ubuntu is explicitly described by the README as a CI environment, not a supported deployment target. Narrow the product requirement and compatibility matrix to the intended distributions/releases, and do not infer support from the generic EL-family label. This platform distinction is a StackAlign scope decision, not evidence of authorship or provenance.
+
+### File-level evidence register — pass 2
+
+| Path | Observed evidence on main | Provenance / license disposition |
+|---|---|---|
+| README.md | Declares experimental status, feature limits, EL-family x86_64 intent, CI history, and MIT license | Project documentation; author/source history still needs per-file origin record |
+| LICENSE | Contains MIT text and 2026 copyright notice | Declared project license only; does not resolve bundled or third-party materials |
+| Makefile | Runs Bash syntax checks, optional ShellCheck, shell suites, and Python 3 tuner tests | Build/test orchestration; ShellCheck is silently optional only with an explicit message; dependency versions and license inventory remain open |
+| install.sh | Refuses while release SHA is PLACEHOLDER; uses curl, sha256sum, awk, tar, mktemp | Not currently runnable as a release installer; tools and archive handling need dependency/version inventory and independent tests |
+| bin/stackalign | Dispatcher documents many commands as stubs; sources project modules | Authorship still requires requirement/spec/commit/test mapping; comments refer to a master prompt not present in this repository snapshot |
+| lib/fetch.sh | HTTPS-only curl fetch, temporary staging, SHA-256 verification, GPG primary-key fingerprint inspection | SHA-256 is integrity, not publisher identity; source history and test provenance remain open |
+| lib/repo.sh | DNF/RPM repository helpers; imports a fetched key after primary fingerprint validation | Package-manager behavior is not proof of authorship; map behavior to M3 requirements and test evidence |
+| tests/test_install.sh | Uses fake curl and generated tar fixtures; invokes Python 3 to create hostile archive fixtures | Fixture generation is test code; establish fixture origin and ensure the test interpreter/version is recorded |
+| tests/test_fetch.sh | Fake curl/GPG fixtures exercise failover, checksum, key parsing | Fixture origin and complete test-run evidence remain open |
+| tests/test_repo.sh | Fake DNF/RPM/curl/GPG executables; no real package manager intended | Mock success does not establish live DNF/RPM behavior |
+| vendor/versions.toml | Nginx/PHP/MariaDB versions listed; SHA-256 and GPG fingerprints are literal TO_BE_FILLED placeholders; tested_matrix arrays are empty | Not a verified vendor manifest; no release integrity/authenticity claim may rely on these placeholders |
+| .github/workflows/ci.yml | Main contains a stale "WRITTEN, NOT RUN" comment despite recorded historical CI success; uses actions/checkout@v6 with pin status marked TO_BE_VERIFIED | Third-party action provenance/version/license must be inventoried; do not treat tag text as immutable pin |
+| .gitea/workflows/ci.yml | Exact same Git blob as .github/workflows/ci.yml (SHA 55108d2a054d734c9cce5b69b1ef0042a9b73c81) | One duplicated artifact, not independent authorship; Gitea compatibility/execution has not been established |
+
+### Specific evidence and defects recorded
+
+1. **Release bootstrap is intentionally disabled.** install.sh has VERSION=0.0.0-dev and EXPECTED_SHA256=PLACEHOLDER, and explicitly exits before network access. README independently says installation is not yet built. This is consistent with the declared experimental status; do not describe StackAlign as an operational LEMP installer.
+2. **Vendor metadata is not release-ready.** All three vendor SHA-256 and GPG fingerprint values are placeholders, and all tested_matrix arrays are empty. The URLs and version strings are declarations, not verified provenance, authenticity, or compatibility evidence.
+3. **Third-party CI action remains unverified.** actions/checkout@v6 is referenced by both workflow copies, while the file itself labels the version TO_BE_VERIFIED. No immutable commit SHA or license inventory was established in this pass.
+4. **Workflow duplication needs an explicit policy.** The .gitea and .github workflow files have the same blob SHA. The shared file content uses GitHub Actions conventions and includes an actions/checkout reference; no Gitea runner execution/compatibility evidence was inspected. Do not imply both providers execute it.
+5. **Main vs audit-branch workflow discrepancy.** The main-branch .github/workflows/ci.yml still contains the old "WRITTEN, NOT RUN" comment. PR #11 changes the GitHub workflow comment to accurately describe historical run 43351689173. The .gitea copy on main remains byte-identical to the stale main GitHub workflow. The PR change is documentation-only and does not establish a new test result.
+6. **PR #11 CI evidence.** GitHub reports a completed-success workflow run (ID 43357065241) associated with PR #11 head ec0df648e3b82efde3ba5f441965affd9f7c8879. This is evidence for that exact commit's CI run only; it is not EL10/Rocky coverage, a disposable VM, or a live installation.
+7. **Patch provenance remains unresolved.** The patch's embedded From commit is a8338151a3884ea395ed687d8e80df930223d97c. GitHub's repository commit endpoint returned "No commit found for SHA" for that identifier. The later merge commit 9600b1734ad3ccbb7923a87a7f364d0e9a4d0471 includes the patch and a delivery note describing a ZIP-based delivery plus a portability fix. This does not prove the embedded commit never existed elsewhere; the originating repository/artifact and the claimed T1-T28 test run remain unverified. The ZIP still cannot be inventoried through the text-only retrieval path.
+8. **Prompt-origin references need recovery.** install.sh and bin/stackalign contain "master prompt v8 Part III" references, but that source specification is not present in the inspected tracked tree. Recover the prompt/specification and its date/version, preserve it as provenance evidence, and map its requirements to code/tests. Do not treat a prompt reference as proof of independent authorship.
+
+### Next evidence required
+
+- Recover the exact master prompt v8 Part III and the source archive used at the bulk import; hash both and inventory the archive member-by-member.
+- Resolve the patch's embedded commit and test claim using original author-side records or the originating artifact; do not substitute a newly run test for historical proof.
+- Inventory versions, immutable identities, and licenses for actions/checkout, Bash, Python, ShellCheck, curl, GNU tar/coreutils, GPG, RPM, DNF, and all runtime/test dependencies as applicable.
+- Establish whether the Gitea workflow is intended to run; if so, validate it on a Gitea runner or remove the misleading duplicate through a separately reviewed change.
+- Define and test the exact AlmaLinux/Rocky 9/10 support matrix. Do not mark a distribution/release supported from an Ubuntu job or an AlmaLinux 9-only container job.
+- Keep the ZIP and PDF UNVERIFIED until their bytes, contents, origin, and redistribution rights are actually examined.
+
+**Pass 2 disposition:** More implementation and packaging evidence is now recorded, but the file-level provenance loop is not closed. Status remains **RISK DETECTED — provenance incomplete**. No conclusion is made that GPL material is present or absent.
