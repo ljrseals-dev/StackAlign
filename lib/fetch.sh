@@ -18,7 +18,7 @@ sa_fetch_url() {
     return 64
   }
 
-  local primary=$1 out=$2 out_dir out_base tmp url rc=0
+  local primary=$1 out=$2 out_dir out_base tmpdir tmp url rc=0
   shift 2
 
   _sa_fetch_valid_https_url "$primary" || {
@@ -49,28 +49,31 @@ sa_fetch_url() {
     return 1
   fi
 
-  tmp=$(mktemp "$out_dir/.${out_base}.sa-fetch.XXXXXX") || {
-    echo "fetch: cannot create temporary output beside $out" >&2
+  tmpdir=$(mktemp -d "$out_dir/.${out_base}.sa-fetch.XXXXXX") || {
+    echo "fetch: cannot create private temporary directory beside $out" >&2
     return 1
   }
-  chmod 0600 "$tmp" || { rm -f -- "$tmp"; return 1; }
+  chmod 0700 "$tmpdir" || { rm -rf -- "$tmpdir"; return 1; }
+  tmp="$tmpdir/payload"
 
   for url in "${urls[@]}"; do
-    : > "$tmp" || { rm -f -- "$tmp"; return 1; }
+    : > "$tmp" || { rm -rf -- "$tmpdir"; return 1; }
     if curl --fail --silent --show-error --location \
         --proto '=https' --proto-redir '=https' \
         --connect-timeout 10 --max-time 60 \
         --output "$tmp" -- "$url"; then
       if [ ! -f "$tmp" ] || [ -L "$tmp" ]; then
         echo "fetch: downloader did not produce a regular file" >&2
-        rm -f -- "$tmp"
+        rm -rf -- "$tmpdir"
         return 1
       fi
+      chmod 0600 "$tmp" || { rm -rf -- "$tmpdir"; return 1; }
       mv -fT -- "$tmp" "$out" || {
-        rm -f -- "$tmp"
+        rm -rf -- "$tmpdir"
         echo "fetch: cannot publish downloaded file: $out" >&2
         return 1
       }
+      rmdir -- "$tmpdir" 2>/dev/null || true
       return 0
     else
       rc=$?
@@ -78,7 +81,7 @@ sa_fetch_url() {
     fi
   done
 
-  rm -f -- "$tmp"
+  rm -rf -- "$tmpdir"
   echo "fetch: all sources failed; output not published: $out" >&2
   return 1
 }
