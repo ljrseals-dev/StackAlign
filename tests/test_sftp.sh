@@ -54,7 +54,7 @@ grep -q "groupadd" "$CALLS"; check "group not recreated" "$?" 1
 
 echo "bob" >> "$USERS"
 : > "$CALLS"; sa_sftp_add_user bob "$T/good.pub" >/dev/null 2>&1; check "existing normal account refused" "$?" 1
-grep -q "$T/keys/bob" "$CALLS"; check "no key written for refused account" "$?" 1
+[ -e "$T/keys/bob" ]; check "no key written for refused account" "$?" 1
 
 sa_sftp_remove_user bob >/dev/null 2>&1; check "remove non-SFTP account refused" "$?" 1
 grep -q userdel "$CALLS"; check "no userdel for bob" "$?" 1
