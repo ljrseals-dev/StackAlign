@@ -13,7 +13,14 @@ export FAKE_FPR=$FPR FAKE_MULTI=0
 cat > "$T/bin/curl" <<'EOF'
 #!/usr/bin/env bash
 echo "curl $*" >> "$FAKE_LOG"
-out=""; while [ $# -gt 0 ]; do [ "$1" = -o ] && out=$2; shift; done
+out=""
+while [ $# -gt 0 ]; do
+  case $1 in
+    --output|-o) out=$2; shift 2 ;;
+    --) shift; break ;;
+    *) shift ;;
+  esac
+done
 [ -e "$FAKE_STATE/curl_fail" ] && exit 22
 echo "KEYDATA" > "$out"
 EOF
