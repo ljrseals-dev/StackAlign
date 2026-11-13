@@ -147,10 +147,8 @@ EOF
 inventory=$(sa_repo_inventory); rc=$?
 {
   [ "$rc" -eq 0 ] &&
-  [[ "$inventory" == *
-trusted-third-party\t1\t1\t0\t1\tyes\tno\tno\tyes'* ]] &&
-  [[ "$inventory" == *
-disabled-mirror\t0\t0\tunset\tunset\tno\tyes\tno\tno'* ]] &&
+  printf '%s\n' "$inventory" | awk -F '\t' '$1=="trusted-third-party" && $2=="1" && $3=="1" && $4=="0" && $5=="1" && $6=="yes" && $9=="yes"' &&
+  printf '%s\n' "$inventory" | awk -F '\t' '$1=="disabled-mirror" && $2=="0" && $3=="0" && $4=="unset" && $5=="unset" && $6=="no" && $7=="yes"' &&
   [[ "$inventory" != *"secret"* ]] &&
   [[ "$inventory" != *"token=hidden"* ]]
 } && ok "inventory reports repo policy flags and redacts credential-bearing values" || bad "repository inventory output/redaction"
