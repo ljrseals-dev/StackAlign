@@ -140,7 +140,7 @@ The exclusion above remains in force: StackAlign does not install or configure F
 
 This is a specified policy for an independently managed service, not a claim that StackAlign supplies an FTP daemon, configures a daemon, or currently enforces the restriction. The firewall/security-policy basis is not evidence of a verified firewall rule. The selected daemon and enforcement mechanism must be identified and tested before this behavior can be marked implemented or verified. FTPS and SFTP are separate protocols; this clarification makes no claim that either is enabled or disabled.
 
-[ SPECIFIED — software enforcement and runtime behavior not verified ]
+[SPECIFIED] — software enforcement and runtime behavior not verified
 
 <!-- Review comment: 2026-11-13T13:09:34-06:00; additive clarification. The original FTP Daemons exclusion sentence is retained verbatim. -->
 
