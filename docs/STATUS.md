@@ -61,3 +61,8 @@ This PR updates documentation only; the M2a implementation and tests were merged
 
 <!-- Review comment: 2026-11-13T13:05:19-06:00; additive status entry. Prior status statements and project wording retained. -->
 <!-- Verification comment: PASS applies only to checking the cited documentation and search result. It does not mean FTP policy enforcement or transfer tests passed. -->
+
+
+**Manual alignment — 2026-11-13T13:09:34-06:00:** `docs/Technical Manual.md` on `main` was fetched and its Section 3.3 exclusion was confirmed. The original statement that StackAlign does not install or configure FTP servers is retained. The added clarification permits only an independently installed/managed FTP service, preserves ordinary client/server transfers, and specifies software-level rejection of FTP-to-FTP/FXP. This remains **SPECIFIED / UNVERIFIED**; no daemon configuration or runtime transfer test has been performed.
+
+<!-- Manual-alignment review comment: 2026-11-13T13:09:34-06:00; additive note only. Existing status entries retained. -->
