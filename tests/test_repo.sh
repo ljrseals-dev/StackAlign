@@ -19,7 +19,15 @@ echo "KEYDATA" > "$out"
 EOF
 cat > "$T/bin/gpg" <<'EOF'
 #!/usr/bin/env bash
+echo "pub:-:2048:1:FAKEPRIMARY:::::::::"
 echo "fpr:::::::::${FAKE_FPR}:"
+echo "uid:-:::::::Test Key:"
+echo "sub:-:2048:1:FAKESUBKEY:::::::::"
+echo "fpr:::::::::AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:"
+if [ "${FAKE_MULTI:-0}" = 1 ]; then
+  echo "pub:-:2048:1:ATTACKERKEY:::::::::"
+  echo "fpr:::::::::BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB:"
+fi
 EOF
 cat > "$T/bin/rpm" <<'EOF'
 #!/usr/bin/env bash
@@ -67,6 +75,15 @@ reset; sa_repo_setup remi "$URL" "0123 4567 89ab cdef 0123 4567 89ab cdef 0123 4
 # fingerprint mismatch: refused, nothing written, nothing imported
 reset; FAKE_FPR=FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF sa_repo_setup remi "$URL" "$FPR" "$KEY" 2>/dev/null; rc=$?
 { [ $rc -eq 4 ] && [ ! -e "$f" ] && ! grep -q 'rpm --import' "$FAKE_LOG"; } && ok "fingerprint mismatch: rc 4, no file, no import" || bad "fingerprint mismatch: rc 4, no file, no import (rc=$rc)"
+
+# Multiple primary keys: reject before repo write or rpm import.
+reset; FAKE_MULTI=1 sa_repo_setup remi "$URL" "$FPR" "$KEY" 2>/dev/null; rc=$?; FAKE_MULTI=0
+{ [ $rc -eq 4 ] && [ ! -e "$f" ] && ! grep -q 'rpm --import' "$FAKE_LOG"; } \
+  && ok "multi-key bundle refused: rc 4, no repo file, no import" || bad "multi-key bundle refused (rc=$rc)"
+
+# Primary fingerprint is selected, not a later subkey fingerprint.
+reset; sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?
+[ $rc -eq 0 ] && ok "primary fingerprint accepted despite subkey fingerprint" || bad "primary fingerprint selection (rc=$rc)"
 
 # key download failure
 reset; touch "$FAKE_STATE/curl_fail"; sa_repo_setup remi "$URL" "$FPR" "$KEY" 2>/dev/null; rc=$?
