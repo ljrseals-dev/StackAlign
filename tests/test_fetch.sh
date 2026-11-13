@@ -28,7 +28,7 @@ case $url in
     exit 0
     ;;
   *key-multi*)
-    printf '%s\\n' \
+    printf '%s\n' \
       'pub:-:2048:1:PRIMARY:::::::::' \
       'fpr:::::::::0123456789ABCDEF0123456789ABCDEF01234567:' \
       'uid:-:::::::Primary Key:' \
@@ -37,7 +37,7 @@ case $url in
     exit 0
     ;;
   *key-subkey*)
-    printf '%s\\n' \
+    printf '%s\n' \
       'pub:-:2048:1:PRIMARY:::::::::' \
       'fpr:::::::::0123456789ABCDEF0123456789ABCDEF01234567:' \
       'uid:-:::::::Primary Key:' \
@@ -46,7 +46,7 @@ case $url in
     exit 0
     ;;
   *primary-fail*|*mirror-fail*|*allfail*)
-    printf 'partial bytes\\n' > "$out"
+    printf 'partial bytes\n' > "$out"
     exit 22
     ;;
   *)
@@ -162,5 +162,6 @@ if sa_fetch_gpg_key https://example.invalid/key-subkey \
 else
   bad "T34 primary fingerprint was not selected"
 fi
-\necho "passed=$pass failed=$fail"
+
+echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]
