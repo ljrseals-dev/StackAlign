@@ -226,6 +226,10 @@ Future implementation work should be split into small reviewed changes, beginnin
 
 **Policy status: specified; software enforcement unverified.** This section records the intended server behavior. It does not claim that StackAlign currently installs, configures, or secures an FTP service.
 
+
+
+**Relationship to StackAlign's scope:** The Technical Manual's existing exclusion remains authoritative: StackAlign does not install or configure FTP servers. This policy applies only when an operator independently installs and manages an FTP server on the same host; it does not make that daemon a StackAlign component. Ordinary client-to-server transfers remain permitted, and FTP-to-FTP/FXP transfers must be refused by software-level controls.
+
 The server must retain its intended FTP server capability for ordinary client-to-server file transfers. A connected client may transfer files to or from the StackAlign server, subject to the FTP service's authentication, account, directory, permission, and logging controls.
 
 **Reject FTP-to-FTP third-party transfers.** A client must not use the StackAlign FTP service as one endpoint in a server-to-server transfer to another FTP server (often called third-party FTP or FXP). This restriction must not be implemented by disabling the FTP service or indiscriminately blocking ordinary FTP client-to-server traffic.
@@ -248,3 +252,6 @@ Until those checks are run against the selected implementation, report the state
 
 <!-- Review comment: 2026-11-13T13:05:19-06:00; appended policy clarification only. Existing sections and wording above this point were retained. -->
 <!-- Verification comment: README.md on main states that firewall management is not built and StackAlign is not production-ready. A GitHub code search scoped to ljrseals-dev/StackAlign for FTP/FTPS/SFTP/firewall terms returned no indexed matches at this review time. This confirms the documented status is unverified; it does not prove the absence of every possible implementation or establish runtime behavior. -->
+
+
+<!-- Manual-alignment comment: 2026-11-13T13:09:34-06:00; terminology aligned with docs/Technical Manual.md. The existing FTP-daemon exclusion remains intact. -->
