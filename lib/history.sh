@@ -55,9 +55,24 @@ _sa_hist_write_undo() {
     local existed p
     while IFS=$'\t' read -r existed p; do
       if [ "$existed" = 1 ]; then
-        printf 'rm -rf %q\n' "$p"
-        printf 'mkdir -p %q\n' "$(dirname "$p")"
-        printf 'cp -a %q %q\n' "$dir/snapshot$p" "$p"
+        # Stage beside the target so the final rename stays on one filesystem.
+        # Keep the old target until the staged snapshot has been installed.
+        printf 'target=%q\n' "$p"
+        printf 'snapshot=%q\n' "$dir/snapshot$p"
+        printf 'parent=$(dirname -- "$target")\n'
+        printf 'base=$(basename -- "$target")\n'
+        printf 'stage="$parent/.$base.stackalign-new.$"\n'
+        printf 'backup="$parent/.$base.stackalign-old.$"\n'
+        printf 'mkdir -p -- "$parent"\n'
+        printf 'cp -a -- "$snapshot" "$stage"\n'
+        printf 'had_old=0\n'
+        printf 'if [ -e "$target" ] || [ -L "$target" ]; then mv -T -- "$target" "$backup"; had_old=1; fi\n'
+        printf 'if ! mv -T -- "$stage" "$target"; then\n'
+        printf '  if [ "$had_old" -eq 1 ]; then mv -T -- "$backup" "$target"; fi\n'
+        printf '  rm -rf -- "$stage"\n'
+        printf '  exit 1\n'
+        printf 'fi\n'
+        printf 'if [ "$had_old" -eq 1 ]; then rm -rf -- "$backup"; fi\n'
       else
         printf 'rm -rf %q\n' "$p"
       fi

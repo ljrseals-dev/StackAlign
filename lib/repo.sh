@@ -53,9 +53,21 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   if ! curl -fsSL -o "$key" -- "$keyurl"; then
     rm -rf "$tmpd"; echo "repo: key download failed" >&2; return 1
   fi
-  got=$(gpg --show-keys --with-colons "$key" 2>/dev/null | awk -F: '/^fpr:/{print toupper($10); exit}')
-  if [ "$got" != "$fpr" ]; then
-    rm -rf "$tmpd"; echo "repo: key fingerprint mismatch (want $fpr, got ${got:-none}); nothing imported" >&2; return 4
+  local colon_file="$tmpd/key.colons" pub_count got
+  if ! gpg --show-keys --with-colons "$key" > "$colon_file" 2>/dev/null; then
+    rm -rf "$tmpd"; echo "repo: key parsing failed; nothing imported" >&2; return 4
+  fi
+  pub_count=$(awk -F: '$1 == "pub" { n++ } END { print n+0 }' "$colon_file")
+  # The primary fingerprint is the fpr record associated with the pub record.
+  # Subkey fpr records follow sub records and must not be used for pinning.
+  got=$(awk -F: '
+    $1 == "pub" { want_primary_fpr=1; next }
+    want_primary_fpr && $1 == "fpr" { print toupper($10); exit }
+  ' "$colon_file")
+  if [ "$pub_count" -ne 1 ] || [ "$got" != "$fpr" ]; then
+    rm -rf "$tmpd"
+    echo "repo: expected exactly one primary key with fingerprint $fpr (found $pub_count; primary fingerprint ${got:-none}); nothing imported" >&2
+    return 4
   fi
 
   local file="$SA_YUM_REPOS_DIR/stackalign-$name.repo" content
