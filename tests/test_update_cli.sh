@@ -4,7 +4,7 @@
 # tests/test_update_cli.sh -- CLI-level proof that exit codes 1 and 99 reach the shell.
 set -euo pipefail
 
-here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+here="$(cd -- "$(dirname -- "\${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd -- "$here/.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
@@ -19,17 +19,19 @@ cat > "$work/dnf" <<'FAKE'
 #!/usr/bin/env bash
 echo "dnf $*" >> "$DNF_LOG"
 case "$*" in
-    *downgrade*) exit "${DNF_DOWNGRADE_RC:-0}" ;;
+    *downgrade*) exit "\${DNF_DOWNGRADE_RC:-0}" ;;
 esac
 exit 0
 FAKE
 
 cat > "$work/systemctl" <<'FAKE'
 #!/usr/bin/env bash
+# Queries succeed; EVERY state-changing action fails, whether the real helper
+# uses restart, reload, reload-or-restart, try-restart, or start.
 case "$*" in
-    *restart*) exit 1 ;;   # forces the health-check failure
+    *is-active*|*is-enabled*|*status*|*show*|*cat*) exit 0 ;;
 esac
-exit 0
+exit 1
 FAKE
 
 # ORDER MATTERS: -qp (package file) before plain -q.
@@ -41,7 +43,7 @@ case "$*" in
 esac
 exit 0   # --checksig etc.
 FAKE
-# Fake nginx so any `nginx -t` inside the reload path is deterministic (host-independent).
+# Fake nginx so any \`nginx -t\` inside the reload path is deterministic (host-independent).
 cat > "$work/nginx" <<'FAKE'
 #!/usr/bin/env bash
 exit 0
@@ -59,8 +61,8 @@ fail=0
 run_case() {
     local name="$1" downgrade_rc="$2" expected_rc="$3" rc=0
     : > "$DNF_LOG"
-    DNF_DOWNGRADE_RC="$downgrade_rc" \
-        bash "$root/bin/stackalign" update apply nginx "$TARGET" nginx "$work/etc-nginx" \
+    DNF_DOWNGRADE_RC="$downgrade_rc" \\
+        bash "$root/bin/stackalign" update apply nginx "$TARGET" nginx "$work/etc-nginx" \\
         >/dev/null 2>&1 || rc=$?
 
     if [ "$rc" -ne "$expected_rc" ]; then
