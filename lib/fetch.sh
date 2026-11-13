@@ -72,9 +72,10 @@ sa_fetch_url() {
         return 1
       }
       return 0
+    else
+      rc=$?
+      echo "fetch: source failed (exit $rc): $url" >&2
     fi
-    rc=$?
-    echo "fetch: source failed (exit $rc): $url" >&2
   done
 
   rm -f -- "$tmp"
