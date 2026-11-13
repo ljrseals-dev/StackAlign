@@ -18,6 +18,10 @@ set -u
 
 SA_VERSION="0.0.0-dev"
 SA_ROOT=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+# Shared update dependencies.
+source "$SA_ROOT/lib/common.sh"
+source "$SA_ROOT/lib/repo_cache.sh"
+source "$SA_ROOT/lib/update.sh"
 SA_CONF_PATH=/etc/stackalign/stackalign.conf
 GPLAN=0; YES=0
 
@@ -179,6 +183,25 @@ cmd_secret() {  # secret gen <name> | secret list
       if [ "$SA_MODE" = plan ] && [ $grc -eq 0 ]; then echo "(re-run with --apply to make changes)"; fi
       return $grc ;;
     *) _sa_die "usage: stackalign secret <gen <name>|list>" ;;
+  esac
+}
+
+cmd_update() {
+  local sub="${1:-}"; shift || true
+  case "$sub" in
+    apply)
+      { [ $# -eq 3 ] || [ $# -eq 4 ]; } || {
+        echo "usage: stackalign update apply <package> <target_nevra> <service> [snapshot_path]" >&2
+        return 64
+      }
+      source "$SA_ROOT/lib/history.sh"
+      source "$SA_ROOT/lib/service.sh"
+      sa_update_apply "$@"
+      return $? ;;
+    check|plan|pin|status)
+      echo "update $sub: not implemented" >&2; return 2 ;;
+    *)
+      echo "usage: stackalign update check|plan|apply|pin|status" >&2; return 64 ;;
   esac
 }
 
