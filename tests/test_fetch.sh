@@ -27,8 +27,26 @@ case $url in
     printf 'verified payload\n' > "$out"
     exit 0
     ;;
+  *key-multi*)
+    printf '%s\\n' \
+      'pub:-:2048:1:PRIMARY:::::::::' \
+      'fpr:::::::::0123456789ABCDEF0123456789ABCDEF01234567:' \
+      'uid:-:::::::Primary Key:' \
+      'pub:-:2048:1:SECONDARY:::::::::' \
+      'fpr:::::::::BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB:' > "$out"
+    exit 0
+    ;;
+  *key-subkey*)
+    printf '%s\\n' \
+      'pub:-:2048:1:PRIMARY:::::::::' \
+      'fpr:::::::::0123456789ABCDEF0123456789ABCDEF01234567:' \
+      'uid:-:::::::Primary Key:' \
+      'sub:-:2048:1:SUBKEY:::::::::' \
+      'fpr:::::::::AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:' > "$out"
+    exit 0
+    ;;
   *primary-fail*|*mirror-fail*|*allfail*)
-    printf 'partial bytes\n' > "$out"
+    printf 'partial bytes\\n' > "$out"
     exit 22
     ;;
   *)
