@@ -56,8 +56,8 @@ printf 'v1\n' > "$root/target.conf"
 pid_id=$(sa_history_snapshot "$root/target.conf" pidtemps)
 pid_undo="$SA_HISTORY_ROOT/$pid_id/undo.sh"
 rc=0
-grep -Fq 'stackalign-new.$' "$pid_undo" || rc=1
-grep -Fq 'stackalign-old.$' "$pid_undo" || rc=1
+grep -Fq 'stackalign-new.$$' "$pid_undo" || rc=1
+grep -Fq 'stackalign-old.$$' "$pid_undo" || rc=1
 if grep -Fq 'stackalign-new.$"' "$pid_undo" || grep -Fq 'stackalign-old.$"' "$pid_undo"; then rc=1; fi
 printf 'v2\n' > "$root/target.conf"
 bash "$pid_undo" >/dev/null 2>&1 || rc=1
