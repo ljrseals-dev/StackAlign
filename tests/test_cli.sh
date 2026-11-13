@@ -60,6 +60,21 @@ run repo inventory
 run repo install
 [ "$RC" -eq 64 ] && ok "repo inventory rejects unsupported mutating subcommands" || bad "repo inventory rejects unsupported subcommands"
 
+# optimize is read-only in this architecture PR; --apply fails closed.
+cat > "$T/meminfo" <<'EOF'
+MemTotal:       2097152 kB
+SwapTotal:            0 kB
+EOF
+export SA_MEMINFO_PATH="$T/meminfo" SA_TUNE_SCRIPT="$ROOT/lib/tune.sh"
+export SA_OS_MIB=200 SA_DB_BASE_MIB=120 SA_PHP_MASTER_MIB=15 SA_NGINX_MIB=10
+export SA_OPCACHE_MIB=32 SA_PHP_CHILD_MIB=32 SA_WORKLOAD=generic_php SA_ROLE=primary
+run optimize --plan
+{ [ "$RC" -eq 0 ] && [[ "$OUT" == *"optimization_mode=standard"* ]] && [[ "$OUT" == *"action=plan_only"* ]]; } && ok "optimize CLI emits standard plan" || bad "optimize CLI emits standard plan"
+run optimize super --plan
+{ [ "$RC" -eq 0 ] && [[ "$OUT" == *"optimization_mode=super"* ]] && [[ "$OUT" == *"static_candidate_requires_measured_worker_rss"* ]]; } && ok "optimize CLI emits gated super plan" || bad "optimize CLI emits gated super plan"
+run optimize --apply
+{ [ "$RC" -eq 2 ] && [[ "$OUT" == *"not implemented"* ]] && [[ "$OUT" == *"no changes made"* ]]; } && ok "optimize apply refuses without mutation implementation" || bad "optimize apply refuses without mutation implementation"
+
 # doctor
 run --config "$T/none.conf" doctor
 { [ $RC -eq 0 ] && [[ $OUT == *"no critical findings"* ]]; } && ok "doctor clean host: rc 0" || bad "doctor clean host: rc 0 (rc=$RC)"
