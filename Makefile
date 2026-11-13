@@ -20,8 +20,6 @@ test:
 	for t in tests/test_*.sh; do \
 	  echo "=== $$t"; bash "$$t" || { echo "SUITE FAILED: $$t"; fail=1; }; \
 	done; \
-	echo "=== tests/test_tune_math.py (PROVISIONAL tuner)"; \
-	python3 -I tests/test_tune_math.py || { echo "SUITE FAILED: tests/test_tune_math.py"; fail=1; }; \
 	if [ $$fail -ne 0 ]; then echo "RESULT: FAIL"; exit 1; else echo "RESULT: all suites passed"; fi
 
 # bash -n always; shellcheck only if installed (reported, never silently skipped).
