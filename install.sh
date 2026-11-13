@@ -38,13 +38,17 @@ if [ "$actual" != "$EXPECTED_SHA256" ]; then
   die "SHA-256 mismatch: expected $EXPECTED_SHA256, got $actual; nothing extracted" 4
 fi
 
-# Refuse archives that could write outside the extraction directory.
+# Refuse unsafe member paths and all symbolic/hard links before extraction.
+# Link entries are refused outright to prevent link-order and target traversal.
 if tar -tzf "$PKG" | awk '/^\// || /(^|\/)\.\.(\/|$)/ {bad=1} END{exit !bad}'; then
   die "refusing archive with absolute or '..' paths; nothing extracted" 5
 fi
+if tar -tvzf "$PKG" | awk 'substr($0,1,1) == "l" || substr($0,1,1) == "h" { found=1 } END { exit !found }'; then
+  die "refusing archive containing symbolic or hard links; nothing extracted" 5
+fi
 
 mkdir "$TMP/x"
-tar -xzf "$PKG" -C "$TMP/x" --no-same-owner
+tar -xzf "$PKG" -C "$TMP/x" --no-same-owner --no-same-permissions
 BIN="$TMP/x/stackalign-$VERSION/bin/stackalign"
 [ -f "$BIN" ] && [ -x "$BIN" ] || die "release has no executable bin/stackalign" 5
 
