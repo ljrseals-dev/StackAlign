@@ -74,19 +74,19 @@ sa_toml_parse() {
                 closed=0
                 while (( i < length )); do
                     char="${raw_value:i:1}"
-                    if [[ "$char" == '\\' ]]; then
+                    if [[ "$char" == $'\\' ]]; then
                         ((i += 1))
                         if (( i >= length )); then
                             break
                         fi
                         next_char="${raw_value:i:1}"
-                        if [[ "$next_char" != '"' && "$next_char" != '\\' ]]; then
+                        if [[ "$next_char" != '"' && "$next_char" != $'\\' ]]; then
                             printf 'toml: %s:%d: unsupported string escape\\%s\n' "$file" "$lineno" "$next_char" >&2
                             TOML_DATA=()
                             return 1
                         fi
                         value+="$next_char"
-                    elif [[ "$char" == '"' ]]; then
+                    if [[ "$char" == $'\\' ]]; then
                         closed=1
                         tail="${raw_value:i+1}"
                         tail="${tail#"${tail%%[![:space:]]*}"}"
