@@ -29,7 +29,7 @@ after=$(find "$T" -type f -printf '%p %s\n' | sort)
 [ "$before" = "$after" ] && ok "planning writes no files" || bad "planning writes no files"
 
 sed -i 's/SwapTotal:.*/SwapTotal:             0 kB/' "$T/meminfo"
-printf 'MemTotal: 262144 kB\n' > "$T/meminfo"
+printf 'MemTotal: 262144 kB\nSwapTotal: 0 kB\n' > "$T/meminfo"
 out=$(sa_optimize_plan standard 2>&1); rc=$?
 { [ "$rc" -ne 0 ] && [[ "$out" == *"no changes made"* ]]; } && ok "tuner refusal is propagated" || bad "tuner refusal is propagated"
 
