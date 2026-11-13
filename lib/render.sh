@@ -33,16 +33,10 @@ _sa_render_to_var() {  # <template> <map-var-name> <out-var-name>
 
 # Read-only diff. Writes nothing.
 sa_render_plan() {  # <template> <output> <map-var-name>
-  local rendered _sa_cmp rc outdir
+  local rendered _sa_cmp rc
   _sa_render_to_var "$1" "$3" rendered || return $?
-  outdir=$(dirname -- "$2")
-  # Keep the plan read-only: use the output directory when it exists, but
-  # do not create it merely to hold a comparison file.
-  if [ -d "$outdir" ]; then
-    _sa_cmp=$(mktemp "$outdir/.sa-render.XXXXXX") || return 1
-  else
-    _sa_cmp=$(mktemp "${TMPDIR:-/tmp}/.sa-render.XXXXXX") || return 1
-  fi
+  # Avoid process substitution: /dev/fd may be unavailable or unreliable.
+  _sa_cmp=$(mktemp "${TMPDIR:-/tmp}/sa-render-plan.XXXXXX") || return 1
   printf '%s' "$rendered" > "$_sa_cmp" || { rm -f -- "$_sa_cmp"; return 1; }
 
   if [ -e "$2" ]; then
@@ -64,7 +58,7 @@ sa_render_apply() {  # <template> <output> <map-var-name>
   local tpl=$1 output=$2 mapname=$3 rendered tmp
   _sa_render_to_var "$tpl" "$mapname" rendered || return $?
   local _sa_cmp
-  _sa_cmp=$(mktemp) || return 1
+  _sa_cmp=$(mktemp "${TMPDIR:-/tmp}/sa-render-cmp.XXXXXX") || return 1
   printf '%s' "$rendered" > "$_sa_cmp" || { rm -f -- "$_sa_cmp"; return 1; }
   if [ -f "$output" ] && cmp -s -- "$output" "$_sa_cmp"; then
     rm -f -- "$_sa_cmp"
