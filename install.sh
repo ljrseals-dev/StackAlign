@@ -40,10 +40,10 @@ fi
 
 # Refuse unsafe member paths and all symbolic/hard links before extraction.
 # Link entries are refused outright to prevent link-order and target traversal.
-if tar -tzf "$PKG" | awk '/^\// || /(^|\/)\.\.(\/|$)/ {bad=1} END{exit !bad}'; then
+if tar --quoting-style=escape -tzf "$PKG" | awk '/^\// || /(^|\/)\.\.(\/|$)/ {bad=1} END{exit !bad}'; then
   die "refusing archive with absolute or '..' paths; nothing extracted" 5
 fi
-if tar -tvzf "$PKG" | awk 'substr($0,1,1) == "l" || substr($0,1,1) == "h" { found=1 } END { exit !found }'; then
+if tar --quoting-style=escape -tvzf "$PKG" | awk 'substr($0,1,1) == "l" || substr($0,1,1) == "h" { found=1 } END { exit !found }'; then
   die "refusing archive containing symbolic or hard links; nothing extracted" 5
 fi
 
