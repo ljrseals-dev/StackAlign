@@ -4,16 +4,16 @@ An early-stage Bash-based foundation for a pre-tuned LEMP (Nginx, MariaDB, PHP-F
 
 **StackAlign does not install a web stack yet. It is not production-ready.**
 
-## Project status — 12 November 2026
+## Project status — 13 November 2026
 
 StackAlign is an experimental foundation intended for review and disposable-environment testing. The project follows one rule: **measure, do not claim**.
 
 - The CLI includes `version`, `help`, `plan`, `doctor`, `rollback`, and `secret gen/list`. These features have been tested locally; independent host validation is still needed.
-- Library modules cover configuration, rendering, history, service, repository, and secret handling. Their local tests use fakes and do not establish behavior against live services.
+- Library modules cover configuration, rendering, history, service, repository, secret handling, shared logging, PHP extensions, firewall policy, advisory ClamAV scanning, TLS issuance, and database backups. The operational modules are experimental adapters; they are not evidence of successful live-host operation or complete installer orchestration.
 - `lib/tune.sh` is provisional. The lean profile is available; the standard profile refuses. Its memory assumptions have not been validated against physical measurements.
 - `install.sh` refuses to run by design until a release hash is pinned.
 - Nginx, PHP-FPM, and MariaDB installation is not built.
-- Templates, TLS, backups, firewall management, and tenant management are not built.
+- Templates and tenant management are not built. TLS, backup, firewall, extension, and advisory malware-scan modules are present as experimental library functions; production integration, real-service validation, and operational runbooks remain outstanding.
 
 GitHub Actions CI has run on Ubuntu 24.04 and AlmaLinux 9 for earlier revisions, including lint and test jobs. CI results are not real-host installation or runtime validation. Check the current [main-branch workflow runs](https://github.com/ljrseals-dev/StackAlign/actions?query=branch%3Amain) for the latest status.
 
