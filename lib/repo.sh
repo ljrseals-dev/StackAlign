@@ -19,6 +19,10 @@
 
 : "${SA_YUM_REPOS_DIR:=/etc/yum.repos.d}"
 
+# Shared HTTPS fetch and primary-key validation implementation.
+# shellcheck source=lib/fetch.sh
+source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
+
 _sa_repo_valid() {  # <kind> <value>
   case $1 in
     name)    [[ $2 =~ ^[a-z0-9][a-z0-9_-]*$ ]] ;;
@@ -47,26 +51,12 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   _sa_repo_valid url "$keyurl" || { _sa_repo_bad key_url "$keyurl"; return 64; }
   fpr=${fpr^^}
 
-  local tmpd key got
+  local tmpd key
   tmpd=$(mktemp -d) || return 1
   key="$tmpd/key.asc"
-  if ! curl -fsSL -o "$key" -- "$keyurl"; then
-    rm -rf "$tmpd"; echo "repo: key download failed" >&2; return 1
-  fi
-  local colon_file="$tmpd/key.colons" pub_count got
-  if ! gpg --show-keys --with-colons "$key" > "$colon_file" 2>/dev/null; then
-    rm -rf "$tmpd"; echo "repo: key parsing failed; nothing imported" >&2; return 4
-  fi
-  pub_count=$(awk -F: '$1 == "pub" { n++ } END { print n+0 }' "$colon_file")
-  # The primary fingerprint is the fpr record associated with the pub record.
-  # Subkey fpr records follow sub records and must not be used for pinning.
-  got=$(awk -F: '
-    $1 == "pub" { want_primary_fpr=1; next }
-    want_primary_fpr && $1 == "fpr" { print toupper($10); exit }
-  ' "$colon_file")
-  if [ "$pub_count" -ne 1 ] || [ "$got" != "$fpr" ]; then
-    rm -rf "$tmpd"
-    echo "repo: expected exactly one primary key with fingerprint $fpr (found $pub_count; primary fingerprint ${got:-none}); nothing imported" >&2
+  if ! sa_fetch_gpg_key "$keyurl" "$fpr" "$key"; then
+    rm -rf -- "$tmpd"
+    echo "repo: key fetch or primary fingerprint validation failed; nothing imported" >&2
     return 4
   fi
 

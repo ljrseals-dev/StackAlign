@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr.
+#
+# lib/fetch.sh -- safe downloads for StackAlign-managed standalone artifacts.
+# DNF repository/package downloads remain DNF's responsibility.
+
+_sa_fetch_valid_https_url() {
+  [[ $# -eq 1 && $1 =~ ^https://[A-Za-z0-9._~:/?#@!$\&\'\(\)\*+,\;=%-]+$ ]]
+}
+
+# sa_fetch_url <url> <output_file> [fallback_url ...]
+# Downloads to a private same-directory temporary file and publishes by rename.
+# A failed source can never leave a partial output at output_file.
+sa_fetch_url() {
+  [ $# -ge 2 ] || {
+    echo "usage: sa_fetch_url <https-url> <output_file> [fallback_url ...]" >&2
+    return 64
+  }
+
+  local primary=$1 out=$2 out_dir out_base tmpdir tmp url rc=0
+  shift 2
+
+  _sa_fetch_valid_https_url "$primary" || {
+    echo "fetch: refusing non-HTTPS or malformed primary URL" >&2
+    return 64
+  }
+  local -a urls=("$primary")
+  for url in "$@"; do
+    _sa_fetch_valid_https_url "$url" || {
+      echo "fetch: refusing non-HTTPS or malformed fallback URL" >&2
+      return 64
+    }
+    urls+=("$url")
+  done
+
+  out_dir=$(dirname -- "$out") || return 1
+  out_base=$(basename -- "$out") || return 1
+  [ -d "$out_dir" ] || {
+    echo "fetch: output directory does not exist: $out_dir" >&2
+    return 1
+  }
+  [ -n "$out_base" ] && [ "$out_base" != "." ] && [ "$out_base" != "/" ] || {
+    echo "fetch: invalid output path" >&2
+    return 64
+  }
+  if [ -L "$out" ] || { [ -e "$out" ] && [ ! -f "$out" ]; }; then
+    echo "fetch: output exists and is not a regular non-symlink file" >&2
+    return 1
+  fi
+
+  tmpdir=$(mktemp -d "$out_dir/.${out_base}.sa-fetch.XXXXXX") || {
+    echo "fetch: cannot create private temporary directory beside $out" >&2
+    return 1
+  }
+  chmod 0700 "$tmpdir" || { rm -rf -- "$tmpdir"; return 1; }
+  tmp="$tmpdir/payload"
+
+  for url in "${urls[@]}"; do
+    : > "$tmp" || { rm -rf -- "$tmpdir"; return 1; }
+    if curl --fail --silent --show-error --location \
+        --proto '=https' --proto-redir '=https' \
+        --connect-timeout 10 --max-time 300 \
+        --output "$tmp" -- "$url"; then
+      if [ ! -f "$tmp" ] || [ -L "$tmp" ]; then
+        echo "fetch: downloader did not produce a regular file" >&2
+        rm -rf -- "$tmpdir"
+        return 1
+      fi
+      chmod 0600 "$tmp" || { rm -rf -- "$tmpdir"; return 1; }
+      mv -fT -- "$tmp" "$out" || {
+        rm -rf -- "$tmpdir"
+        echo "fetch: cannot publish downloaded file: $out" >&2
+        return 1
+      }
+      rmdir -- "$tmpdir" 2>/dev/null || true
+      return 0
+    else
+      rc=$?
+      echo "fetch: source failed (exit $rc): $url" >&2
+    fi
+  done
+
+  rm -rf -- "$tmpdir"
+  echo "fetch: all sources failed; output not published: $out" >&2
+  return 1
+}
+
+# sa_fetch_verify <file> <expected_sha256>
+# SHA-256 verifies bytes, not publisher identity; callers must separately verify
+# signatures/fingerprints where the artifact's trust policy requires them.
+sa_fetch_verify() {
+  [ $# -eq 2 ] || {
+    echo "usage: sa_fetch_verify <file> <expected_sha256>" >&2
+    return 64
+  }
+  local file=$1 expected=$2 actual
+  [[ $expected =~ ^[A-Fa-f0-9]{64}$ ]] || {
+    echo "fetch: expected SHA-256 must be exactly 64 hexadecimal characters" >&2
+    return 64
+  }
+  [ -f "$file" ] && [ ! -L "$file" ] || {
+    echo "fetch: verification target must be a regular non-symlink file" >&2
+    return 1
+  }
+  actual=$(sha256sum -- "$file") || {
+    echo "fetch: sha256sum failed: $file" >&2
+    return 1
+  }
+  actual=${actual:0:64}
+  if [ "${actual,,}" != "${expected,,}" ]; then
+    echo "fetch: SHA-256 mismatch (expected $expected, got $actual)" >&2
+    return 1
+  fi
+  return 0
+}
+
+
+# sa_fetch_gpg_key <url> <expected_fingerprint> <output_file>
+# Fetch a single-primary-key OpenPGP file and bind its fingerprint to that
+# primary pub record. Subkey fingerprints are deliberately not candidates.
+# This function inspects the key; it does not import it into any keyring.
+sa_fetch_gpg_key() {
+  [ $# -eq 3 ] || {
+    echo "usage: sa_fetch_gpg_key <https-url> <expected_fingerprint> <output_file>" >&2
+    return 64
+  }
+
+  local url=$1 expected_fpr=${2//[[:space:]]/} out=$3 colon_data pub_count actual_fpr
+  [[ $expected_fpr =~ ^[A-Fa-f0-9]{40}$ ]] || {
+    echo "error=gpg_key_invalid_expected_fingerprint" >&2
+    return 64
+  }
+  expected_fpr=${expected_fpr^^}
+
+  if ! sa_fetch_url "$url" "$out"; then
+    echo "error=gpg_key_fetch_failed:$url" >&2
+    return 1
+  fi
+
+  if ! colon_data=$(gpg --with-colons --import-options show-only --import "$out" 2>/dev/null); then
+    rm -f -- "$out"
+    echo "error=gpg_key_parse_failed" >&2
+    return 1
+  fi
+
+  pub_count=$(printf '%s\n' "$colon_data" | awk -F: '$1 == "pub" { n++ } END { print n+0 }')
+  if [ "$pub_count" -ne 1 ]; then
+    rm -f -- "$out"
+    echo "error=gpg_key_multi_pub:$pub_count" >&2
+    return 1
+  fi
+
+  actual_fpr=$(printf '%s\n' "$colon_data" | awk -F: '
+    $1 == "pub" { awaiting_primary_fpr = 1; next }
+    $1 == "sub" { awaiting_primary_fpr = 0; next }
+    $1 == "fpr" && awaiting_primary_fpr {
+      print toupper($10)
+      exit
+    }
+  ')
+  if [ "$actual_fpr" != "$expected_fpr" ]; then
+    rm -f -- "$out"
+    echo "error=gpg_key_fpr_mismatch:expected=$expected_fpr,got=${actual_fpr:-none}" >&2
+    return 1
+  fi
+
+  return 0
+}
