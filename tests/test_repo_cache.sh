@@ -51,7 +51,12 @@ unset FAKE_SIG_BAD
 for bad in "../x" "a/b" 'a*b' "-rf" "" "a b"; do
   sa_cache_get "$bad" >/dev/null 2>&1; check "invalid nevra '$bad'" "$?" 1
 done
-check "no temp dirs left" "$(ls -A "$SA_RPM_CACHE" | grep -c '^\.dl\.')" 0
+temp_count=0
+for path in "$SA_RPM_CACHE"/.dl.*; do
+  [ -e "$path" ] || continue
+  temp_count=$((temp_count + 1))
+done
+check "no temp dirs left" "$temp_count" 0
 
 # corrupt cache entry (wrong NEVRA inside right filename) is not trusted
 printf 'pkg-0.1-1.x86_64' > "$SA_RPM_CACHE/$W.rpm"; export FAKE_FILES="a:$W"
