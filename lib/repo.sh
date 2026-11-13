@@ -193,7 +193,7 @@ _sa_repo_manifest_pin() {
     echo "repo: manifest pinned_version invalid for $comp" >&2
     return 65
   }
-  printf '%s\\n' "$pin"
+  printf '%s\n' "$pin"
 }
 
 sa_repo_install() {
