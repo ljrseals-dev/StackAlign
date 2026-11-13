@@ -213,7 +213,7 @@ cmd_update() {
 
   echo "  Tested:  NOT VERIFIED — vendor/versions.toml has no populated tested_matrix entry for this package policy."
   echo "  WARNING: target is not established as tested; this plan does not authorize apply."
-  echo "  Snapshot: would snapshot these configuration paths under $SA_CONF_PATH history:"
+  echo "  Snapshot: would create ${SA_HISTORY_ROOT:-/etc/stackalign/.history}/<UTC timestamp>-pre-update-$component containing:"
   local p
   for p in $config_paths; do echo "    $p"; done
   echo "  Services: $service would be restarted after package installation."
