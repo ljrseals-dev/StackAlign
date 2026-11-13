@@ -33,14 +33,24 @@ _sa_render_to_var() {  # <template> <map-var-name> <out-var-name>
 
 # Read-only diff. Writes nothing.
 sa_render_plan() {  # <template> <output> <map-var-name>
-  local rendered
+  local rendered _sa_cmp rc
   _sa_render_to_var "$1" "$3" rendered || return $?
-  if [ -e "$2" ]; then
-    diff -u -- "$2" <(printf '%s' "$rendered") || true
-  else
-    diff -u /dev/null <(printf '%s' "$rendered") || true
+  _sa_cmp=$(mktemp "${TMPDIR:-/tmp}/sa-render-plan.XXXXXX") || return 1
+  if ! printf '%s' "$rendered" > "$_sa_cmp"; then
+    rm -f -- "$_sa_cmp"
+    return 1
   fi
-  return 0
+  if [ -e "$2" ]; then
+    diff -u -- "$2" "$_sa_cmp"
+    rc=$?
+  else
+    diff -u /dev/null "$_sa_cmp"
+    rc=$?
+  fi
+  rm -f -- "$_sa_cmp"
+  # diff status 1 means differences; statuses >1 are actual errors.
+  [ "$rc" -le 1 ] && return 0
+  return "$rc"
 }
 
 # Atomic write; byte-identical output is a no-op.
