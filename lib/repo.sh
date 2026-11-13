@@ -83,105 +83,67 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
 }
 
 # sa_repo_inventory
-# Read-only view of configured .repo stanzas. Values that may contain credentials
-# (baseurl, mirrorlist, metalink, gpgkey) are never printed; only presence flags
-# are emitted. Per-repository values are reported as configured, not as DNF's
-# effective values after global configuration and variable expansion.
-_sa_repo_inventory_bool() {
-  case ${1,,} in
-    1|yes|true) printf '1' ;;
-    0|no|false) printf '0' ;;
-    unset) printf 'unset' ;;
-    *) printf 'invalid' ;;
-  esac
-}
-
+# Read-only view of configured .repo stanzas. Potentially credential-bearing
+# URL/key values are never printed; only presence flags are emitted. Boolean
+# values are per-repository settings, not DNF's effective merged configuration.
 sa_repo_inventory() {
   [ $# -eq 0 ] || { echo "usage: sa_repo_inventory" >&2; return 64; }
   local dir=${SA_YUM_REPOS_DIR:-/etc/yum.repos.d}
-  local file line section="" key value
-  local enabled gpgcheck repo_gpgcheck sslverify
-  local baseurl mirrorlist metalink gpgkey
-  declare -A fields=()
-
+  local -a files
+  files=("$dir"/*.repo)
   printf 'repo_id\tenabled\tgpgcheck\trepo_gpgcheck\tsslverify\tbaseurl\tmirrorlist\tmetalink\tgpgkey\n'
   [ -d "$dir" ] || return 0
-
-  _sa_repo_inventory_emit() {
-    [[ $section =~ ^[A-Za-z0-9_.:-]+$ ]] || return 0
-    enabled=$(_sa_repo_inventory_bool "${fields[enabled]-unset}")
-    gpgcheck=$(_sa_repo_inventory_bool "${fields[gpgcheck]-unset}")
-    repo_gpgcheck=$(_sa_repo_inventory_bool "${fields[repo_gpgcheck]-unset}")
-    sslverify=$(_sa_repo_inventory_bool "${fields[sslverify]-unset}")
-    baseurl=${fields[baseurl]+yes}; [ -n "$baseurl" ] || baseurl=no
-    mirrorlist=${fields[mirrorlist]+yes}; [ -n "$mirrorlist" ] || mirrorlist=no
-    metalink=${fields[metalink]+yes}; [ -n "$metalink" ] || metalink=no
-    gpgkey=${fields[gpgkey]+yes}; [ -n "$gpgkey" ] || gpgkey=no
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-      "$section" "$enabled" "$gpgcheck" "$repo_gpgcheck" "$sslverify" \
-      "$baseurl" "$mirrorlist" "$metalink" "$gpgkey"
-  }
-
-  for file in "$dir"/*.repo; do
-    [ -f "$file" ] || continue
-    section=""
-    fields=()
-    while IFS= read -r line || [ -n "$line" ]; do
-      line=${line%  # <name> <package> <version>
-  [ $# -eq 3 ] || { echo "usage: sa_repo_versionlock <name> <package> <version>" >&2; return 64; }
-  _sa_repo_valid name "$1"    || { _sa_repo_bad name "$1"; return 64; }
-  _sa_repo_valid package "$2" || { _sa_repo_bad package "$2"; return 64; }
-  _sa_repo_valid version "$3" || { _sa_repo_bad version "$3"; return 64; }
-  if _sa_repo_ftp "$2"; then echo "error=ftp_daemon_refused" >&2; return 3; fi
-  dnf versionlock add -- "$2-$3"
-}
-
-sa_repo_install() {  # <name> <package> <version> [repo_url fingerprint key_url]
-  [ $# -eq 3 ] || [ $# -eq 6 ] || { echo "usage: sa_repo_install <name> <package> <version> [url fpr keyurl]" >&2; return 64; }
-  local name=$1 pkg=$2 ver=$3
-  _sa_repo_valid name "$name"  || { _sa_repo_bad name "$name"; return 64; }
-  _sa_repo_valid package "$pkg" || { _sa_repo_bad package "$pkg"; return 64; }
-  _sa_repo_valid version "$ver" || { _sa_repo_bad version "$ver"; return 64; }
-  if _sa_repo_ftp "$pkg"; then echo "error=ftp_daemon_refused" >&2; return 3; fi
-  if [ $# -eq 6 ]; then
-    sa_repo_setup "$name" "$4" "$5" "$6" || return $?
-  elif [ ! -f "$SA_YUM_REPOS_DIR/stackalign-$name.repo" ]; then
-    echo "repo: $name not set up and no repo args given; refusing" >&2; return 1
-  fi
-  if rpm -q "$pkg-$ver" >/dev/null 2>&1; then
-    echo "$pkg-$ver: already installed"
-  else
-    dnf install -y -- "$pkg-$ver" || return 1
-  fi
-  sa_repo_versionlock "$name" "$pkg" "$ver" || return $?
-  rpm -q "$pkg-$ver" >/dev/null 2>&1 || { echo "repo: health check failed: $pkg-$ver not installed" >&2; return 1; }
-}
-\r'}
-      line=${line#"\${line%%[![:space:]]*}"}
-      line=${line%"\${line##*[![:space:]]}"}
-      case $line in ''|'#'*|';'*) continue ;; esac
-      if [[ $line =~ ^\[([^][]+)\]$ ]]; then
-        _sa_repo_inventory_emit
-        section=${BASH_REMATCH[1]}
-        fields=()
-        continue
-      fi
-      [[ -n $section ]] || continue
-      if [[ $line =~ ^([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
-        key=${BASH_REMATCH[1],,}
-        value=${BASH_REMATCH[2]}
-        case $key in
-          enabled|gpgcheck|repo_gpgcheck|sslverify)
-            fields[$key]=$value ;;
-          baseurl|mirrorlist|metalink|gpgkey)
-            [ -n "$value" ] && fields[$key]=present ;;
-        esac
-      fi
-    done < "$file"
-    _sa_repo_inventory_emit
-  done
-  unset -f _sa_repo_inventory_emit
-  return 0
+  [ -f "${files[0]}" ] || return 0
+  awk '
+    function norm(v) {
+      v = tolower(v)
+      if (v ~ /^(1|yes|true)$/) return "1"
+      if (v ~ /^(0|no|false)$/) return "0"
+      if (v == "") return "unset"
+      return "invalid"
+    }
+    function emit() {
+      if (section ~ /^[A-Za-z0-9_.:-]+$/) {
+        printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", section,
+          norm(enabled), norm(gpgcheck), norm(repo_gpgcheck), norm(sslverify),
+          baseurl, mirrorlist, metalink, gpgkey
+      }
+    }
+    FNR == 1 {
+      if (NR > 1) emit()
+      section = ""
+      enabled = gpgcheck = repo_gpgcheck = sslverify = ""
+      baseurl = mirrorlist = metalink = gpgkey = "no"
+    }
+    {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line == "" || line ~ /^[#;]/) next
+      if (line ~ /^\[[^][]+\]$/) {
+        emit()
+        section = substr(line, 2, length(line) - 2)
+        enabled = gpgcheck = repo_gpgcheck = sslverify = ""
+        baseurl = mirrorlist = metalink = gpgkey = "no"
+        next
+      }
+      if (section == "" || line !~ /^[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=/) next
+      key = line
+      sub(/[[:space:]]*=.*/, "", key)
+      value = line
+      sub(/^[^=]*=[[:space:]]*/, "", value)
+      key = tolower(key)
+      if (key == "enabled") enabled = value
+      else if (key == "gpgcheck") gpgcheck = value
+      else if (key == "repo_gpgcheck") repo_gpgcheck = value
+      else if (key == "sslverify") sslverify = value
+      else if (key == "baseurl" && value != "") baseurl = "yes"
+      else if (key == "mirrorlist" && value != "") mirrorlist = "yes"
+      else if (key == "metalink" && value != "") metalink = "yes"
+      else if (key == "gpgkey" && value != "") gpgkey = "yes"
+    }
+    END { emit() }
+  ' "${files[@]}"
 }
 
 sa_repo_versionlock() {  # <name> <package> <version>
