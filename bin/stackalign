@@ -224,6 +224,7 @@ _sa_dispatch() {  # <cmd> args...
     secret)   cmd_secret "$@" ;;
     repo)     cmd_repo "$@" ;;
     optimize) cmd_optimize "$@" ;;
+    update)   cmd_update "$@" ;;
     *)        _sa_stub "$c" "$@" ;;
   esac
 }
@@ -246,6 +247,7 @@ main() {
   done
   [ $# -ge 1 ] || { cmd_help >&2; exit 64; }
   _sa_dispatch "$@"
+  exit $?
 }
 
 main "$@"
