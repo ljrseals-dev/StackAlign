@@ -54,6 +54,8 @@ No measured sizing table or performance, security, stability, or recovery-time c
 - No telemetry, network bootstrap, or hidden remote configuration.
 - Keep measured results, CI results, and design assumptions clearly distinguished.
 
+The [Security Architecture Comparison](docs/SECURITY-ARCHITECTURE-COMPARISON.md) records StackAlign's DNF-first package policy, repository trust requirements, software lifecycle rules, rollback expectations, clean-room provenance boundaries, and implementation acceptance gates. It is a policy/design document, not evidence that those controls are already implemented.
+
 ## Development
 
 Use focused feature branches and pull requests. Preserve existing history and never force-push. Keep `main` protected from unreviewed changes. A merge or passing CI job is not evidence of successful installation or production operation.
