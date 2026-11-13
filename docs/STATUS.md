@@ -51,8 +51,8 @@ This PR updates documentation only; the M2a implementation and tests were merged
 
 | Area | State | Verified notes |
 |---|---|---|
-| FTP server availability | Specified; implementation unverified | Intended policy retains ordinary client-to-server FTP upload/download capability. StackAlign's current README says firewall management and web-stack installation are not built. |
-| FTP-to-FTP / third-party transfer | Specified; software enforcement unverified | Third-party FTP/FXP transfers using the StackAlign server as a transfer endpoint must be refused. This must not disable the FTP server or block ordinary client-to-server transfers. No firewall-only enforcement is claimed. |
+| FTP server availability | Specified; implementation unverified | Intended policy retains ordinary client-to-server FTP upload/download capability only for an independently installed and managed FTP service; StackAlign does not install or configure that daemon. StackAlign's current README says firewall management and web-stack installation are not built. |
+| FTP-to-FTP / third-party transfer | Specified; software enforcement unverified | Third-party FTP/FXP transfers using an independently managed FTP service on the StackAlign host as a transfer endpoint must be refused. This must not disable the FTP server or block ordinary client-to-server transfers. No firewall-only enforcement is claimed. |
 | FTPS and SFTP | Not specified by this clarification | Separate protocols; their availability and firewall policy must not be inferred from the FTP rule. |
 
 **Verification record:** At 2026-11-13T13:05:19-06:00 (America/Chicago, UTC-06:00), README.md on main was checked and states that firewall management is not built and StackAlign is not production-ready. A repository-scoped GitHub code search for FTP/FTPS/SFTP/firewall terms returned no indexed matches. This is a source/status check only, not a runtime test.
