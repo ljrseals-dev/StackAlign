@@ -71,9 +71,13 @@ f="$SA_YUM_REPOS_DIR/stackalign-remi.repo"
   && ok "setup writes repo file (gpgcheck=1) and imports key" || bad "setup writes repo file and imports key"
 [ "$(stat -c %a "$f")" = 644 ] && ok "repo file mode 0644" || bad "repo file mode 0644"
 
-# idempotent
-m1=$(stat -c %y "$f"); sleep 1.1; out=$(sa_repo_setup remi "$URL" "$FPR" "$KEY")
-{ [ "$out" = "repo remi: unchanged" ] && [ "$m1" = "$(stat -c %y "$f")" ]; } && ok "setup idempotent (file untouched)" || bad "setup idempotent"
+# idempotent: unchanged repo file must not trigger another rpm import
+m1=$(stat -c %y "$f"); sleep 1.1; : > "$FAKE_LOG"
+out=$(sa_repo_setup remi "$URL" "$FPR" "$KEY")
+{ [ "$out" = "repo remi: unchanged" ] && [ "$m1" = "$(stat -c %y "$f")" ] \
+  && ! grep -q 'rpm --import' "$FAKE_LOG"; } \
+  && ok "setup idempotent (file untouched, no redundant key import)" \
+  || bad "setup idempotent"
 
 # fingerprint with spaces + lowercase accepted
 reset; sa_repo_setup remi "$URL" "0123 4567 89ab cdef 0123 4567 89ab cdef 0123 4567" "$KEY" >/dev/null 2>&1; rc=$?
