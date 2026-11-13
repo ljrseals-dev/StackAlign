@@ -38,6 +38,12 @@ case $url in
 esac
 EOF
 chmod 0755 "$T/bin/curl"
+cat > "$T/bin/gpg" <<'EOF'
+#!/usr/bin/env bash
+key_file="${@: -1}"
+cat -- "$key_file"
+EOF
+chmod 0755 "$T/bin/gpg"
 PATH="$T/bin:$PATH"
 export PATH
 # shellcheck disable=SC1091
@@ -118,5 +124,25 @@ else
   [ -L "$T/out/link" ] && ok "symlink output path rejected without following it" || bad "symlink output path altered"
 fi
 
-echo "passed=$pass failed=$fail"
+
+# T33: reject a key bundle containing two primary pub records.
+if sa_fetch_gpg_key https://example.invalid/key-multi \
+    0123456789ABCDEF0123456789ABCDEF01234567 "$T/out/multi.asc" 2>"$T/multi.err"; then
+  bad "T33 multi-primary key bundle accepted"
+else
+  if grep -q 'error=gpg_key_multi_pub:2' "$T/multi.err" && [ ! -e "$T/out/multi.asc" ]; then
+    ok "T33 exactly one primary pub record required"
+  else
+    bad "T33 multi-primary rejection or cleanup"
+  fi
+fi
+
+# T34: accept the primary fingerprint, not the later subkey fingerprint.
+if sa_fetch_gpg_key https://example.invalid/key-subkey \
+    0123456789ABCDEF0123456789ABCDEF01234567 "$T/out/primary-key.asc"; then
+  ok "T34 primary fingerprint accepted with a distinct subkey fingerprint"
+else
+  bad "T34 primary fingerprint was not selected"
+fi
+\necho "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]
