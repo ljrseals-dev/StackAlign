@@ -9,8 +9,8 @@
 
 : "${SA_CERT_ROOT:=/etc/stackalign/certs}"
 
-_sa_tls_domain_ok() { [[ $1 =~ ^(\\*\\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\\.)+[A-Za-z]{2,}$ ]]; }
-_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\\*./_wildcard_.}"; }
+_sa_tls_domain_ok() { [[ $1 =~ ^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; }
+_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
 _sa_tls_ca_url() {
     case $1 in
         letsencrypt) echo "https://acme-v02.api.letsencrypt.org/directory" ;;
@@ -25,7 +25,7 @@ sa_tls_preflight() {
     for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer; do
         if systemctl is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
     done
-    if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -q 'acme\\.sh'; then
+    if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -q 'acme\.sh'; then
         echo "scheduler: acme.sh cron entry present"; found=1
     fi
     [ "$found" -eq 0 ] || return 2
@@ -50,7 +50,7 @@ sa_tls_issue() {
     _sa_tls_domain_ok "$domain" || { echo "tls: bad domain: $domain" >&2; return 64; }
     case $client in lego|certbot) ;; *) echo "tls: bad client: $client" >&2; return 64 ;; esac
     url="$(_sa_tls_ca_url "$ca")" || { echo "tls: bad ca: $ca" >&2; return 64; }
-    [[ $email =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$ ]] || { echo "tls: bad email" >&2; return 64; }
+    [[ $email =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || { echo "tls: bad email" >&2; return 64; }
     [[ $svc =~ ^[A-Za-z0-9_.@-]+$ ]] || { echo "tls: bad service" >&2; return 64; }
     case $chal in
         http-01) [[ $extra == /* && -d $extra ]] || { echo "tls: webroot must be an existing absolute dir" >&2; return 64; } ;;
@@ -75,7 +75,7 @@ sa_tls_issue() {
         [ "$ca" = zerossl ] && args+=(--eab --kid "$SA_TLS_EAB_KID" --hmac "$SA_TLS_EAB_HMAC")
         if [ "$chal" = http-01 ]; then args+=(--http --http.webroot "$extra"); else args+=(--dns "$extra"); fi
         if ! lego "${args[@]}" >&2; then rm -rf -- "$work"; return 1; fi
-        base="${domain/#\\*/_}"
+        base="${domain/#\*/_}"
         crt="$work/certificates/$base.crt"; key="$work/certificates/$base.key"
     else
         local -a cargs=(certonly --non-interactive --agree-tos -m "$email" --cert-name "$domain" -d "$domain"
