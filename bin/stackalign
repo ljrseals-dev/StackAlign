@@ -39,6 +39,7 @@ restore|M4|restore driver: --from <id>
 bench|M6|reproducible benchmark
 secret|M2a|password and token generation: gen|list
 repo|M2a|read-only package repository inventory
+optimize|M3|read-only performance plan; apply is gated
 xcart|M3|guarded X-Cart profile: plan|preflight|build|deploy
 routine|M3|routine subsystem: plan|install|doctor|run|run-builtin
 contain|M4|evidence preservation before rebuild
@@ -123,6 +124,20 @@ cmd_repo() {
   sa_repo_inventory
 }
 
+cmd_optimize() {
+  _sa_parse "--plan --apply" "$@"
+  [ ${#POS[@]} -le 1 ] || _sa_die "usage: stackalign optimize [super] [--plan|--apply]"
+  local mode=standard
+  [ ${#POS[@]} -eq 0 ] || mode=${POS[0]}
+  case "$mode" in standard|super) ;; *) _sa_die "optimize mode must be standard or super" ;; esac
+  if [ "$APPLY" = 1 ]; then
+    echo "stackalign: optimize --apply is not implemented; no changes made" >&2
+    return 2
+  fi
+  source "$SA_ROOT/lib/optimize.sh"
+  sa_optimize_plan "$mode"
+}
+
 cmd_rollback() {
   _sa_parse "--plan --apply --list --to" "$@"
   [ ${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: ${POS[0]}"
@@ -185,6 +200,7 @@ _sa_dispatch() {  # <cmd> args...
     rollback) cmd_rollback "$@" ;;
     secret)   cmd_secret "$@" ;;
     repo)     cmd_repo "$@" ;;
+    optimize) cmd_optimize "$@" ;;
     *)        _sa_stub "$c" "$@" ;;
   esac
 }
