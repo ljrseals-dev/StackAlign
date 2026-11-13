@@ -112,7 +112,7 @@ with tarfile.open(out, "w:gz") as t:
     t.addfile(link)
 PY
   sha=$(sha256sum "$T/fix/$PKG" | awk '{print $1}'); mkscript "$sha"; runi
-  { [ $RC -eq 5 ] && [[ $OUT == *"symbolic or hard links"* ]] && [ ! -e "$FAKE_OUT" ]; } \\
+  { [ $RC -eq 5 ] && [[ $OUT == *"symbolic or hard links"* ]] && [ ! -e "$FAKE_OUT" ]; } \
     && ok "archive $linktype refused before extraction (rc 5)" || bad "archive $linktype refused (rc=$RC: $OUT)"
 done
 
