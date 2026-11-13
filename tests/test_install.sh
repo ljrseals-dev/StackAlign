@@ -91,6 +91,31 @@ PY
   { [ $RC -eq 5 ] && [[ $OUT == *"absolute or '..' paths"* ]] && [ ! -e "$T/evil" ]; } && ok "archive member '$member' refused (rc 5)" || bad "archive member '$member' (rc=$RC)"
 done
 
+# 9b. Reject symbolic and hard links even when the archive hash is pinned.
+for linktype in symlink hardlink; do
+  python3 -I - "$T/fix/$PKG" "$VER" "$linktype" <<'PY'
+import io, sys, tarfile
+out, ver, kind = sys.argv[1:4]
+with tarfile.open(out, "w:gz") as t:
+    root = f"stackalign-{ver}"
+    payload = b"#!/bin/sh\\ntrue\\n"
+    regular = tarfile.TarInfo(f"{root}/bin/payload")
+    regular.size = len(payload)
+    t.addfile(regular, io.BytesIO(payload))
+    link = tarfile.TarInfo(f"{root}/bin/stackalign")
+    if kind == "symlink":
+        link.type = tarfile.SYMTYPE
+        link.linkname = "/etc/passwd"
+    else:
+        link.type = tarfile.LNKTYPE
+        link.linkname = f"{root}/bin/payload"
+    t.addfile(link)
+PY
+  sha=$(sha256sum "$T/fix/$PKG" | awk '{print $1}'); mkscript "$sha"; runi
+  { [ $RC -eq 5 ] && [[ $OUT == *"symbolic or hard links"* ]] && [ ! -e "$FAKE_OUT" ]; } \\
+    && ok "archive $linktype refused before extraction (rc 5)" || bad "archive $linktype refused (rc=$RC: $OUT)"
+done
+
 # 10. exit code of bin/stackalign is propagated
 sha=$(mkfix 'exit 7'); mkscript "$sha"; runi
 [ $RC -eq 7 ] && ok "bin/stackalign exit code propagated (7)" || bad "exit code propagated (rc=$RC)"
