@@ -58,8 +58,8 @@ test_render_plan_no_process_subst() {
   local dir tpl out rc=0
   dir=$(mktemp -d) || return 1
   tpl="$dir/t.tmpl"; out="$dir/out.conf"
-  printf 'x={{A}}\\n' > "$tpl"
-  printf 'x=alpha\\n' > "$out"
+  printf 'x={{A}}\n' > "$tpl"
+  printf 'x=alpha\n' > "$out"
   cat > "$dir/diff" <<'SHIM'
 #!/usr/bin/env bash
 for arg in "$@"; do
