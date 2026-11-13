@@ -35,7 +35,7 @@ version = "1.2.3" # inline comment
 enabled = true
 workers = 12
 negative = -7
-escaped = "say \"hello\" and \\path"
+escaped = "say \\"hello\\" and \\\\path"
 
 [[component]]
 name = "nginx"
@@ -61,7 +61,7 @@ assert_eq "${TOML_DATA[meta.version]}" "1.2.3" "simple table"
 assert_eq "${TOML_DATA[meta.enabled]}" "true" "boolean"
 assert_eq "${TOML_DATA[meta.workers]}" "12" "integer"
 assert_eq "${TOML_DATA[meta.negative]}" "-7" "negative integer"
-assert_eq "${TOML_DATA[meta.escaped]}" 'say "hello" and \path' "escaped quote/backslash"
+assert_eq "${TOML_DATA[meta.escaped]}" 'say "hello" and \\path' "escaped quote/backslash"
 assert_eq "${TOML_DATA[component.0.name]}" "nginx" "first component"
 assert_eq "${TOML_DATA[component.0.url]}" "https://example.invalid/a?x=1" "quoted URL"
 assert_eq "${TOML_DATA[component.1.name]}" "php" "second component"
@@ -73,7 +73,7 @@ assert_eq "${TOML_DATA[mirror.1.enabled]}" "false" "false literal"
 expect_failure() {
     local label="$1" fixture="$2"
     printf '%s\n' "$fixture" > "$work/invalid.toml"
-    TOML_DATA[stale]="must be cleared"
+    TOML_DATA["stale"]="must be cleared"
     if sa_toml_parse "$work/invalid.toml" 2>"$work/error.log"; then
         fail "$label unexpectedly parsed"
     fi
