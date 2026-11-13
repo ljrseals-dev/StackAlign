@@ -125,4 +125,34 @@ reset; sa_repo_install remi nginx 1.2.3 "$URL" "$FPR" "$KEY" >/dev/null; rc=$?
 reset; sa_repo_install remi nginx 1.2.3 2>/dev/null; rc=$?
 { [ $rc -ne 0 ] && ! grep -q '^dnf' "$FAKE_LOG"; } && ok "install without repo setup refuses" || bad "install without repo setup refuses"
 
+# Read-only inventory reports per-repo trust settings without leaking URLs or credentials.
+reset
+mkdir -p "$SA_YUM_REPOS_DIR"
+cat > "$SA_YUM_REPOS_DIR/inventory.repo" <<'EOF'
+[trusted-third-party]
+name=Trusted test repository
+baseurl=https://user:secret@example.invalid/path?token=hidden
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+sslverify=1
+gpgkey=https://example.invalid/RPM-GPG-KEY
+
+[disabled-mirror]
+name=Disabled mirror
+mirrorlist=https://user:secret@example.invalid/mirrorlist
+enabled=0
+gpgcheck=0
+EOF
+inventory=$(sa_repo_inventory); rc=$?
+{
+  [ "$rc" -eq 0 ] &&
+  [[ "$inventory" == *
+trusted-third-party\t1\t1\t0\t1\tyes\tno\tno\tyes'* ]] &&
+  [[ "$inventory" == *
+disabled-mirror\t0\t0\tunset\tunset\tno\tyes\tno\tno'* ]] &&
+  [[ "$inventory" != *"secret"* ]] &&
+  [[ "$inventory" != *"token=hidden"* ]]
+} && ok "inventory reports repo policy flags and redacts credential-bearing values" || bad "repository inventory output/redaction"
+
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
