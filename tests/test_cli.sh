@@ -21,7 +21,7 @@ run() { OUT=$("$CLI" "$@" 2>&1); RC=$?; }
 
 run version;            { [ $RC -eq 0 ] && [[ $OUT == "stackalign "* ]]; } && ok "version" || bad "version"
 run --plan --version;   { [ $RC -eq 0 ] && [[ $OUT == "stackalign "* ]]; } && ok "--version ignores --plan" || bad "--version ignores --plan"
-run help;               { [ $RC -eq 0 ] && [[ $OUT == *"commands:"* ]] && [[ $OUT == *rollback* ]]; } && ok "help lists commands" || bad "help lists commands"
+run help;               { [ $RC -eq 0 ] && [[ $OUT == *"commands:"* ]] && [[ $OUT == *rollback* ]] && [[ $OUT == *repo* ]]; } && ok "help lists commands" || bad "help lists commands"
 run help doctor;        { [ $RC -eq 0 ] && [[ $OUT == *"read-only"* ]]; } && ok "help <cmd>" || bad "help <cmd>"
 run help bogus;         [ $RC -eq 64 ] && ok "help unknown cmd -> 64" || bad "help unknown cmd -> 64"
 run bogus;              [ $RC -eq 64 ] && ok "unknown command -> 64" || bad "unknown command -> 64"
@@ -40,6 +40,25 @@ run install --plan;     { [ $RC -eq 2 ] && [[ $OUT == *"not implemented"*M2a* ]]
 run plan tune;          { [ $RC -eq 2 ] && [[ $OUT == *"not implemented"* ]]; } && ok "plan <cmd> alias reaches command" || bad "plan <cmd> alias reaches command"
 run plan;               [ $RC -eq 64 ] && ok "plan without command -> 64" || bad "plan without command -> 64"
 run --yes --config "$T/x.conf" site list; [ $RC -eq 2 ] && ok "global flags before command accepted" || bad "global flags before command accepted"
+
+# repo inventory is read-only and available from the CLI.
+export SA_YUM_REPOS_DIR="$T/repos"
+mkdir -p "$SA_YUM_REPOS_DIR"
+cat > "$SA_YUM_REPOS_DIR/cli.repo" <<'EOF'
+[cli-test]
+baseurl=https://operator:do-not-print@example.invalid/repo
+enabled=1
+gpgcheck=1
+gpgkey=https://example.invalid/key
+EOF
+run repo inventory
+{
+  [ "$RC" -eq 0 ] &&
+  printf '%s\n' "$OUT" | awk -F '\t' '$1=="cli-test" && $2=="1" && $3=="1" && $4=="unset" && $5=="unset" && $6=="yes" && $9=="yes"' &&
+  [[ "$OUT" != *"do-not-print"* ]]
+} && ok "repo inventory CLI reports trust flags without credential leakage" || bad "repo inventory CLI/redaction"
+run repo install
+[ "$RC" -eq 64 ] && ok "repo inventory rejects unsupported mutating subcommands" || bad "repo inventory rejects unsupported subcommands"
 
 # doctor
 run --config "$T/none.conf" doctor

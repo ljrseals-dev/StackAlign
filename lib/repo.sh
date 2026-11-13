@@ -82,6 +82,70 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   rm -rf "$tmpd"
 }
 
+# sa_repo_inventory
+# Read-only view of configured .repo stanzas. Potentially credential-bearing
+# URL/key values are never printed; only presence flags are emitted. Boolean
+# values are per-repository settings, not DNF's effective merged configuration.
+sa_repo_inventory() {
+  [ $# -eq 0 ] || { echo "usage: sa_repo_inventory" >&2; return 64; }
+  local dir=${SA_YUM_REPOS_DIR:-/etc/yum.repos.d}
+  local -a files
+  files=("$dir"/*.repo)
+  printf 'repo_id\tenabled\tgpgcheck\trepo_gpgcheck\tsslverify\tbaseurl\tmirrorlist\tmetalink\tgpgkey\n'
+  [ -d "$dir" ] || return 0
+  [ -f "${files[0]}" ] || return 0
+  awk '
+    function norm(v) {
+      v = tolower(v)
+      if (v ~ /^(1|yes|true)$/) return "1"
+      if (v ~ /^(0|no|false)$/) return "0"
+      if (v == "") return "unset"
+      return "invalid"
+    }
+    function emit() {
+      if (section ~ /^[A-Za-z0-9_.:-]+$/) {
+        printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", section,
+          norm(enabled), norm(gpgcheck), norm(repo_gpgcheck), norm(sslverify),
+          baseurl, mirrorlist, metalink, gpgkey
+      }
+    }
+    FNR == 1 {
+      if (NR > 1) emit()
+      section = ""
+      enabled = gpgcheck = repo_gpgcheck = sslverify = ""
+      baseurl = mirrorlist = metalink = gpgkey = "no"
+    }
+    {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line == "" || line ~ /^[#;]/) next
+      if (line ~ /^\[[^][]+\]$/) {
+        emit()
+        section = substr(line, 2, length(line) - 2)
+        enabled = gpgcheck = repo_gpgcheck = sslverify = ""
+        baseurl = mirrorlist = metalink = gpgkey = "no"
+        next
+      }
+      if (section == "" || line !~ /^[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=/) next
+      key = line
+      sub(/[[:space:]]*=.*/, "", key)
+      value = line
+      sub(/^[^=]*=[[:space:]]*/, "", value)
+      key = tolower(key)
+      if (key == "enabled") enabled = value
+      else if (key == "gpgcheck") gpgcheck = value
+      else if (key == "repo_gpgcheck") repo_gpgcheck = value
+      else if (key == "sslverify") sslverify = value
+      else if (key == "baseurl" && value != "") baseurl = "yes"
+      else if (key == "mirrorlist" && value != "") mirrorlist = "yes"
+      else if (key == "metalink" && value != "") metalink = "yes"
+      else if (key == "gpgkey" && value != "") gpgkey = "yes"
+    }
+    END { emit() }
+  ' "${files[@]}"
+}
+
 sa_repo_versionlock() {  # <name> <package> <version>
   [ $# -eq 3 ] || { echo "usage: sa_repo_versionlock <name> <package> <version>" >&2; return 64; }
   _sa_repo_valid name "$1"    || { _sa_repo_bad name "$1"; return 64; }
