@@ -8,7 +8,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export SA_YUM_REPOS_DIR="$T/yum.repos.d" FAKE_LOG="$T/calls.log" FAKE_STATE="$T/state"
 mkdir -p "$T/bin" "$FAKE_STATE"
 FPR=0123456789ABCDEF0123456789ABCDEF01234567
-export FAKE_FPR=$FPR
+export FAKE_FPR=$FPR FAKE_MULTI=0
 
 cat > "$T/bin/curl" <<'EOF'
 #!/usr/bin/env bash
