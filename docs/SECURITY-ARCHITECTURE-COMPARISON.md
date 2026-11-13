@@ -220,3 +220,31 @@ Future implementation work should be split into small reviewed changes, beginnin
 - Rocky Linux package signing and DNF verification: https://rockylinux.org/resources/gpg-key-info/
 - Rocky Linux package signing and testing documentation: https://docs.rockylinux.org/guides/package_management/package_signing/
 - AlmaLinux build and package-signing pipeline: https://wiki.almalinux.org/development/AlmaLinux-Build-System.html
+
+
+## 13. FTP server and third-party transfer policy
+
+**Policy status: specified; software enforcement unverified.** This section records the intended server behavior. It does not claim that StackAlign currently installs, configures, or secures an FTP service.
+
+The server must retain its intended FTP server capability for ordinary client-to-server file transfers. A connected client may transfer files to or from the StackAlign server, subject to the FTP service's authentication, account, directory, permission, and logging controls.
+
+**Reject FTP-to-FTP third-party transfers.** A client must not use the StackAlign FTP service as one endpoint in a server-to-server transfer to another FTP server (often called third-party FTP or FXP). This restriction must not be implemented by disabling the FTP service or indiscriminately blocking ordinary FTP client-to-server traffic.
+
+**Enforcement boundary:** this is a software-level policy requirement derived from the firewall/security policy. It is not a verified firewall rule, and no firewall-only enforcement is claimed. The FTP daemon or a controlled software layer must explicitly refuse third-party transfer behavior while preserving ordinary client/server transfers. The exact daemon setting or enforcement mechanism remains unspecified until selected and verified against the actual server implementation.
+
+Do not infer from this policy that FTPS or SFTP is enabled or disabled. They are separate protocols and require their own explicit service, authentication, and firewall decisions.
+
+### Acceptance and verification requirements
+
+Before describing this restriction as implemented or enforced, record evidence that:
+
+1. A normal authenticated client can upload and download files to the StackAlign server.
+2. A third-party FTP/FXP attempt that asks the StackAlign server to transfer directly to or from another FTP server is refused.
+3. The refusal does not disable ordinary FTP service or block unrelated permitted client/server transfers.
+4. The effective daemon configuration and relevant software logs show the refusal behavior.
+5. The test records identify the daemon/version, configuration, commands, timestamps, and observed results.
+
+Until those checks are run against the selected implementation, report the state as **SPECIFIED / UNVERIFIED**. Do not report PASS, firewall enforcement, or production protection based solely on this documentation.
+
+<!-- Review comment: 2026-11-13T13:05:19-06:00; appended policy clarification only. Existing sections and wording above this point were retained. -->
+<!-- Verification comment: README.md on main states that firewall management is not built and StackAlign is not production-ready. A GitHub code search scoped to ljrseals-dev/StackAlign for FTP/FTPS/SFTP/firewall terms returned no indexed matches at this review time. This confirms the documented status is unverified; it does not prove the absence of every possible implementation or establish runtime behavior. -->
