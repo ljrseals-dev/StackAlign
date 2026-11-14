@@ -7,6 +7,7 @@
 
 : "${SA_EGRESS_TABLE:=stackalign_egress}"
 : "${SA_EGRESS_REVERT_UNIT:=stackalign-egress-revert}"
+_sa_eg_unit_ok() { [[ $SA_EGRESS_REVERT_UNIT =~ ^[A-Za-z0-9_.@-]+$ ]]; }
 
 _sa_eg_audit() {
     log "egress: $*"
@@ -18,8 +19,8 @@ _sa_eg_ip4() {
     local a=$1 p="" o
     if [[ $a == */* ]]; then p=${a#*/}; a=${a%/*}; [[ $p =~ ^[0-9]{1,2}$ ]] && [ "$p" -le 32 ] || return 1; fi
     [[ $a =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || return 1
-    local IFS=.
-    for o in $a; do [[ $o =~ ^(0|[1-9][0-9]{0,2})$ ]] && [ "$o" -le 255 ] || return 1; done
+    local -a octets=(); IFS=. read -r -a octets <<< "$a"
+    for o in "${octets[@]}"; do [[ $o =~ ^(0|[1-9][0-9]{0,2})$ ]] && [ "$o" -le 255 ] || return 1; done
 }
 _sa_eg_ip6() {
     local a=$1 p=""
@@ -55,7 +56,7 @@ _sa_eg_emit_any() {
 sa_egress_render() {
     local file=${1:-} dns=${2:-} lan=${3:-none} d line a b c extra ips addr
     local -a dnslist=() lanlist=()
-    _sa_eg_table_ok || { echo "egress: unsafe table identifier" >&2; return 64; }
+    _sa_eg_table_ok && _sa_eg_unit_ok || { echo "egress: unsafe table or revert-unit identifier" >&2; return 64; }
     [ -f "$file" ] || { echo "egress: allowlist not found: $file" >&2; return 64; }
     [ -n "$dns" ] || { echo "egress: name at least one DNS server" >&2; return 64; }
     IFS=, read -r -a dnslist <<<"$dns"
