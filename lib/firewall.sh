@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
-# lib/firewall.sh -- nftables/firewalld selection, intrusion tooling, FTP refusal.
-# All arguments are DATA: allowlist-validated, never eval'd. No FTP daemon, ever.
+# lib/firewall.sh -- nftables/firewalld selection and intrusion tooling.
+# FTP package guard applies only to StackAlign-managed installation; it does not
+# disable an independently managed server or block ordinary client/server FTP.
+# FTP FXP refusal is daemon-specific and is not implemented by this firewall module.
 # ASSUMPTIONS: crowdsec bouncer package name; nftables.service+firewalld both
 # active is treated as "mixed" and refused.
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 _sa_fw_ftp() { local p=${1,,}; case $p in *vsftpd*|*pure-ftpd*|*proftpd*) return 0 ;; esac; return 1; }
 
+# Reject attempts by StackAlign to install/manage an FTP daemon package.
+# This is not a network/protocol block and must not disable external FTP.
 sa_fw_refuse_ftp() {
     if _sa_fw_ftp "${1:-}"; then echo "error=ftp_daemon_refused" >&2; return 3; fi
     return 0
