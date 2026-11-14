@@ -31,7 +31,7 @@ The following capabilities are present in `main`. Their stated validation bounda
 
 - StackAlign does **not** install Nginx, PHP-FPM, or MariaDB as a complete web stack. `install.sh` refuses to run until a release hash is pinned.
 - The release verifier is not wired into `install.sh` or an update workflow. Its downgrade helper is not yet bound to a signed release manifest. No self-update mechanism is included.
-- TLS runtime orchestration, certificate issuance/renewal, backups, firewall management, tenant management, and production FTP/SFTP service management are not established as complete StackAlign workflows.
+- TLS runtime orchestration, certificate issuance/renewal, backups, tenant management, and production FTP/SFTP service management are not established as complete StackAlign workflows. The egress firewall is an opt-in module only: it is not persistent, not enabled by install/update/boot, and not validated on a real kernel or disposable VM.
 - The manual update path has not been validated against a real DNF repository, package transaction, running service, or real-host rollback.
 - The Nginx crawler-map change still needs `nginx -t` against a rendered configuration.
 - No real-host signing-key lifecycle, package-update, SSH chroot, or production runtime validation is claimed.
