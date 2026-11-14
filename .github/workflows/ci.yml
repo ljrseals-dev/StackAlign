@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck gnupg
       - run: make lint
       - run: make test
 
@@ -30,7 +30,7 @@ jobs:
     container: almalinux:9
     steps:
       - name: Install test dependencies
-        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git
+        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2
       - uses: actions/checkout@v6
       - run: make lint
       - run: make test
