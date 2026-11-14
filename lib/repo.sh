@@ -66,8 +66,8 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   mkdir -p -- "$SA_YUM_REPOS_DIR"
   # Avoid process-substitution in cmp: under some environments /dev/fd compares
   # fail even when bytes are identical, which breaks setup idempotency.
-  local cmpfile
-  cmpfile=$(mktemp "$SA_YUM_REPOS_DIR/.sa-repo-cmp.XXXXXX") || { rm -rf "$tmpd"; return 1; }
+  local cmpfile wrote=0
+  cmpfile=$(mktemp "$SA_YUM_REPOS_DIR/.sa-repo-cmp.XXXXXX") || { rm -rf -- "$tmpd"; return 1; }
   printf '%s' "$content" > "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
   if [ -f "$file" ] && cmp -s -- "$file" "$cmpfile"; then
     rm -f -- "$cmpfile"
@@ -76,10 +76,19 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
     chmod 0644 -- "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
     mv -f -- "$cmpfile" "$file" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
     echo "repo $name: written"
+    wrote=1
   fi
 
-  rpm --import "$key" || { rm -rf "$tmpd"; echo "repo: rpm --import failed" >&2; return 1; }
-  rm -rf "$tmpd"
+  # A new or changed repo definition needs its validated signing key imported.
+  # An unchanged definition does not repeat the rpmdb operation.
+  if [ "$wrote" -eq 1 ]; then
+    rpm --import "$key" || {
+      rm -rf -- "$tmpd"
+      echo "repo: rpm --import failed" >&2
+      return 1
+    }
+  fi
+  rm -rf -- "$tmpd"
 }
 
 # sa_repo_inventory

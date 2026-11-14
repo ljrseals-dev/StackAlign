@@ -33,14 +33,24 @@ _sa_render_to_var() {  # <template> <map-var-name> <out-var-name>
 
 # Read-only diff. Writes nothing.
 sa_render_plan() {  # <template> <output> <map-var-name>
-  local rendered
+  local rendered _sa_cmp rc
   _sa_render_to_var "$1" "$3" rendered || return $?
+  # Avoid process substitution: /dev/fd may be unavailable or unreliable.
+  _sa_cmp=$(mktemp "${TMPDIR:-/tmp}/sa-render-plan.XXXXXX") || return 1
+  printf '%s' "$rendered" > "$_sa_cmp" || { rm -f -- "$_sa_cmp"; return 1; }
+
   if [ -e "$2" ]; then
-    diff -u -- "$2" <(printf '%s' "$rendered") || true
+    if diff -u -- "$2" "$_sa_cmp"; then rc=0; else rc=$?; fi
   else
-    diff -u /dev/null <(printf '%s' "$rendered") || true
+    if diff -u /dev/null "$_sa_cmp"; then rc=0; else rc=$?; fi
   fi
-  return 0
+
+  rm -f -- "$_sa_cmp"
+  # diff returns 1 for different files; only 0 and 1 are valid plan results.
+  case "$rc" in
+    0|1) return 0 ;;
+    *)   return "$rc" ;;
+  esac
 }
 
 # Atomic write; byte-identical output is a no-op.
@@ -48,7 +58,7 @@ sa_render_apply() {  # <template> <output> <map-var-name>
   local tpl=$1 output=$2 mapname=$3 rendered tmp
   _sa_render_to_var "$tpl" "$mapname" rendered || return $?
   local _sa_cmp
-  _sa_cmp=$(mktemp) || return 1
+  _sa_cmp=$(mktemp "${TMPDIR:-/tmp}/sa-render-cmp.XXXXXX") || return 1
   printf '%s' "$rendered" > "$_sa_cmp" || { rm -f -- "$_sa_cmp"; return 1; }
   if [ -f "$output" ] && cmp -s -- "$output" "$_sa_cmp"; then
     rm -f -- "$_sa_cmp"

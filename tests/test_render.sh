@@ -38,6 +38,42 @@ sa_render_plan "$T/p.tpl" "$T/p.out" M >/dev/null
 after=$(ls -A "$T" | sort | tr '\n' ' ')
 { [ "$before" = "$after" ] && [ ! -e "$T/p.out" ]; } && ok "plan writes nothing" || bad "plan writes nothing"
 
+# plan must not pass process-substitution descriptors to diff
+mkdir -p "$T/diff-bin"
+cat > "$T/diff-bin/diff" <<'FAKE'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  case "$arg" in
+    /dev/fd/*)
+      echo "diff: process substitution not permitted" >&2
+      exit 2
+      ;;
+  esac
+done
+exec /usr/bin/diff "$@"
+FAKE
+chmod +x "$T/diff-bin/diff"
+printf 'portable={{A}}\n' > "$T/portable.tpl"
+PATH="$T/diff-bin:$PATH" sa_render_plan "$T/portable.tpl" "$T/portable.out" M \
+  > "$T/portable.diff" 2> "$T/portable.err"
+rc=$?
+{ [ "$rc" -eq 0 ] && grep -F '+portable=alpha' "$T/portable.diff" >/dev/null \
+  && [ ! -s "$T/portable.err" ]; } \
+  && ok "plan avoids /dev/fd and produces diff" \
+  || bad "plan avoids /dev/fd and produces diff"
+
+# A real diff failure must not be mistaken for a successful plan.
+mkdir -p "$T/bad-diff-bin"
+cat > "$T/bad-diff-bin/diff" <<'FAKE'
+#!/usr/bin/env bash
+exit 2
+FAKE
+chmod +x "$T/bad-diff-bin/diff"
+PATH="$T/bad-diff-bin:$PATH" sa_render_plan "$T/portable.tpl" "$T/portable.out" M \
+  >/dev/null 2>&1
+rc=$?
+[ "$rc" -eq 2 ] && ok "plan propagates diff errors" || bad "plan propagates diff errors"
+
 # mode preserved via chmod --reference
 printf 'old\n' > "$T/m.out"; chmod 0640 "$T/m.out"
 sa_render_apply "$T/p.tpl" "$T/m.out" M >/dev/null
