@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose a focused improvement to StackAlign
+title: "[FEATURE] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        StackAlign is a pre-production beta. Feature requests should preserve explicit implementation and verification boundaries.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What limitation or user problem motivates this request?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable behavior, not just an implementation preference.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and compatibility
+      description: Include platform, safety, security, and backward-compatibility requirements.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How can maintainers test and verify the result?
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope confirmation
+      options:
+        - label: I understand that a feature request is not a claim that the feature exists or is production-ready.
+          required: true

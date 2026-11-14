@@ -1,107 +1,121 @@
 # StackAlign
 
-An early-stage Bash-based foundation for a pre-tuned LEMP (Nginx, MariaDB, PHP-FPM) installer and manager, targeting EL-family x86_64 servers.
+**Controlled pre-production beta — not for production use**
 
-**StackAlign does not install a web stack yet. It is not production-ready.**
+StackAlign is a Bash-based foundation for a planned, auditable LEMP deployment and management system targeting Enterprise Linux x86_64 servers.
 
-## Project status — 14 November 2026
+**This repository does not yet provide a complete Nginx, PHP-FPM, and MariaDB installer.** The bootstrap installer intentionally refuses to proceed until a release hash is pinned. Do not deploy StackAlign to production systems, business-critical workloads, or hosts containing valuable data.
 
-StackAlign is an experimental foundation intended for review and disposable-environment testing. The project follows one rule: **measure, do not claim**.
+The project follows one rule: **measure, do not claim.** Implementation, automated tests, CI results, disposable-host validation, and production readiness are separate things.
 
-### Implemented and integrated
+## Join the beta
 
-The following capabilities are present in `main`. Their stated validation boundaries still apply.
+We welcome testers who can use disposable environments, report reproducible defects, and submit focused pull requests.
 
-- **Core CLI and foundation:** `version`, `help`, `plan`, `doctor`, `rollback`, and `secret gen/list`; configuration, rendering, history, service, and repository helpers.
-- **Repository manifest pins:** `vendor/versions.toml` is parsed for component pins. Invalid, duplicate, malformed, or missing requested pins fail closed. The manifest's `tested_matrix` values are empty; they do not establish a supported host matrix.
-- **RPM cache verification:** package cache entries are checked against exact NEVRA and RPM signature verification before reuse. Tests use fake package tools; real repository/signing-key and host package flows remain unverified.
-- **Manual package updates:** `stackalign update apply` uses a transactional update path with configuration snapshot/service-health handling and RPM downgrade recovery. `watchtower` is advisory. CI exercises mocked failure and rollback paths; no live DNF transaction, service restart, or real-host rollback has been validated.
-- **Render-plan portability:** plan/apply comparisons use named temporary files rather than process substitution; diff errors are distinguished from ordinary differences.
-- **History undo safety:** generated undo scripts use PID-scoped stage and backup names.
-- **Nginx AI-crawler matching:** additional crawler user-agent patterns are included in the existing map. `make lint` and `make test` passed on the PR head; `nginx -t` against a fully rendered configuration has **not** been run.
-- **Release-artifact verification foundation:** `lib/verify.sh` verifies a detached GPG signature over `SHA256SUMS`, an independently provisioned keyring and pinned primary-key fingerprint, signed metadata expiry, and artifact SHA-256. See [Release Artifact Trust](docs/RELEASE-TRUST.md).
+1. Read the [Early Tester Call](docs/EARLY-TESTER-CALL.md).
+2. Follow the [Beta Testing Guide](docs/BETA-TESTING.md).
+3. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or PR.
+4. Review the [Technical Manual](docs/Technical%20Manual.md) and its verification labels.
 
-### Documentation and policy records
+**Safety rules:** disposable AlmaLinux 9 or Rocky Linux 9 VM/container only; no production hosts, real credentials, valuable data, or public exposure of test services. Snapshot before privileged tests. Redact secrets and personal data from every report.
 
-- [Technical Manual](docs/Technical%20Manual.md) records the FTP server boundary: StackAlign does not install or configure an FTP daemon, but an operator may run an independently installed and managed FTP server. Ordinary authenticated client-to-server uploads/downloads remain permitted; FTP-to-FTP third-party transfers (FXP) are to be refused. **Software enforcement is unverified.** FTPS behavior is not specified by that policy note.
-- [TLS client design](docs/TLS-CLIENTS.md) documents Certbot, acme.sh, and Lego lineage ownership. It is a design document only; it does not install clients, issue certificates, configure schedulers, or implement runtime TLS orchestration.
-- [Clean-room provenance audit](docs/design/clean-room-provenance-audit.md) records **RISK DETECTED — provenance incomplete**, including unresolved imported archive/document rights and missing provenance evidence. This is not a finding that GPL code is present and is not a legal opinion.
+## Current project status
+
+StackAlign is an evolving foundation. The following areas are present in the repository; their verification limits remain part of the status.
+
+### Implemented in the repository
+
+- **CLI foundation:** version, help, plan, doctor, rollback, secret helpers, and command dispatch.
+- **Configuration and operations helpers:** configuration parsing, rendering, history, service and repository helpers.
+- **Repository manifest pins:** component pins are parsed from the manifest; malformed, duplicate, or missing requested pins fail closed. The manifest does not establish a supported host matrix.
+- **RPM cache verification foundation:** cache entries are checked against exact NEVRA and RPM signature verification before reuse. Tests use fake package tools; real repository/key and host package flows remain unverified.
+- **Manual package updates:** update apply has a transactional path with configuration snapshot/service-health handling and RPM downgrade recovery. CI uses mocked failure and rollback paths; live DNF transactions and real-host rollback remain unverified.
+- **Read-only update planning:** integrated by PR #33, which superseded the unmerged draft PR #10. PR #33 adds a distinct T36 suite for exact current/target NEVRA output, cached-only DNF metadata access, no persistent StackAlign state changes, and explicit plan-scope/downtime disclosures. Its fake-tool tests cover the read-only path; live DNF metadata behavior and real-host transaction safety remain unverified. PR #33's replacement head passed Ubuntu and AlmaLinux 9 CI (run [#43557257210](https://github.com/ljrseals-dev/StackAlign/actions/runs/43557257210)).
+- **Experimental operational modules:** operational libraries are present, but their existence does not establish complete firewall, ACME, backup, antivirus, or daemon-management workflows.
+- **Chrooted key-only SFTP management:** the unmerged draft PR #28 was superseded by merged PR #37. PR #37 passed Ubuntu and AlmaLinux 9 CI (run [#43558218351](https://github.com/ljrseals-dev/StackAlign/actions/runs/43558218351)); its integration test runs actual OpenSSH in disposable CI, checks `sshd -t` and `sshd -T -C`, performs a key-authenticated transfer inside the chroot, and confirms ordinary SSH shell login still works. This is CI integration evidence, not production-host certification. Applying the feature changes system accounts and SSH configuration.
+- **Release artifact verification foundation:** detached GPG signature, independently provisioned keyring/fingerprint, metadata expiry, and SHA-256 verification helpers exist. The verifier is not yet wired into installer/update workflows.
+- **Memory tuning:** arithmetic implementation and contract tests exist. Physical PHP worker measurements and representative low-memory VM testing remain outstanding.
+
+### Known integration history and remaining gaps
+
+The following earlier draft PRs were **closed unmerged**, not merged. Their work was superseded by later PRs, with the evidence below:
+
+- **#10 — read-only update planning:** closed unmerged; superseded by merged PR [#33](https://github.com/ljrseals-dev/StackAlign/pull/33). Replacement head CI passed on Ubuntu and AlmaLinux 9 in [run #43557257210](https://github.com/ljrseals-dev/StackAlign/actions/runs/43557257210). This does not prove live DNF behavior or real-host transaction safety.
+- **#26 — operational modules / FTP package refusal:** closed unmerged; superseded by merged PR [#38](https://github.com/ljrseals-dev/StackAlign/pull/38). Replacement head CI passed on Ubuntu and AlmaLinux 9 in [run #43557813317](https://github.com/ljrseals-dev/StackAlign/actions/runs/43557813317). FTP package refusal is scoped to StackAlign-managed package installation; it does not disable an independently managed FTP server or block ordinary client/server FTP. It does not implement daemon-level FXP refusal.
+- **#28 — chrooted key-only SFTP:** closed unmerged; superseded by merged PR [#37](https://github.com/ljrseals-dev/StackAlign/pull/37). Replacement head CI passed on Ubuntu and AlmaLinux 9 in [run #43558218351](https://github.com/ljrseals-dev/StackAlign/actions/runs/43558218351), including an actual OpenSSH integration test. The test calls StackAlign's real `sa_sftp_add_user()` to create the temporary chroot and `sa_sftp_render()` to generate the SSH Match policy, then validates it with real `sshd`, transfers a file over key-authenticated SFTP, and confirms ordinary SSH shell login. This verifies the library-generated chroot, but does not exercise the CLI `stackalign sftp add --apply` or `sa_sftp_enable()` end-to-end; production-host validation remains outstanding.
+- **#11 — provenance audit:** merged, but its finding remains **RISK DETECTED — provenance incomplete**. This is not a finding that GPL code is present and is not a legal opinion.
+- **FTP policy reconciliation:** PR #27 documents the policy as specified and unverified; merged PR #32 makes an independently managed FTP daemon informational to `doctor`; merged PR #38 scopes StackAlign's FTP package refusal to StackAlign-managed package installation. Ordinary authenticated client-to-server FTP remains allowed. FTP-to-FTP third-party transfers (FXP) are specified to be refused, but daemon-level enforcement remains unverified. FTPS remains a separate unresolved policy/implementation question. An externally managed FTP daemon is informational to `doctor`, not refused.
 
 ### Not implemented or not validated
 
-- StackAlign does **not** install Nginx, PHP-FPM, or MariaDB as a complete web stack. `install.sh` refuses to run until a release hash is pinned.
-- The release verifier is not wired into `install.sh` or an update workflow. Its downgrade helper is not yet bound to a signed release manifest. No self-update mechanism is included.
-- TLS runtime orchestration, certificate issuance/renewal, backups, firewall management, tenant management, and production FTP/SFTP service management are not established as complete StackAlign workflows.
-- The manual update path has not been validated against a real DNF repository, package transaction, running service, or real-host rollback.
-- The Nginx crawler-map change still needs `nginx -t` against a rendered configuration.
-- No real-host signing-key lifecycle, package-update, SSH chroot, or production runtime validation is claimed.
-- CI success proves only the checks run against the specific commit. It does not prove installation, isolation, recovery, security, performance, or production readiness.
+- Complete installation and lifecycle management of Nginx, PHP-FPM, and MariaDB.
+- A pinned, verified release artifact integrated into the installer and update path.
+- End-to-end live DNF transactions, service changes, and real-host rollback validation.
+- TLS runtime orchestration, certificate issuance/renewal, backups, firewall management, and tenant isolation as complete StackAlign workflows.
+- Physical memory measurements, load testing, and measured performance claims.
+- Production host security, isolation, recovery, and stability validation.
+- Complete release signing-key lifecycle and production release process.
 
-### Outstanding integration work — not included in main
+### FTP policy boundary
 
-Three draft pull requests remain open and are not part of the integrated baseline:
+StackAlign does **not** install or configure an FTP daemon. An operator may independently install and manage one. Ordinary authenticated client-to-server uploads and downloads remain allowed; FTP-to-FTP third-party transfers (FXP) are specified to be refused. PR #27 documents that policy; PR #32 and #38 reconcile the external-daemon and package-installation boundaries. **FXP enforcement by an external daemon remains unverified.** This is not a firewall-enforcement claim. FTPS remains a separate unresolved policy/implementation question. See the [Technical Manual](docs/Technical%20Manual.md).
 
-- [PR #10 — read-only update planning](https://github.com/ljrseals-dev/StackAlign/pull/10): `stackalign update plan` and T36 coverage remain outstanding. The latest recorded CI attempts for its head failed. Do not describe this work as superseded by the separate manual `update apply` path.
-- [PR #26 — operational library modules](https://github.com/ljrseals-dev/StackAlign/pull/26): the latest recorded CI attempts for its head failed. Its firewall/FTP behavior must be reconciled with the policy below before merge: ordinary authenticated client-to-server FTP remains permitted when an independently installed and managed FTP server exists; FTP-to-FTP third-party transfers (FXP) are refused. Do not reject all FTP use.
-- [PR #28 — chrooted key-only SFTP management](https://github.com/ljrseals-dev/StackAlign/pull/28): the latest recorded CI attempts for its head failed. Real OpenSSH configuration validation, chroot isolation, key-only login, and preservation of ordinary login behavior remain unverified.
+### Provenance and licensing
 
-These PRs require corrective changes and passing required CI before merge. PR #28 additionally requires disposable-host OpenSSH/chroot validation. Until then, they are release blockers, not implemented capabilities of `main`.
+The project is MIT-licensed. The [clean-room provenance audit](docs/design/clean-room-provenance-audit.md) records **RISK DETECTED — provenance incomplete**, including unresolved imported archive/document rights and missing provenance evidence. This is not a finding that GPL code is present and is not a legal opinion. Do not treat the MIT license declaration as a substitute for resolving the recorded provenance work.
 
 ## CI and validation
 
-GitHub Actions completed the post-merge `main` run successfully for commit `3e51169484e42083d9ead1364577ca6b24e910a6`: [run 43556286513](https://github.com/ljrseals-dev/StackAlign/actions/runs/43556286513). That run is the CI result for the integrated tree at that commit. It does not cover the three open draft PRs below, nor does it establish real-host behavior.
+GitHub Actions runs lint and test jobs on Ubuntu and an AlmaLinux 9 container for pushes and pull requests. Check the [Actions page](https://github.com/ljrseals-dev/StackAlign/actions) for the result associated with the exact commit you are reviewing.
 
-Use precise evidence labels:
+Run the local checks from a development checkout:
+
+```bash
+make lint
+make test
+```
+
+Use evidence labels precisely:
 
 - **PASS** — the named check ran and passed on the stated commit/environment.
 - **FAIL** — the named check ran and failed.
 - **NOT RUN** — no result exists.
-- **UNVERIFIED** — implementation or behavior has not been established by the required evidence.
-- A design, source file, test, or CI run is not proof of real-host behavior.
+- **UNVERIFIED** — behavior or implementation has not been established by the required evidence.
+- **SPECIFIED** — documented design/policy, not proof of implementation.
 
-## Early testers wanted
+CI success proves only that the named checks passed on that commit. It does not prove installation, security, isolation, recovery, performance, or production readiness.
 
-We welcome people who want to inspect the foundation, run its checks, and report defects.
+## Contributing
 
-**Safety requirements:**
+Use focused feature branches and pull requests. Do not commit directly to main or force-push shared history. Add tests for changed behavior, update relevant documentation, and state exactly what was and was not tested. Maintainers review contributions before merge.
 
-- Use disposable containers or virtual machines only.
-- Prefer throwaway AlmaLinux 9 or Rocky Linux 9 environments for EL-family testing.
-- Never run StackAlign on a machine that matters or with real credentials.
-- Do not use production systems or important data.
-- Redact passwords, tokens, private keys, and other secrets from all reports.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution process and [SECURITY.md](SECURITY.md) for vulnerability reporting. These documents describe project expectations; do not assume GitHub branch protection is configured unless repository settings confirm it.
 
-Start with the [Early Tester Call](docs/EARLY-TESTER-CALL.md). Report the distribution and version, kernel, architecture, VM/container type, exact commands, complete output, failures, and reproducible steps.
+## Beta exit criteria
 
-## Memory tuning and measurement status
+Before StackAlign is represented as production-ready, maintainers must record evidence for:
 
-The M2a arithmetic implementation and contract tests are present. The current pinned test floors are T27 = 391 MiB and T28 = 3389 MiB.
+- A declared supported host matrix and clean installation/upgrade/uninstall lifecycle.
+- Disposable-host integration testing on every declared EL target.
+- Package-source and signing-key trust verification.
+- Failure-injected transaction and rollback validation, including service health.
+- Security review of privileged paths, secrets, SSH/account management, and network exposure.
+- Physical memory measurements and representative load testing.
+- Completed provenance review and accurate third-party notices.
+- Verified release artifacts, checksums, signed tags, and documented signing-key lifecycle.
+- A Technical Manual and README that match the implemented code and captured evidence.
 
-The M2b measurement gate remains open:
+These are outstanding acceptance gates, not claims of completion. Until then, StackAlign remains a controlled pre-production beta.
 
-- `SA_PHP_CHILD_MIB=30` is a provisional assumption, not a measured worker footprint.
-- Fixed service costs are also assumptions pending representative host measurements.
-- The 512 MiB no-swap case has been checked arithmetically, not load-tested on a real 512 MiB VM.
-- `m2b/measure-php-child-rss.sh` is provided to collect PHP-FPM worker PSS under baseline and heavier workloads. Its output must be collected on a real test host; it is not evidence until actually run.
-- Do not change the tuning assumptions or claim M2b completion without reviewing the physical measurements.
+## Project principles
 
-No measured sizing table or performance, security, stability, or recovery-time claim is published.
-
-## Scope and operating principles
-
-- Intended deployment scope: EL-family Linux on x86_64. Ubuntu 24.04 is used as a CI environment, not currently a supported deployment target.
-- Bash for installer and runtime code. Python is used for development-time tests and benchmarks.
-- Package operations use DNF and upstream packages; StackAlign does not build source replacements or forks of Nginx, PHP, or MariaDB.
+- EL-family Linux on x86_64 is the intended deployment scope. Ubuntu 24.04 is a CI environment, not a declared deployment target.
+- Bash for installer/runtime code; Python is used for development-time tests and benchmarks.
+- DNF-first package management; no source-build replacements or forks of Nginx, PHP, or MariaDB.
 - Manual update application is distinct from unattended/self-update behavior; no unattended updater is provided.
 - No secrets in the repository, logs, snapshots, or Git history.
 - No telemetry, network bootstrap, or hidden remote configuration.
-- Keep measured results, CI results, and design assumptions clearly distinguished.
-
-The [Security Architecture Comparison](docs/SECURITY-ARCHITECTURE-COMPARISON.md) records StackAlign's DNF-first package policy, repository trust requirements, software lifecycle rules, rollback expectations, clean-room provenance boundaries, and implementation acceptance gates. It is a policy/design document, not evidence that those controls are already implemented.
-
-## Development
-
-Use focused feature branches and pull requests. Preserve existing history and never force-push. Keep `main` protected from unreviewed changes. A merge or passing CI job is not evidence of successful installation or production operation.
+- Keep measured results, CI results, implementation status, and design assumptions distinct.
 
 ## License
 
