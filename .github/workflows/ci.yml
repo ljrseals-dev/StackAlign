@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 #
-# WRITTEN, NOT RUN. This workflow has never executed on a real runner; M1's exit
-# criterion ("CI green on real runners") is NOT met by this file's existence.
+# Historical CI evidence: run 43351689173 completed successfully for commit
+# ea0f816df44372a658bfb1fc100d7142053e584a (pull_request event; Ubuntu and
+# AlmaLinux 9 jobs). This is not evidence for every revision or a live-host test.
 #
 # VERSION PIN: actions/checkout@v6 is TO_BE_VERIFIED. It comes from a third-party
 # registry (packages.ecosyste.ms: latest_release_number v6.0.2, published
