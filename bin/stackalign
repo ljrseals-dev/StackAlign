@@ -362,31 +362,31 @@ cmd_sftp() {
 
 cmd_egress() {
   _sa_parse "--plan --apply" "$@"
-  local sub=\${POS[0]:-}
+  local sub=${POS[0]:-}
   source "$SA_ROOT/lib/egress.sh"
   case "$sub" in
     plan)
-      [ "\${#POS[@]}" -ge 3 ] && [ "\${#POS[@]}" -le 4 ] || _sa_die "usage: stackalign egress plan <allowlist> <dns-csv> [lan-csv|none]"
-      sa_egress_render "\${POS[1]}" "\${POS[2]}" "\${POS[3]:-none}" || return $?
+      [ "${#POS[@]}" -ge 3 ] && [ "${#POS[@]}" -le 4 ] || _sa_die "usage: stackalign egress plan <allowlist> <dns-csv> [lan-csv|none]"
+      sa_egress_render "${POS[1]}" "${POS[2]}" "${POS[3]:-none}" || return $?
       echo "# plan only: no firewall changes made"
       ;;
     apply)
-      [ "\${#POS[@]}" -ge 3 ] && [ "\${#POS[@]}" -le 5 ] || _sa_die "usage: stackalign egress apply <allowlist> <dns-csv> [lan-csv|none] [revert-seconds] [--apply]"
+      [ "${#POS[@]}" -ge 3 ] && [ "${#POS[@]}" -le 5 ] || _sa_die "usage: stackalign egress apply <allowlist> <dns-csv> [lan-csv|none] [revert-seconds] [--apply]"
       if [ "$APPLY" != 1 ]; then
-        sa_egress_render "\${POS[1]}" "\${POS[2]}" "\${POS[3]:-none}" || return $?
+        sa_egress_render "${POS[1]}" "${POS[2]}" "${POS[3]:-none}" || return $?
         echo "# plan only; rerun with --apply to load (prefer a local console and revert timer)"
         return 0
       fi
-      sa_egress_apply "\${POS[1]}" "\${POS[2]}" "\${POS[3]:-none}" "\${POS[4]:-0}"
+      sa_egress_apply "${POS[1]}" "${POS[2]}" "${POS[3]:-none}" "${POS[4]:-0}"
       ;;
     confirm|remove)
-      [ "\${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign egress $sub --apply"
+      [ "${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign egress $sub --apply"
       [ "$APPLY" = 1 ] || _sa_die "egress $sub changes firewall state; pass --apply explicitly"
       if [ "$sub" = confirm ]; then sa_egress_confirm; else sa_egress_remove; fi
       ;;
     audit)
-      [ "\${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign egress audit <known-devices-file>"
-      sa_lan_audit "\${POS[1]}"
+      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign egress audit <known-devices-file>"
+      sa_lan_audit "${POS[1]}"
       ;;
     *) _sa_die "usage: stackalign egress <plan|apply|confirm|remove|audit> ..." ;;
   esac
