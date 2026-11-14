@@ -81,7 +81,7 @@ grep -Fq 'passwordauthentication no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'permittty no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'allowtcpforwarding no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'x11forwarding no' <<<"$SFTP_EFFECTIVE"
-grep -Fq "chrootdirectory $SA_SFTP_BASE/$SFTP_USER" <<<"$SFTP_EFFECTIVE" || { echo "FAIL: SFTP ChrootDirectory missing" >&2; printf '%s\n' "$SFTP_EFFECTIVE" >&2; exit 1; }
+grep -Fq "chrootdirectory $SA_SFTP_BASE/%u" <<<"$SFTP_EFFECTIVE" || { echo "FAIL: SFTP ChrootDirectory missing" >&2; printf '%s\n' "$SFTP_EFFECTIVE" >&2; exit 1; }
 grep -Fq 'forcecommand none' <<<"$SSH_EFFECTIVE" || { echo "FAIL: ordinary SSH ForceCommand changed" >&2; printf '%s\n' "$SSH_EFFECTIVE" >&2; exit 1; }
 grep -Fq 'permittty yes' <<<"$SSH_EFFECTIVE"
 grep -Fq 'allowtcpforwarding yes' <<<"$SSH_EFFECTIVE"
