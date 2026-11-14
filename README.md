@@ -30,11 +30,21 @@ StackAlign is an evolving foundation. The following areas are present in the rep
 - **Repository manifest pins:** component pins are parsed from the manifest; malformed, duplicate, or missing requested pins fail closed. The manifest does not establish a supported host matrix.
 - **RPM cache verification foundation:** cache entries are checked against exact NEVRA and RPM signature verification before reuse. Tests use fake package tools; real repository/key and host package flows remain unverified.
 - **Manual package updates:** update apply has a transactional path with configuration snapshot/service-health handling and RPM downgrade recovery. CI uses mocked failure and rollback paths; live DNF transactions and real-host rollback remain unverified.
-- **Read-only update planning:** update plan is integrated separately from update apply.
+- **Read-only update planning:** integrated by PR #33, which superseded the unmerged draft PR #10. PR #10 itself remains closed and unmerged; the replacement passed Ubuntu and AlmaLinux 9 CI (run [#43557257210](https://github.com/ljrseals-dev/StackAlign/actions/runs/43557257210)). The read-only plan is implemented, but live DNF behavior remains unverified.
 - **Experimental operational modules:** operational libraries are present, but their existence does not establish complete firewall, ACME, backup, antivirus, or daemon-management workflows.
-- **Chrooted key-only SFTP management:** integrated with disposable OpenSSH configuration and transfer tests in CI. Applying it changes system accounts and SSH configuration; it is not certified for production hosts.
+- **Chrooted key-only SFTP management:** the unmerged draft PR #28 was superseded by merged PR #37. PR #37 passed Ubuntu and AlmaLinux 9 CI (run [#43558218351](https://github.com/ljrseals-dev/StackAlign/actions/runs/43558218351)); its integration test runs actual OpenSSH in disposable CI, checks `sshd -t` and `sshd -T -C`, performs a key-authenticated transfer inside the chroot, and confirms ordinary SSH shell login still works. This is CI integration evidence, not production-host certification. Applying the feature changes system accounts and SSH configuration.
 - **Release artifact verification foundation:** detached GPG signature, independently provisioned keyring/fingerprint, metadata expiry, and SHA-256 verification helpers exist. The verifier is not yet wired into installer/update workflows.
 - **Memory tuning:** arithmetic implementation and contract tests exist. Physical PHP worker measurements and representative low-memory VM testing remain outstanding.
+
+### Known integration history and remaining gaps
+
+The following earlier draft PRs were **closed unmerged**, not merged. Their work was superseded by later PRs, with the evidence below:
+
+- **#10 — read-only update planning:** closed unmerged; superseded by merged PR [#33](https://github.com/ljrseals-dev/StackAlign/pull/33). Replacement head CI passed on Ubuntu and AlmaLinux 9 in [run #43557257210](https://github.com/ljrseals-dev/StackAlign/actions/runs/43557257210). This does not prove live DNF behavior or real-host transaction safety.
+- **#26 — operational modules / FTP package refusal:** closed unmerged; superseded by merged PR [#38](https://github.com/ljrseals-dev/StackAlign/pull/38). Replacement head CI passed on Ubuntu and AlmaLinux 9 in [run #43557813317](https://github.com/ljrseals-dev/StackAlign/actions/runs/43557813317). FTP package refusal is scoped to StackAlign-managed package installation; it does not disable an independently managed FTP server or block ordinary client/server FTP. It does not implement daemon-level FXP refusal.
+- **#28 — chrooted key-only SFTP:** closed unmerged; superseded by merged PR [#37](https://github.com/ljrseals-dev/StackAlign/pull/37). Replacement head CI passed on Ubuntu and AlmaLinux 9 in [run #43558218351](https://github.com/ljrseals-dev/StackAlign/actions/runs/43558218351), including real OpenSSH/chroot integration tests in disposable CI. Production-host validation remains outstanding.
+- **#11 — provenance audit:** merged, but its finding remains **RISK DETECTED — provenance incomplete**. This is not a finding that GPL code is present and is not a legal opinion.
+- **FTP policy reconciliation:** PR #27 documents the policy as specified and unverified; merged PR #32 makes an independently managed FTP daemon informational to `doctor`; merged PR #38 scopes StackAlign's FTP package refusal to StackAlign-managed package installation. Ordinary authenticated client-to-server FTP remains allowed. FXP enforcement by a selected external daemon remains unverified; FTPS behavior is separate.
 
 ### Not implemented or not validated
 
@@ -48,7 +58,7 @@ StackAlign is an evolving foundation. The following areas are present in the rep
 
 ### FTP policy boundary
 
-StackAlign does **not** install or configure an FTP daemon. An operator may independently install and manage one. Ordinary authenticated client-to-server uploads and downloads are intended to remain permitted; FTP-to-FTP third-party transfers (FXP) are specified to be refused. **FXP software enforcement is unverified.** This is not a firewall-enforcement claim, and FTPS behavior is separate. See the [Technical Manual](docs/Technical%20Manual.md).
+StackAlign does **not** install or configure an FTP daemon. An operator may independently install and manage one. Ordinary authenticated client-to-server uploads and downloads remain allowed; FTP-to-FTP third-party transfers (FXP) are specified to be refused. PR #27 documents that policy; PR #32 and #38 reconcile the external-daemon and package-installation boundaries. **FXP enforcement by an external daemon remains unverified.** This is not a firewall-enforcement claim, and FTPS behavior is separate. See the [Technical Manual](docs/Technical%20Manual.md).
 
 ### Provenance and licensing
 
