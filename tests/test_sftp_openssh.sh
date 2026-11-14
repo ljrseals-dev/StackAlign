@@ -68,16 +68,21 @@ Subsystem sftp internal-sftp
 Include $SA_SFTP_DROPIN
 EOF
 
-sshd -t -f "$T/sshd_config"
+if ! sshd -t -f "$T/sshd_config"; then
+  echo "FAIL: sshd -t rejected generated configuration" >&2
+  cat "$T/sshd_config" >&2
+  exit 1
+fi
+echo "PASS: sshd -t"
 SFTP_EFFECTIVE="$(sshd -T -f "$T/sshd_config" -C "user=$SFTP_USER,host=localhost,addr=127.0.0.1")"
 SSH_EFFECTIVE="$(sshd -T -f "$T/sshd_config" -C "user=$SSH_USER,host=localhost,addr=127.0.0.1")"
-grep -Fq 'forcecommand internal-sftp -d /files' <<<"$SFTP_EFFECTIVE"
+grep -Fq 'forcecommand internal-sftp -d /files' <<<"$SFTP_EFFECTIVE" || { echo "FAIL: SFTP ForceCommand missing" >&2; printf '%s\n' "$SFTP_EFFECTIVE" >&2; exit 1; }
 grep -Fq 'passwordauthentication no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'permittty no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'allowtcpforwarding no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'x11forwarding no' <<<"$SFTP_EFFECTIVE"
-grep -Fq "chrootdirectory $SA_SFTP_BASE/$SFTP_USER" <<<"$SFTP_EFFECTIVE"
-grep -Fq 'forcecommand none' <<<"$SSH_EFFECTIVE"
+grep -Fq "chrootdirectory $SA_SFTP_BASE/$SFTP_USER" <<<"$SFTP_EFFECTIVE" || { echo "FAIL: SFTP ChrootDirectory missing" >&2; printf '%s\n' "$SFTP_EFFECTIVE" >&2; exit 1; }
+grep -Fq 'forcecommand none' <<<"$SSH_EFFECTIVE" || { echo "FAIL: ordinary SSH ForceCommand changed" >&2; printf '%s\n' "$SSH_EFFECTIVE" >&2; exit 1; }
 grep -Fq 'permittty yes' <<<"$SSH_EFFECTIVE"
 grep -Fq 'allowtcpforwarding yes' <<<"$SSH_EFFECTIVE"
 grep -Fq 'chrootdirectory none' <<<"$SSH_EFFECTIVE"
