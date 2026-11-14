@@ -23,8 +23,10 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 V4="${EGRESS_TEST_V4_ADDR:-1.1.1.1}"; V6="${EGRESS_TEST_V6_ADDR:-2606:4700:4700::1111}"
 DNS="${EGRESS_TEST_DNS:-9.9.9.9}"; OTHER4="${EGRESS_TEST_OTHER_ADDR:-8.8.8.8}"
+# Pin the unit and table names: an inherited environment override must not make the timer
+# checks or the cleanup act on a different unit or table than the module under test.
 UNIT="stackalign-egress-revert"
-SA_EGRESS_REVERT_UNIT="$UNIT"
+export SA_EGRESS_REVERT_UNIT="$UNIT" SA_EGRESS_TABLE="stackalign_egress"
 
 if [ "${1:-}" = "--dry-run" ]; then
     cat <<PLAN
@@ -92,8 +94,10 @@ loaded && ok "S4 rules still loaded after the old window (timer cancelled)" || b
 sa_egress_remove >/dev/null 2>&1; loaded && bad "S4 remove left the table" || ok "S4 remove deleted the table"
 
 echo "== S5 re-apply replaces the revert timer"
-sa_egress_apply "$W/allow" "$DNS" none 60 >/dev/null 2>&1 && ok "S5 first apply returned 0" || bad "S5 first apply failed"; sleep 10
-sa_egress_apply "$W/allow" "$DNS" none 120 >/dev/null 2>&1 && ok "S5 second apply returned 0" || bad "S5 second apply failed"
+if sa_egress_apply "$W/allow" "$DNS" none 60 >/dev/null 2>&1; then ok "S5 first apply (60s) returned 0"
+else bad "S5 first apply failed; the replace test below would be meaningless"; fi
+sleep 10
+sa_egress_apply "$W/allow" "$DNS" none 120 >/dev/null 2>&1 && ok "S5 second apply (120s) returned 0" || bad "S5 second apply failed"
 sleep 65
 loaded && ok "S5 table still loaded after the FIRST timer's window (old timer replaced)" || bad "S5 first timer fired: --replace did not work"
 systemctl is-active --quiet "$UNIT.timer" && ok "S5 one revert timer still pending" || bad "S5 no pending timer"
