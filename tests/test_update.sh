@@ -11,7 +11,7 @@ cat > "$T/bin/rpm" <<'EOF'
 #!/usr/bin/env bash
 echo "rpm $*" >> "$FAKE_LOG"
 case "$*" in
-  *'%{NEVRA}'*nginx*) printf '%s\\n' 'nginx-1.2.2-1.el9.x86_64'; exit 0 ;;
+  *'%{NEVRA}'*nginx*) printf '%s\n' 'nginx-1.2.2-1.el9.x86_64'; exit 0 ;;
   *) exit 1 ;;
 esac
 EOF
@@ -19,7 +19,7 @@ cat > "$T/bin/dnf" <<'EOF'
 #!/usr/bin/env bash
 echo "dnf $*" >> "$FAKE_LOG"
 case " $* " in
-  *" --cacheonly "*" repoquery "*) printf '%s\\n' "$FAKE_DNF_TARGET"; exit 0 ;;
+  *" --cacheonly "*" repoquery "*) printf '%s\n' "$FAKE_DNF_TARGET"; exit 0 ;;
   *) exit 2 ;;
 esac
 EOF
@@ -49,7 +49,7 @@ else
   bad "plan created persistent state"
 fi
 
-if [[ "$out" == *"would snapshot these configuration paths"* ]] && [[ "$out" == *"/etc/nginx"* ]] && [[ "$out" == *"service restart is expected"* ]] && [[ "$out" == *"environment-dependent"* ]]; then
+if [[ "$out" == *"Snapshot: would create"* ]] && [[ "$out" == *"/etc/nginx"* ]] && [[ "$out" == *"service restart is expected"* ]] && [[ "$out" == *"environment-dependent"* ]]; then
   ok "plan declares config scope and downtime uncertainty"
 else
   bad "plan omits config/downtime disclosure"
