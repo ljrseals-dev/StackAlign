@@ -41,8 +41,11 @@ sa_sftp_render() {
     printf '    ChrootDirectory %s/%%u\n' "$SA_SFTP_BASE"
     printf '    ForceCommand internal-sftp -d /files\n'
     printf '    AuthorizedKeysFile %s/%%u\n' "$SA_SFTP_KEYDIR"
+    printf '    PubkeyAuthentication yes\n    AuthenticationMethods publickey\n'
     printf '    PasswordAuthentication no\n    KbdInteractiveAuthentication no\n'
+    printf '    GSSAPIAuthentication no\n    HostbasedAuthentication no\n'
     printf '    PermitTTY no\n    X11Forwarding no\n    AllowTcpForwarding no\n    AllowAgentForwarding no\n'
+    printf 'Match all\n'
 }
 
 sa_sftp_enable() {
