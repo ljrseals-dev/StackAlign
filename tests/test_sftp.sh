@@ -67,7 +67,7 @@ grep -q "userdel -- alice" "$CALLS" && ! grep -q -- "userdel -r" "$CALLS"; check
 [ -d "$T/sftp/alice/files" ]; check "data kept" "$?" 0
 
 r="$(sa_sftp_render)"
-for want in "Match Group sftponly" "ChrootDirectory $T/sftp/%u" "ForceCommand internal-sftp -d /files" "AuthorizedKeysFile $T/keys/%u" "PasswordAuthentication no" "PermitTTY no" "AllowTcpForwarding no"; do
+for want in "Match Group sftponly" "ChrootDirectory $T/sftp/%u" "ForceCommand internal-sftp -d /files" "AuthorizedKeysFile $T/keys/%u" "PasswordAuthentication no" "AuthenticationMethods publickey" "PermitTTY no" "AllowTcpForwarding no" "Match all"; do
   case "$r" in *"$want"*) check "render has: $want" 0 0 ;; *) check "render has: $want" 1 0 ;; esac
 done
 
