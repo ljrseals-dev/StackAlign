@@ -22,7 +22,8 @@ _sa_ext_pkg unknown >/dev/null 2>&1 && fail "unknown extension accepted"
 
 sa_fw_validate nftables none 2222 off || fail "valid firewall config rejected"
 sa_fw_validate nftables none 65536 off >/dev/null 2>&1 && fail "out-of-range SSH port accepted"
-sa_fw_refuse_ftp vsftpd || fail "FTP daemon was not refused"
+rc=0; sa_fw_refuse_ftp vsftpd >/dev/null 2>&1 || rc=$?
+assert_eq "$rc" 3 "StackAlign refuses to install/manage an FTP daemon package"
 fw="$(sa_fw_render_nft 2222 on)" || fail "nft rules did not render"
 [[ $fw == *'meta l4proto ipv6-icmp accept'* ]] || fail "IPv6 ICMP rule missing"
 [[ $fw == *'tcp dport 2222 accept'* ]] || fail "configured SSH port missing"
