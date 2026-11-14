@@ -118,9 +118,15 @@ sa_egress_apply() {
         sed -i "1i delete table inet $SA_EGRESS_TABLE" "$tmp" || { rm -f "$tmp"; return 1; }
     fi
     if ! nft -c -f "$tmp"; then rm -f "$tmp"; echo "egress: ruleset failed nft -c; nothing loaded" >&2; return 1; fi
+    # Cancel any previous timer before a new generation can be loaded, including secs=0.
+    if systemctl is-active --quiet "$SA_EGRESS_REVERT_UNIT.timer" 2>/dev/null; then
+        if ! systemctl stop "$SA_EGRESS_REVERT_UNIT.timer" >/dev/null 2>&1; then
+            rm -f "$tmp"; echo "egress: could not cancel the previous revert timer; refusing to load" >&2
+            _sa_eg_audit "apply refused: previous revert timer could not be cancelled"; return 1
+        fi
+    fi
     if [ "$secs" -gt 0 ]; then
         nftbin="$(command -v nft)" || { rm -f "$tmp"; echo "egress: nft not found" >&2; return 1; }
-        systemctl stop "$SA_EGRESS_REVERT_UNIT.timer" >/dev/null 2>&1 || true
         if ! systemd-run --quiet --replace --unit="$SA_EGRESS_REVERT_UNIT" --on-active="${secs}s" \
                 "$nftbin" delete table inet "$SA_EGRESS_TABLE"; then
             rm -f "$tmp"; echo "egress: could not schedule auto-revert; NOTHING was loaded" >&2
@@ -154,6 +160,10 @@ sa_egress_confirm() {
     echo "egress: no revert timer pending and table is absent" >&2; return 1
 }
 sa_egress_remove() {
+    if systemctl is-active --quiet "$SA_EGRESS_REVERT_UNIT.timer" 2>/dev/null; then
+        systemctl stop "$SA_EGRESS_REVERT_UNIT.timer" || {
+            echo "egress: could not cancel pending revert timer; refusing removal" >&2; return 1; }
+    fi
     if ! nft list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
         echo "egress: table is not loaded; nothing to remove"; return 0
     fi
