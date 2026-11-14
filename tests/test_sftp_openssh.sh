@@ -98,7 +98,7 @@ for _ in $(seq 1 50); do
 done
 
 printf 'sftp-chroot-proof\n' > "$T/payload"
-printf 'pwd\nput %s payload\n' "$T/payload" | sftp -b - -P "$PORT" -i "$T/sftp_client" \
+printf 'pwd\nput %s payload\nquit\n' "$T/payload" | timeout 20s sftp -b - -P "$PORT" -i "$T/sftp_client" \
   -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
   "$SFTP_USER@127.0.0.1" > "$T/sftp.out"
 grep -Fq '/files' "$T/sftp.out"
