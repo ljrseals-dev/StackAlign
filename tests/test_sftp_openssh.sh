@@ -82,6 +82,10 @@ SFTP_EFFECTIVE="$(sshd -T -f "$T/sshd_config" -C "user=$SFTP_USER,host=localhost
 SSH_EFFECTIVE="$(sshd -T -f "$T/sshd_config" -C "user=$SSH_USER,host=localhost,addr=127.0.0.1")"
 grep -Fq 'forcecommand internal-sftp -d /files' <<<"$SFTP_EFFECTIVE" || { echo "FAIL: SFTP ForceCommand missing" >&2; printf '%s\n' "$SFTP_EFFECTIVE" >&2; exit 1; }
 grep -Fq 'passwordauthentication no' <<<"$SFTP_EFFECTIVE"
+grep -Fq 'pubkeyauthentication yes' <<<"$SFTP_EFFECTIVE"
+grep -Fq 'authenticationmethods publickey' <<<"$SFTP_EFFECTIVE"
+grep -Fq 'gssapiauthentication no' <<<"$SFTP_EFFECTIVE"
+grep -Fq 'hostbasedauthentication no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'permittty no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'allowtcpforwarding no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'x11forwarding no' <<<"$SFTP_EFFECTIVE"
