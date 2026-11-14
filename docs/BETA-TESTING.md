@@ -6,16 +6,20 @@ This beta is intended to collect reproducible feedback, defects, and reviewed pu
 
 ## Scope of this beta
 
-The repository contains a Bash-based CLI and a growing set of operational modules. Some functionality is tested with fake system tools; selected SFTP behavior also has disposable OpenSSH integration coverage in CI. The current source and tests are authoritative for what exists.
+The repository contains a Bash-based CLI and a growing set of operational modules. Earlier draft PRs #10, #26, and #28 were closed unmerged; their work was superseded by later merged PRs #33, #38, and #37 respectively. The replacement PR heads passed Ubuntu and AlmaLinux 9 CI: #33 run [43557257210](https://github.com/ljrseals-dev/StackAlign/actions/runs/43557257210), #38 run [43557813317](https://github.com/ljrseals-dev/StackAlign/actions/runs/43557813317), and #37 run [43558218351](https://github.com/ljrseals-dev/StackAlign/actions/runs/43558218351). These results apply to those exact commits and do not prove production-host behavior.
 
 Important boundaries:
 
 - StackAlign does **not** install a complete Nginx, PHP-FPM, and MariaDB web stack. The bootstrap installer refuses to proceed until its release hash is pinned.
 - The memory-tuning work remains provisional. Physical worker-memory measurements and representative low-memory VM testing are outstanding.
+- **Update planning (#10):** the original draft PR #10 is closed unmerged, superseded by merged PR #33. The replacement passed Ubuntu and AlmaLinux 9 CI, but live DNF metadata behavior and real-host transaction safety remain unverified. Testers must not treat plan output as proof that apply is safe.
+- **Operational modules / FTP package refusal (#26):** the original draft PR #26 is closed unmerged, superseded by merged PR #38. The replacement passed Ubuntu and AlmaLinux 9 CI. The package refusal applies only to StackAlign-managed FTP-daemon installation; an independently managed server and ordinary client-to-server FTP are not blocked by that guard. Daemon-level FXP enforcement remains unverified.
+- **SFTP chroot (#28):** the original draft PR #28 is closed unmerged, superseded by merged PR #37. The replacement passed Ubuntu and AlmaLinux 9 CI and includes actual OpenSSH integration in disposable CI: configuration validation, key-authenticated SFTP transfer inside the chroot, and a separate ordinary SSH shell-login check. This is meaningful CI integration evidence, but chroot confinement has not been independently validated on a production host and must not be treated as production-certified.
 - Package operations, service changes, rollback, and update behavior have not been validated end-to-end on production-like hosts.
 - The release verifier is not yet integrated into the installer/update path.
 - TLS orchestration, certificate issuance/renewal, backups, firewall management, tenant isolation, and other roadmap areas must not be treated as complete unless the current code and evidence demonstrate otherwise.
-- FTP policy remains: StackAlign does not install or manage an FTP daemon; an independently managed server may be used. Ordinary authenticated client-to-server FTP is not to be indiscriminately blocked. Refusal of FTP-to-FTP third-party transfers (FXP) remains specified but **software enforcement is unverified**. FTPS behavior is separate and not established by that policy.
+- **FTP policy and reconciliation:** PR #27 documents ordinary authenticated client-to-server FTP as allowed and FTP-to-FTP third-party transfers (FXP) as specified to be refused, with enforcement unverified. PR #32 makes an independently managed FTP daemon informational to `doctor`; PR #38 limits StackAlign's FTP package refusal to StackAlign-managed installation. These changes reconcile the package/doctor behavior with the external-server policy. StackAlign does not install or manage the daemon. **FXP enforcement by a selected external daemon remains unverified**; do not claim the daemon rejects FXP until it is selected and tested. FTPS behavior is separate.
+- **Provenance (#11):** the clean-room provenance audit remains **RISK DETECTED — provenance incomplete**. This is not a finding that GPL code is present and not a legal opinion.
 - SFTP management changes system users and OpenSSH configuration when applied. Test it only in a disposable VM/container with console access and a recovery path. Never risk locking yourself out of a real host.
 
 ## Tester safety rules
@@ -44,7 +48,7 @@ make test
 
 Record the exact commit SHA and environment. The doctor command may inspect the host; use only a disposable environment. Do not run install.sh expecting a complete web stack—the current installer intentionally refuses without a pinned release hash.
 
-For SFTP, first inspect the implementation, CLI help, and tests. The CI integration test validates generated OpenSSH policy and a local chrooted transfer in a disposable test environment; it is not a production-host certification. Do not test the SFTP apply command on a host you need.
+For SFTP, first inspect the implementation, CLI help, and tests. PR #37's CI integration test validates actual OpenSSH configuration (`sshd -t` and `sshd -T -C`), a key-authenticated transfer inside the chroot, and ordinary SSH shell login in disposable CI environments. This is not a production-host certification. Do not test the SFTP apply command on a host you need.
 
 ## What to include in feedback
 
