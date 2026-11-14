@@ -55,6 +55,11 @@ verify "$T/r5" "$T/ring-good.gpg" "NOTAFINGERPRINT"; check "malformed pin => 64"
 mkrel "$T/r6" "$PAST" "$FPR"; verify "$T/r6" "$T/ring-good.gpg" "$FPR"; check "expired metadata => 6" "$?" 6
 mkrel "$T/r7" "" "$FPR";      verify "$T/r7" "$T/ring-good.gpg" "$FPR"; check "no expiry line => 6" "$?" 6
 mkrel "$T/r8" "garbage" "$FPR"; verify "$T/r8" "$T/ring-good.gpg" "$FPR"; check "malformed expiry => 6" "$?" 6
+mkrel "$T/r8b" "2099-99-99T00:00:00Z" "$FPR"; verify "$T/r8b" "$T/ring-good.gpg" "$FPR"; check "invalid calendar date => 6" "$?" 6
+mkrel "$T/r8c" "$FUT" "$FPR"; { echo "# expires: $FUT"; cat "$T/r8c/SHA256SUMS"; } > "$T/r8c/duplicate"
+mv "$T/r8c/duplicate" "$T/r8c/SHA256SUMS"
+gpg --batch --yes --quiet --pinentry-mode loopback --passphrase '' --local-user "$FPR" --detach-sign --output "$T/r8c/SHA256SUMS.sig" "$T/r8c/SHA256SUMS" 2>/dev/null
+verify "$T/r8c" "$T/ring-good.gpg" "$FPR"; check "duplicate expiry declarations => 6" "$?" 6
 
 mkrel "$T/r9" "$FUT" "$FPR"; { echo "# expires: $FUT"; echo "$(sha256sum "$T/r9/$NAME" | awk '{print $1}')  other.tar.gz"; } > "$T/r9/SHA256SUMS"
 gpg --batch --yes --quiet --pinentry-mode loopback --passphrase '' --local-user "$FPR" --detach-sign --output "$T/r9/SHA256SUMS.sig" "$T/r9/SHA256SUMS" 2>/dev/null
