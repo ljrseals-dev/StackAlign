@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck gnupg
+        run: sudo apt-get update && sudo apt-get install -y shellcheck gnupg openssh-server openssh-client
       - run: make lint
       - run: make test
 
@@ -31,7 +31,7 @@ jobs:
     container: almalinux:9
     steps:
       - name: Install test dependencies
-        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2
+        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients
       - uses: actions/checkout@v6
       - run: make lint
       - run: make test
