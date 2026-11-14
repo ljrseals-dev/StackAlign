@@ -1,48 +1,64 @@
-# StackAlign: Call for Early Testers
+# StackAlign: controlled pre-production beta
 
-StackAlign is an early-stage, pre-tuned LEMP (Nginx, MariaDB, PHP-FPM) installer and manager for EL-family x86_64 servers. **It does not install a web stack yet.**
+**Status: PRE-PRODUCTION BETA — NOT FOR PRODUCTION USE**
 
-This call is for people who want to try the foundation and break it.
+StackAlign is a Bash-based foundation for a planned LEMP deployment and management system targeting Enterprise Linux. This beta invites testers to inspect the current foundation, run checks in disposable environments, report defects, and submit focused pull requests.
 
-## Read this first
+**StackAlign does not install a complete Nginx, PHP-FPM, and MariaDB web stack.** This beta is not suitable for production hosts, business-critical workloads, or real credentials.
 
-- **Containers or VMs only.** Never run it on a machine that matters, and never with real credentials. Use a throwaway AlmaLinux 9 or Rocky Linux 9 container or VM.
-- **Nothing here is production-ready.** No performance, security, or stability claim is made. The project's rule is "measure, do not claim."
-- **Do not treat CI as real-host validation.** GitHub Actions checks have passed on earlier commits, but that does not establish behavior on your host, prove the installer works end-to-end, or replace the pending 512 MiB VM measurements. Check the current main-branch workflow status before testing.
+## Read before testing
 
-## What exists
+- Read the [beta testing guide](BETA-TESTING.md) for the safety rules, suggested test session, evidence labels, and beta exit criteria.
+- Read [CONTRIBUTING.md](../CONTRIBUTING.md) before opening a PR.
+- Read the [Technical Manual](Technical%20Manual.md) for documented behavior and its verification status.
+- Use disposable AlmaLinux 9 or Rocky Linux 9 VMs/containers only. Ubuntu 24.04 is used in CI, not declared as a deployment target.
+- Do not expose test services to the public internet. Snapshot the environment before privileged or mutating tests.
+- Never use real credentials or include passwords, tokens, private keys, session cookies, or sensitive host data in reports.
 
-The following is a snapshot of the project's scope, not a guarantee that every item is complete or production-ready. Check the repository and current CI status for the latest state.
+## What is in the current foundation
 
-| Area | State |
-|---|---|
-| CLI: version, help, plan, doctor, rollback, secret gen/list | Written; tests exist, but independent host validation is still needed |
-| Library modules: config, render, history, service, repo, secret | Written; tests use fakes and do not prove behavior against live services |
-| `lib/tune.sh` memory tuner | Provisional; lean profile only; standard profile refuses; not validated against physical memory measurements |
-| `install.sh` | Refuses to run by design until a release hash is pinned |
-| Nginx / PHP-FPM / MariaDB installation | Not built |
-| Templates, TLS, backups, firewall, tenants | Not built |
+The exact source and tests on the commit you check out are authoritative. Current integrated areas include:
 
-## What we want tested
+- Core CLI and foundation commands, configuration/rendering/history/service/repository helpers.
+- Repository manifest pin parsing and RPM cache signature/NEVRA verification foundations.
+- Manual update application and read-only update planning, with host transaction behavior still requiring disposable-host validation.
+- Experimental operational library modules; these do not establish complete firewall, ACME, backup, antivirus, or daemon management workflows.
+- Chrooted key-only SFTP management with disposable OpenSSH integration coverage in CI. Applying it changes system accounts and SSH configuration; only test in a disposable VM with console recovery.
+- Memory-tuning arithmetic and tests; physical memory measurement and representative low-memory VM testing remain outstanding.
 
-Use a disposable AlmaLinux 9 or Rocky Linux 9 environment. Review the current README and docs before running commands. Report:
-
-- Distribution and version, kernel, architecture, and VM/container type
-- Commands run and their complete output
-- Failures, unexpected changes, and reproducible steps
-- Whether any test touched files or services outside the disposable environment
-
-Do not provide real passwords, tokens, private keys, or other credentials in reports.
+The installer intentionally refuses to run until a release hash is pinned. Do not expect a complete LEMP installation.
 
 ## Important limits
 
-- This is an early foundation, not a working LEMP installer.
-- Do not use it on production systems or systems containing important data.
-- Do not infer security, performance, or reliability from passing unit tests or CI.
-- The M2b memory-measurement gate remains open. No physical measurement-based tuning claim is made.
+- Passing CI proves only that the named jobs passed on the tested commit. It is not real-host validation or a security certification.
+- Package operations, service changes, rollback, SSH management, and other privileged paths must be treated according to their specific verification evidence.
+- TLS runtime orchestration, certificate issuance/renewal, backups, firewall management, tenant isolation, and full LEMP provisioning are not established as complete workflows.
+- The FTP policy allows ordinary authenticated client-to-server transfers through an independently managed server while specifying refusal of FTP-to-FTP third-party transfers (FXP). FXP software enforcement remains **unverified**; StackAlign does not install or manage the FTP daemon. FTPS behavior is separate.
+- No performance, security, stability, recovery-time, or production-readiness claim is made.
 
-## How to help
+## Suggested first test session
 
-Open an issue with the environment details, exact commands, raw output, and a concise description of what happened. Redact secrets before posting logs.
+From a fresh disposable checkout:
 
-Thanks for helping find the gaps before this project grows further.
+```bash
+git rev-parse HEAD
+make lint
+make test
+./bin/stackalign version
+./bin/stackalign help
+./bin/stackalign doctor
+```
+
+Record the exact commit SHA, environment, commands, exit statuses, and relevant output. The doctor command inspects the host; run it only in a disposable environment.
+
+## How to report feedback
+
+Open a GitHub issue using the Bug Report or Feature Request form. Include the commit SHA, distribution/version, kernel, architecture, VM/container type, exact commands, expected and actual behavior, reproducible steps, and any system state that changed. Redact secrets and personal data.
+
+For code or documentation changes, submit a focused PR against main. Run make lint and make test, add focused tests, update the Technical Manual where behavior changes, and complete the PR template. A maintainer review and passing required CI are expected before merge; opening a PR does not guarantee acceptance.
+
+## Beta exit
+
+This controlled beta remains open while the project completes supported-host integration testing, package trust verification, failure-injected rollback validation, security review, physical memory measurement, provenance review, and release-signing lifecycle work. See [BETA-TESTING.md](BETA-TESTING.md) for the full exit criteria.
+
+Thank you for helping identify the gaps before StackAlign is considered for production use.
