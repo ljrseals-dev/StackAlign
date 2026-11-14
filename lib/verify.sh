@@ -32,9 +32,13 @@ _sa_verify_sig() {
 
 # The signed SHA256SUMS must carry `# expires: YYYY-MM-DDTHH:MM:SSZ` (UTC) in the future.
 _sa_verify_expiry() {
-    local exp now
+    local exp now parsed count
+    count="$(grep -c '^# expires: ' "$1" || true)"
+    [ "$count" -eq 1 ] || return 6
     exp="$(awk '/^# expires: /{print $3; exit}' "$1")"
     [[ $exp =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || return 6
+    parsed="$(date -u -d "$exp" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" || return 6
+    [ "$parsed" = "$exp" ] || return 6
     now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     [[ $now < $exp ]] || return 6
 }
