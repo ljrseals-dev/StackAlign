@@ -22,6 +22,20 @@ _sa_sftp_exists()   { id -- "$1" >/dev/null 2>&1; }
 _sa_sftp_in_group() { id -nG -- "$1" 2>/dev/null | tr ' ' '\n' | grep -qx -- "$SA_SFTP_GROUP"; }
 _sa_sftp_group()    { getent group "$SA_SFTP_GROUP" >/dev/null 2>&1 || groupadd -- "$SA_SFTP_GROUP"; }
 
+# OpenSSH rejects locked shadow accounts before public-key authentication.
+# Store only a random, unusable-to-the-operator password hash; Match Group
+# disables password and keyboard-interactive authentication for these users.
+_sa_sftp_set_random_password() {
+    local user=$1 secret hash
+    command -v openssl >/dev/null 2>&1 || { echo "sftp: openssl is required to initialize key-only account state" >&2; return 1; }
+    command -v chpasswd >/dev/null 2>&1 || { echo "sftp: chpasswd is required to initialize key-only account state" >&2; return 1; }
+    secret="$(openssl rand -hex 32)" || return 1
+    hash="$(openssl passwd -6 "$secret")" || { unset secret; return 1; }
+    unset secret
+    printf '%s:%s\\n' "$user" "$hash" | chpasswd -e || { unset hash; return 1; }
+    unset hash
+}
+
 sa_sftp_render() {
     printf 'Match Group %s\n' "$SA_SFTP_GROUP"
     printf '    ChrootDirectory %s/%%u\n' "$SA_SFTP_BASE"
@@ -68,6 +82,7 @@ sa_sftp_add_user() {
     chroot="$SA_SFTP_BASE/$user"
     if ! _sa_sftp_exists "$user"; then
         useradd -g "$SA_SFTP_GROUP" -M -d "$chroot" -s /sbin/nologin -- "$user" || return 1
+        _sa_sftp_set_random_password "$user" || { userdel -- "$user" || true; return 1; }
     fi
     install -d -m 0755 -o root -g root -- "$SA_SFTP_BASE" "$SA_SFTP_KEYDIR" "$chroot" || return 1
     install -d -m 0700 -o "$user" -g "$SA_SFTP_GROUP" -- "$chroot/files" || return 1
