@@ -4,7 +4,7 @@ An early-stage Bash-based foundation for a pre-tuned LEMP (Nginx, MariaDB, PHP-F
 
 **StackAlign does not install a web stack yet. It is not production-ready.**
 
-## Project status — 13 November 2026
+## Project status — 14 November 2026
 
 StackAlign is an experimental foundation intended for review and disposable-environment testing. The project follows one rule: **measure, do not claim**.
 
@@ -37,9 +37,19 @@ The following capabilities are present in `main`. Their stated validation bounda
 - No real-host signing-key lifecycle, package-update, SSH chroot, or production runtime validation is claimed.
 - CI success proves only the checks run against the specific commit. It does not prove installation, isolation, recovery, security, performance, or production readiness.
 
+### Outstanding integration work — not included in main
+
+Three draft pull requests remain open and are not part of the integrated baseline:
+
+- [PR #10 — read-only update planning](https://github.com/ljrseals-dev/StackAlign/pull/10): `stackalign update plan` and T36 coverage remain outstanding. The latest recorded CI attempts for its head failed. Do not describe this work as superseded by the separate manual `update apply` path.
+- [PR #26 — operational library modules](https://github.com/ljrseals-dev/StackAlign/pull/26): the latest recorded CI attempts for its head failed. Its firewall/FTP behavior must be reconciled with the policy below before merge: ordinary authenticated client-to-server FTP remains permitted when an independently installed and managed FTP server exists; FTP-to-FTP third-party transfers (FXP) are refused. Do not reject all FTP use.
+- [PR #28 — chrooted key-only SFTP management](https://github.com/ljrseals-dev/StackAlign/pull/28): the latest recorded CI attempts for its head failed. Real OpenSSH configuration validation, chroot isolation, key-only login, and preservation of ordinary login behavior remain unverified.
+
+These PRs require corrective changes and passing required CI before merge. PR #28 additionally requires disposable-host OpenSSH/chroot validation. Until then, they are release blockers, not implemented capabilities of `main`.
+
 ## CI and validation
 
-GitHub Actions has run `make lint` and `make test` on Ubuntu and AlmaLinux 9 for the integrated feature PR heads. The update transaction PR passed both jobs. The current `main` integration state should be checked against the [main-branch workflow runs](https://github.com/ljrseals-dev/StackAlign/actions?query=branch%3Amain); PR-head CI results are not a substitute for a run on the final merged tree.
+GitHub Actions completed the post-merge `main` run successfully for commit `3e51169484e42083d9ead1364577ca6b24e910a6`: [run 43556286513](https://github.com/ljrseals-dev/StackAlign/actions/runs/43556286513). That run is the CI result for the integrated tree at that commit. It does not cover the three open draft PRs below, nor does it establish real-host behavior.
 
 Use precise evidence labels:
 
