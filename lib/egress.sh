@@ -161,6 +161,10 @@ sa_egress_confirm() {
        systemctl is-active --quiet "$SA_EGRESS_REVERT_UNIT.service" 2>/dev/null; then
         _sa_eg_cancel_revert || {
             echo "egress: could not cancel revert timer/service; rules may still revert" >&2; return 1; }
+        if ! nft list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
+            echo "egress: revert was already executing; the egress table is absent and cannot be confirmed" >&2
+            return 1
+        fi
         _sa_eg_audit "revert timer/service cancelled; rules confirmed"
         echo "egress: confirmed; auto-revert cancelled."; return 0
     fi
