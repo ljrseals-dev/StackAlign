@@ -79,7 +79,7 @@ run optimize --apply
 run --config "$T/none.conf" doctor
 { [ $RC -eq 0 ] && [[ $OUT == *"no critical findings"* ]]; } && ok "doctor clean host: rc 0" || bad "doctor clean host: rc 0 (rc=$RC)"
 FAKE_RPM_INSTALLED="vsftpd" run doctor
-{ [ $RC -eq 1 ] && [[ $OUT == *"CRITICAL: FTP daemon installed: vsftpd"* ]]; } && ok "doctor: FTP daemon is critical, rc 1" || bad "doctor: FTP daemon is critical"
+{ [ $RC -eq 0 ] && [[ $OUT == *"NOTICE: independently managed FTP daemon detected: vsftpd"* ]] && [[ $OUT == *"no critical findings"* ]]; } && ok "doctor: independent FTP daemon is informational, rc 0" || bad "doctor: independent FTP daemon is informational"
 # SA_CONF_PATH is internal; test config check via --config
 printf '[meta]\nconfig_version = 1\n' > "$T/ok.conf"; printf '[meta]\nconfig_version = 9\n' > "$T/badver.conf"
 run --config "$T/ok.conf" doctor;     { [ $RC -eq 0 ] && [[ $OUT == *"config: ok"* ]]; } && ok "doctor validates good config" || bad "doctor validates good config"
