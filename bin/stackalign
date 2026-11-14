@@ -199,7 +199,7 @@ cmd_update() {
   target_nevra=$(dnf --cacheonly --setopt=logfile=/dev/null \
     repoquery --latest-limit 1 --qf '%{NEVRA}' "$package-$target_version" 2>/dev/null) || \
     _sa_die "error: cached repository metadata unavailable or DNF repoquery failed; refresh metadata separately, then retry"
-  target_nevra=$(printf '%s\\n' "$target_nevra" | awk 'NF { if (++n == 1) v=$0 } END { if (n == 1) print v; else exit 1 }') || \
+  target_nevra=$(printf '%s\n' "$target_nevra" | awk 'NF { if (++n == 1) v=$0 } END { if (n == 1) print v; else exit 1 }') || \
     _sa_die "error: target did not resolve to exactly one NEVRA"
   [[ $target_nevra =~ ^[A-Za-z0-9][A-Za-z0-9+._:~%-]*-[A-Za-z0-9][A-Za-z0-9+._~%-]*-[A-Za-z0-9][A-Za-z0-9+._~%-]*\.[A-Za-z0-9_]+$ ]] || \
     _sa_die "error: DNF returned a malformed target NEVRA"
