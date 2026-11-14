@@ -46,6 +46,7 @@ repo|M2a|read-only package repository inventory
 optimize|M3|read-only performance plan; apply is gated
 xcart|M3|guarded X-Cart profile: plan|preflight|build|deploy
 routine|M3|routine subsystem: plan|install|doctor|run|run-builtin
+sftp|M3|chrooted key-only SFTP account management
 contain|M4|evidence preservation before rebuild
 EOF
 }
@@ -205,6 +206,29 @@ cmd_update() {
   esac
 }
 
+cmd_sftp() {
+  _sa_parse "--plan --apply" "$@"
+  local sub=${POS[0]:-}
+  source "$SA_ROOT/lib/sftp.sh"
+  case "$sub" in
+    list)
+      [ ${#POS[@]} -eq 1 ] || _sa_die "usage: stackalign sftp list"
+      sa_sftp_list ;;
+    enable)
+      [ ${#POS[@]} -eq 1 ] || _sa_die "usage: stackalign sftp enable [--apply]"
+      if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then sa_sftp_enable
+      else echo "plan: would install the SFTP sshd drop-in and reload sshd"; fi ;;
+    add)
+      [ ${#POS[@]} -eq 3 ] || _sa_die "usage: stackalign sftp add <user> <public-key-file> [--apply]"
+      if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then sa_sftp_add_user "${POS[1]}" "${POS[2]}"
+      else echo "plan: would create or rotate SFTP account ${POS[1]} using key file ${POS[2]}"; fi ;;
+    remove)
+      [ ${#POS[@]} -eq 2 ] || _sa_die "usage: stackalign sftp remove <user> [--apply]"
+      if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then sa_sftp_remove_user "${POS[1]}"
+      else echo "plan: would remove SFTP login ${POS[1]}; user data would be kept"; fi ;;
+    *) _sa_die "usage: stackalign sftp <enable|add|remove|list>" ;;
+  esac
+}
 _sa_stub() {  # <cmd> args...
   local c=$1; shift
   _sa_parse "--plan --apply" "$@"
@@ -225,6 +249,7 @@ _sa_dispatch() {  # <cmd> args...
     repo)     cmd_repo "$@" ;;
     optimize) cmd_optimize "$@" ;;
     update)   cmd_update "$@" ;;
+    sftp)     cmd_sftp "$@" ;;
     *)        _sa_stub "$c" "$@" ;;
   esac
 }
