@@ -106,6 +106,17 @@ grep -q '^nft -c -f' "$CALLS"; check "replacement is checked" "$?" 0
 # The first nft -c input includes a delete of our table; no other table is targeted.
 unset FAKE_NFT_LIST_RC
 
+: > "$CALLS"; export FAKE_TIMER_ACTIVE=1 FAKE_NFT_LIST_RC=0
+sa_egress_confirm >/dev/null 2>&1; check "confirm cancels pending timer/service" "$?" 0
+calls_has "systemctl stop stackalign-egress-revert.timer"; check "confirm stops timer unit" "$?" 0
+calls_has "systemctl stop stackalign-egress-revert.service"; check "confirm stops already-fired service" "$?" 0
+: > "$CALLS"; export FAKE_NFT_LIST_RC=1
+sa_egress_confirm >/dev/null 2>&1; check "confirm refuses if table already reverted" "$?" 1
+: > "$CALLS"; export FAKE_NFT_LIST_RC=0
+sa_egress_remove >/dev/null 2>&1; check "remove cancels revert and deletes table" "$?" 0
+calls_has "nft delete table inet stackalign_egress"; check "remove deletes only egress table" "$?" 0
+unset FAKE_TIMER_ACTIVE FAKE_NFT_LIST_RC
+
 cat > "$T/known" <<'K'
 # known devices
 AA:BB:CC:DD:EE:01 Studio_PC
