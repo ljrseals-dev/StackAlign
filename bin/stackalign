@@ -186,6 +186,132 @@ cmd_secret() {  # secret gen <name> | secret list
   esac
 }
 
+cmd_update_plan() {
+  _sa_parse "" "$@"
+  [ "${#POS[@]}" -eq 3 ] && [ "${POS[0]}" = plan ] || \
+    _sa_die "usage: stackalign update plan <component> <version>"
+
+  local component=${POS[1]} target_version=${POS[2]}
+  local package service current_nevra target_nevra config_paths health_check
+  case "$component" in
+    nginx)
+      package=nginx; service=nginx
+      config_paths="/etc/nginx"
+      health_check="nginx -t"
+      ;;
+    php)
+      package=php-fpm; service=php-fpm
+      config_paths="/etc/php.ini /etc/php-fpm.conf /etc/php-fpm.d"
+      health_check="php-fpm -t"
+      ;;
+    mariadb)
+      package=MariaDB-server; service=mariadb
+      config_paths="/etc/my.cnf /etc/my.cnf.d"
+      health_check="mysqladmin ping"
+      ;;
+    *) _sa_die "unsupported update component: $component" ;;
+  esac
+  [[ $target_version =~ ^[A-Za-z0-9][A-Za-z0-9._:~+-]*$ ]] || \
+    _sa_die "invalid target version"
+
+  echo "=== UPDATE PLAN: $component -> $target_version ==="
+  current_nevra=$(rpm -q --qf '%{NEVRA}' "$package" 2>/dev/null) || \
+    _sa_die "error: package $package is not installed"
+  [ -n "$current_nevra" ] || _sa_die "error: rpm returned an empty current NEVRA"
+  echo "  Current: $current_nevra"
+
+  # --cacheonly prevents repository metadata refresh; logfile=/dev/null avoids
+  # DNF's normal persistent logfile. Planning refuses if usable metadata is absent.
+  target_nevra=$(dnf --cacheonly --setopt=logfile=/dev/null \
+    repoquery --latest-limit 1 --qf '%{NEVRA}' "$package-$target_version" 2>/dev/null) || \
+    _sa_die "error: cached repository metadata unavailable or DNF repoquery failed; refresh metadata separately, then retry"
+  target_nevra=$(printf '%s\n' "$target_nevra" | awk 'NF { if (++n == 1) v=$0 } END { if (n == 1) print v; else exit 1 }') || \
+    _sa_die "error: target did not resolve to exactly one NEVRA"
+  [[ $target_nevra =~ ^[A-Za-z0-9][A-Za-z0-9+._:~%-]*-[A-Za-z0-9][A-Za-z0-9+._~%-]*-[A-Za-z0-9][A-Za-z0-9+._~%-]*\.[A-Za-z0-9_]+$ ]] || \
+    _sa_die "error: DNF returned a malformed target NEVRA"
+  echo "  Target:  $target_nevra"
+
+  if [ "$current_nevra" = "$target_nevra" ]; then
+    echo "  Result:  Already at requested NEVRA; no package action needed."
+    echo "=== END PLAN (no StackAlign changes made) ==="
+    return 0
+  fi
+
+  echo "  Tested:  NOT VERIFIED — vendor/versions.toml has no populated tested_matrix entry for this package policy."
+  echo "  WARNING: target is not established as tested; this plan does not authorize apply."
+  echo "  Snapshot: would create ${SA_HISTORY_ROOT:-/etc/stackalign/.history}/<UTC timestamp>-pre-update-$component containing:"
+  local p
+  for p in $config_paths; do echo "    $p"; done
+  echo "  Services: $service would be restarted after package installation."
+  echo "  Health check: $health_check"
+  echo "  Downtime: service restart is expected; duration is environment-dependent and cannot be estimated here."
+  echo "  DNF effects: package/dependency transaction preview is NOT included in this plan."
+  echo "=== END PLAN (no StackAlign changes made) ==="
+}
+
+cmd_update_plan() {
+  _sa_parse "" "$@"
+  [ "${#POS[@]}" -eq 3 ] && [ "${POS[0]}" = plan ] || \
+    _sa_die "usage: stackalign update plan <component> <version>"
+
+  local component=${POS[1]} target_version=${POS[2]}
+  local package service current_nevra target_nevra config_paths health_check
+  case "$component" in
+    nginx)
+      package=nginx; service=nginx
+      config_paths="/etc/nginx"
+      health_check="nginx -t"
+      ;;
+    php)
+      package=php-fpm; service=php-fpm
+      config_paths="/etc/php.ini /etc/php-fpm.conf /etc/php-fpm.d"
+      health_check="php-fpm -t"
+      ;;
+    mariadb)
+      package=MariaDB-server; service=mariadb
+      config_paths="/etc/my.cnf /etc/my.cnf.d"
+      health_check="mysqladmin ping"
+      ;;
+    *) _sa_die "unsupported update component: $component" ;;
+  esac
+  [[ $target_version =~ ^[A-Za-z0-9][A-Za-z0-9._:~+-]*$ ]] || \
+    _sa_die "invalid target version"
+
+  echo "=== UPDATE PLAN: $component -> $target_version ==="
+  current_nevra=$(rpm -q --qf '%{NEVRA}' "$package" 2>/dev/null) || \
+    _sa_die "error: package $package is not installed"
+  [ -n "$current_nevra" ] || _sa_die "error: rpm returned an empty current NEVRA"
+  echo "  Current: $current_nevra"
+
+  # --cacheonly prevents repository metadata refresh; logfile=/dev/null avoids
+  # DNF's normal persistent logfile. Planning refuses if usable metadata is absent.
+  target_nevra=$(dnf --cacheonly --setopt=logfile=/dev/null \
+    repoquery --latest-limit 1 --qf '%{NEVRA}' "$package-$target_version" 2>/dev/null) || \
+    _sa_die "error: cached repository metadata unavailable or DNF repoquery failed; refresh metadata separately, then retry"
+  target_nevra=$(printf '%s\n' "$target_nevra" | awk 'NF { if (++n == 1) v=$0 } END { if (n == 1) print v; else exit 1 }') || \
+    _sa_die "error: target did not resolve to exactly one NEVRA"
+  [[ $target_nevra =~ ^[A-Za-z0-9][A-Za-z0-9+._:~%-]*-[A-Za-z0-9][A-Za-z0-9+._~%-]*-[A-Za-z0-9][A-Za-z0-9+._~%-]*\.[A-Za-z0-9_]+$ ]] || \
+    _sa_die "error: DNF returned a malformed target NEVRA"
+  echo "  Target:  $target_nevra"
+
+  if [ "$current_nevra" = "$target_nevra" ]; then
+    echo "  Result:  Already at requested NEVRA; no package action needed."
+    echo "=== END PLAN (no StackAlign changes made) ==="
+    return 0
+  fi
+
+  echo "  Tested:  NOT VERIFIED — vendor/versions.toml has no populated tested_matrix entry for this package policy."
+  echo "  WARNING: target is not established as tested; this plan does not authorize apply."
+  echo "  Snapshot: would create ${SA_HISTORY_ROOT:-/etc/stackalign/.history}/<UTC timestamp>-pre-update-$component containing:"
+  local p
+  for p in $config_paths; do echo "    $p"; done
+  echo "  Services: $service would be restarted after package installation."
+  echo "  Health check: $health_check"
+  echo "  Downtime: service restart is expected; duration is environment-dependent and cannot be estimated here."
+  echo "  DNF effects: package/dependency transaction preview is NOT included in this plan."
+  echo "=== END PLAN (no StackAlign changes made) ==="
+}
+
 cmd_update() {
   local sub="${1:-}"; shift || true
   case "$sub" in
@@ -198,7 +324,10 @@ cmd_update() {
       source "$SA_ROOT/lib/service.sh"
       sa_update_apply "$@"
       return $? ;;
-    check|plan|pin|status)
+    plan)
+      cmd_update_plan plan "$@"
+      return $? ;;
+    check|pin|status)
       echo "update $sub: not implemented" >&2; return 2 ;;
     *)
       echo "usage: stackalign update check|plan|apply|pin|status" >&2; return 64 ;;
