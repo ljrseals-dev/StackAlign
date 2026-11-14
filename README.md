@@ -4,7 +4,7 @@ An early-stage Bash-based foundation for a pre-tuned LEMP (Nginx, MariaDB, PHP-F
 
 **StackAlign does not install a web stack yet. It is not production-ready.**
 
-## Project status — 12 November 2026
+## Project status — 13 November 2026
 
 StackAlign is an experimental foundation intended for review and disposable-environment testing. The project follows one rule: **measure, do not claim**.
 
@@ -16,6 +16,16 @@ StackAlign is an experimental foundation intended for review and disposable-envi
 - Templates, TLS, backups, firewall management, and tenant management are not built.
 
 GitHub Actions CI has run on Ubuntu 24.04 and AlmaLinux 9 for earlier revisions, including lint and test jobs. CI results are not real-host installation or runtime validation. Check the current [main-branch workflow runs](https://github.com/ljrseals-dev/StackAlign/actions?query=branch%3Amain) for the latest status.
+
+## Release artifact verification
+
+The release-artifact verification foundation is implemented in `lib/verify.sh`, with throwaway-key tests in `tests/test_verify.sh` and the trust model documented in [Release Artifact Trust](docs/RELEASE-TRUST.md).
+
+- Verification checks a detached GPG signature over `SHA256SUMS`, a separately provisioned keyring and pinned primary-key fingerprint, signed metadata expiry, and the artifact SHA-256.
+- The downgrade helper rejects lower version strings and does not accept an ambient environment-variable override.
+- CI installs GnuPG and runs the verifier tests on Ubuntu and AlmaLinux 9.
+
+**Important integration boundary:** the verifier is not yet wired into `install.sh` or an update workflow. The downgrade helper is not yet connected to a signed release manifest. No self-update mechanism is included. The signing-key lifecycle and package-update path have not been validated on real hosts. Do not interpret these tests as end-to-end release or installer enforcement.
 
 ## Early testers wanted
 
