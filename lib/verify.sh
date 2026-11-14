@@ -73,8 +73,8 @@ sa_verify_artifact() {
 # authenticated release metadata; this helper only enforces monotonic versions.
 sa_verify_not_downgrade() {
     local cur=${1:-} cand=${2:-} newest
-    [[ $cur =~ ^[0-9]+(\\.[0-9]+){0,3}$ && $cand =~ ^[0-9]+(\\.[0-9]+){0,3}$ ]] || { echo "verify: bad version string" >&2; return 64; }
-    newest="$(printf '%s\\n%s\\n' "$cur" "$cand" | sort -V | tail -n 1)"
+    [[ $cur =~ ^[0-9]+(\.[0-9]+){0,3}$ && $cand =~ ^[0-9]+(\.[0-9]+){0,3}$ ]] || { echo "verify: bad version string" >&2; return 64; }
+    newest="$(printf '%s\n%s\n' "$cur" "$cand" | sort -V | tail -n 1)"
     if [ "$newest" = "$cand" ]; then return 0; fi
     echo "verify: refusing downgrade $cur -> $cand" >&2
     return 7
