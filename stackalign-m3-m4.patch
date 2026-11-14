@@ -1,0 +1,1565 @@
+diff --git a/bin/stackalign b/bin/stackalign
+--- a/bin/stackalign	2026-11-13 18:18:08.000000000 +0000
++++ b/bin/stackalign	2026-11-14 03:43:01.170734856 +0000
+@@ -3,7 +3,8 @@
+ # Author: Lewis James Seals Jr.
+ #
+ # bin/stackalign -- CLI dispatcher. Written from master prompt v8 Part III.
+-# Implemented now: version, help, plan (alias), doctor (read-only), rollback.
++# Implemented now: version, help, plan (alias), doctor (read-only), rollback,
++# secret, update apply (other update subcommands are stubs).
+ # Every other subcommand is a recognised STUB that refuses with rc 2.
+ #
+ # ASSUMPTIONS (spec is partly contradictory/silent; unmeasured design choices):
+@@ -159,6 +160,31 @@
+   esac
+ }
+ 
++cmd_update() {  # update apply <package> <target_nevra> <service> [snapshot_path]
++  _sa_parse "--plan --apply" "$@"
++  local sub=${POS[0]:-}
++  case $sub in
++    apply)
++      { [ ${#POS[@]} -eq 4 ] || [ ${#POS[@]} -eq 5 ]; } ||
++        _sa_die "usage: stackalign update apply <package> <target_nevra> <service> [snapshot_path] [--apply]"
++      if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then
++        local f
++        for f in common history service repo_cache update; do source "$SA_ROOT/lib/$f.sh"; done
++        SA_MODE=apply; export SA_MODE
++        sa_update_apply "${POS[@]:1}"
++        return $?
++      fi
++      echo "plan: update ${POS[1]} -> ${POS[2]} (service ${POS[3]}, snapshot ${POS[4]:-/etc/${POS[1]}})"
++      echo "plan: health check -> snapshot config -> install verified RPM -> reload_safe;"
++      echo "plan: on failure restore config, dnf downgrade to the current NEVRA, restart, re-check"
++      echo "(re-run with --apply to make changes)" ;;
++    check|plan|pin|status)
++      echo "stackalign: 'update $sub' is not implemented yet (milestone $(_sa_ms update))" >&2
++      return 2 ;;
++    *) _sa_die "usage: stackalign update <check|plan|apply|pin|status>" ;;
++  esac
++}
++
+ _sa_stub() {  # <cmd> args...
+   local c=$1; shift
+   _sa_parse "--plan --apply" "$@"
+@@ -176,6 +202,7 @@
+     doctor)   cmd_doctor "$@" ;;
+     rollback) cmd_rollback "$@" ;;
+     secret)   cmd_secret "$@" ;;
++    update)   cmd_update "$@" ;;
+     *)        _sa_stub "$c" "$@" ;;
+   esac
+ }
+diff --git a/lib/backup.sh b/lib/backup.sh
+--- a/lib/backup.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/backup.sh	2026-11-14 03:42:59.659808682 +0000
+@@ -0,0 +1,42 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/backup.sh -- mysqldump (logical), MariaBackup (physical), rclone push.
++# Credentials come ONLY from a defaults file (SA_MYSQL_DEFAULTS_FILE), never argv.
++. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
++
++_sa_bk_dir_ok()  { [[ $1 == /* && $1 != *..* && $1 =~ ^/[A-Za-z0-9._/-]+$ ]]; }
++
++# sa_backup_dump <dest_dir>  -> prints the .sql.gz path
++sa_backup_dump() {
++    local dest=${1:-} f tmp
++    _sa_bk_dir_ok "$dest" || { echo "backup: bad dest dir" >&2; return 64; }
++    [ -f "${SA_MYSQL_DEFAULTS_FILE:-}" ] || { echo "backup: SA_MYSQL_DEFAULTS_FILE not set/readable" >&2; return 64; }
++    ( umask 077; mkdir -p "$dest" ) || return 1
++    f="$dest/db-$(date +%Y%m%dT%H%M%S).sql.gz"; tmp="$f.part"
++    if ( umask 077; set -o pipefail
++         mysqldump --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --single-transaction \
++                   --routines --triggers --all-databases | gzip -c > "$tmp" ) && mv -f -- "$tmp" "$f"; then
++        printf '%s\n' "$f"
++    else
++        rm -f -- "$tmp"; echo "backup: mysqldump failed" >&2; return 1
++    fi
++}
++
++# sa_backup_physical <target_dir>  (target must not exist yet)
++sa_backup_physical() {
++    local t=${1:-}
++    _sa_bk_dir_ok "$t" || { echo "backup: bad target dir" >&2; return 64; }
++    [ -f "${SA_MYSQL_DEFAULTS_FILE:-}" ] || { echo "backup: SA_MYSQL_DEFAULTS_FILE not set/readable" >&2; return 64; }
++    [ ! -e "$t" ] || { echo "backup: target exists; refusing to overwrite" >&2; return 1; }
++    mariabackup --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --backup --target-dir="$t" >&2 || return 1
++    mariabackup --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --prepare --target-dir="$t" >&2
++}
++
++# sa_backup_rclone <src_dir> <remote:path>
++sa_backup_rclone() {
++    local src=${1:-} remote=${2:-}
++    _sa_bk_dir_ok "$src" && [ -d "$src" ] || { echo "backup: bad source dir" >&2; return 64; }
++    [[ $remote =~ ^[A-Za-z0-9_-]+:[A-Za-z0-9._/-]*$ && $remote != *..* ]] || { echo "backup: bad remote" >&2; return 64; }
++    rclone copy -- "$src" "$remote"
++}
+diff --git a/lib/common.sh b/lib/common.sh
+--- a/lib/common.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/common.sh	2026-11-14 03:42:58.803808652 +0000
+@@ -0,0 +1,7 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/common.sh -- minimal shared logger (new file; repo had no log()).
++if ! declare -F log >/dev/null 2>&1; then
++    log() { printf '[%s] %s\n' "$(date +%T)" "$*" >&2; }
++fi
+diff --git a/lib/extensions.sh b/lib/extensions.sh
+--- a/lib/extensions.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/extensions.sh	2026-11-14 03:42:59.831808689 +0000
+@@ -0,0 +1,28 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/extensions.sh -- opt-in PHP extensions via DNF. Allowlist only; enabled repos only.
++# ASSUMPTION: package names below match your enabled PHP repo; adjust per PHP version.
++. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
++
++_sa_ext_pkg() {
++    case $1 in
++        redis)   echo php-pecl-redis ;;
++        imagick) echo php-pecl-imagick ;;
++        ffmpeg)  echo ffmpeg-php ;;
++        libheif) echo php-libheif ;;
++        *) return 1 ;;
++    esac
++}
++
++# sa_ext_install <comma-list>  e.g. redis,imagick
++sa_ext_install() {
++    local list=${1:-} e pkg pkgs=() IFS=,
++    [ -n "$list" ] || return 0
++    for e in $list; do
++        pkg="$(_sa_ext_pkg "$e")" || { echo "extensions: not allowed: $e" >&2; return 64; }
++        dnf -q list --available -- "$pkg" >/dev/null 2>&1 || { echo "extensions: $pkg not in an enabled repo; refusing" >&2; return 1; }
++        pkgs+=("$pkg")
++    done
++    dnf -y install -- "${pkgs[@]}"
++}
+diff --git a/lib/firewall.sh b/lib/firewall.sh
+--- a/lib/firewall.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/firewall.sh	2026-11-14 03:42:59.287808669 +0000
+@@ -0,0 +1,73 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/firewall.sh -- nftables/firewalld selection, intrusion tooling, FTP refusal.
++# All arguments are DATA: allowlist-validated, never eval'd. No FTP daemon, ever.
++# ASSUMPTIONS: crowdsec bouncer package name; nftables.service+firewalld both
++# active is treated as "mixed" and refused.
++. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
++
++_sa_fw_ftp() { local p=${1,,}; case $p in *vsftpd*|*pure-ftpd*|*proftpd*) return 0 ;; esac; return 1; }
++
++sa_fw_refuse_ftp() {
++    if _sa_fw_ftp "${1:-}"; then echo "error=ftp_daemon_refused" >&2; return 3; fi
++    return 0
++}
++
++# sa_fw_validate <backend> <intrusion> <ssh_port> <http3>
++sa_fw_validate() {
++    [ $# -eq 4 ] || { echo "usage: sa_fw_validate backend intrusion ssh_port http3" >&2; return 64; }
++    case $1 in nftables|firewalld) ;; *) echo "firewall: bad backend: $1" >&2; return 64 ;; esac
++    case $2 in crowdsec|fail2ban|none) ;; *) echo "firewall: bad intrusion: $2" >&2; return 64 ;; esac
++    if ! { [[ $3 =~ ^[0-9]{1,5}$ ]] && [ "$3" -ge 1 ] && [ "$3" -le 65535 ]; }; then
++        echo "firewall: bad ssh_port: $3" >&2; return 64
++    fi
++    case $4 in on|off) ;; *) echo "firewall: bad http3: $4" >&2; return 64 ;; esac
++}
++
++# Prints the active backend; refuses to mix firewalld and nftables.service.
++sa_fw_detect_backend() {
++    local fwd=0 nft=0
++    systemctl is-active --quiet firewalld 2>/dev/null && fwd=1
++    systemctl is-active --quiet nftables 2>/dev/null && nft=1
++    if [ $fwd -eq 1 ] && [ $nft -eq 1 ]; then
++        echo "firewall: firewalld and nftables are both active; refusing to mix" >&2; return 1
++    fi
++    if [ $fwd -eq 1 ]; then echo firewalld; return 0; fi
++    if [ $nft -eq 1 ] || command -v nft >/dev/null 2>&1; then echo nftables; return 0; fi
++    if command -v firewall-cmd >/dev/null 2>&1; then echo firewalld; return 0; fi
++    echo "firewall: no supported backend found" >&2; return 1
++}
++
++# sa_fw_render_nft <ssh_port> <http3>  -> ruleset on stdout (atomic replace of our table only)
++sa_fw_render_nft() {
++    sa_fw_validate nftables none "${1:-}" "${2:-}" || return 64
++    printf 'add table inet stackalign\ndelete table inet stackalign\n'
++    printf 'table inet stackalign {\n  chain input {\n'
++    printf '    type filter hook input priority 0; policy drop;\n'
++    printf '    ct state invalid drop\n    ct state established,related accept\n'
++    printf '    iif "lo" accept\n    ip protocol icmp accept\n    ip6 nexthdr icmpv6 accept\n'
++    printf '    tcp dport %s accept\n    tcp dport { 80, 443 } accept\n' "$1"
++    [ "$2" = on ] && printf '    udp dport 443 accept\n'
++    printf '  }\n}\n'
++}
++
++# Validates with `nft -c` first; loads only if the check passes. WARNING: policy
++# drop + a wrong ssh_port locks you out. Run from a console the first time.
++sa_fw_apply_nft() {
++    local tmp rc=0
++    tmp="$(mktemp)" || return 1
++    sa_fw_render_nft "$@" > "$tmp" || { rm -f "$tmp"; return 64; }
++    if nft -c -f "$tmp"; then nft -f "$tmp" || rc=1; else rc=1; echo "firewall: ruleset failed nft -c; nothing loaded" >&2; fi
++    rm -f "$tmp"; return $rc
++}
++
++# sa_fw_install_intrusion <crowdsec|fail2ban|none> -- DNF only, never vendored.
++sa_fw_install_intrusion() {
++    case ${1:-} in
++        none) return 0 ;;
++        crowdsec) dnf -y install -- crowdsec crowdsec-firewall-bouncer-nftables ;;
++        fail2ban) dnf -y install -- fail2ban ;;
++        *) echo "firewall: bad intrusion: ${1:-}" >&2; return 64 ;;
++    esac
++}
+diff --git a/lib/repo.sh b/lib/repo.sh
+--- a/lib/repo.sh	2026-11-13 18:18:08.000000000 +0000
++++ b/lib/repo.sh	2026-11-14 03:43:01.170613620 +0000
+@@ -4,8 +4,8 @@
+ #
+ # lib/repo.sh -- package repository setup. Written from master prompt v8 Part III.
+ # Every argument is DATA: validated against a strict allowlist, never eval'd,
+-# repo file written with printf only. versions.toml is NOT read here (thin
+-# wrapper in bin/stackalign, not yet written).
++# repo file written with printf only. versions.toml (vendor/versions.toml, override SA_VERSIONS_TOML) is the
++# source of truth for pinned versions; see _sa_repo_manifest_pin.
+ #
+ # ASSUMPTIONS (spec is silent; unmeasured design choices):
+ #   * sa_repo_install takes optional args 4-6 (repo_url fingerprint key_url) so
+@@ -19,6 +19,9 @@
+ 
+ : "${SA_YUM_REPOS_DIR:=/etc/yum.repos.d}"
+ 
++# shellcheck source=lib/toml.sh
++source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
++
+ _sa_repo_valid() {  # <kind> <value>
+   case $1 in
+     name)    [[ $2 =~ ^[a-z0-9][a-z0-9_-]*$ ]] ;;
+@@ -89,12 +92,70 @@
+   dnf versionlock add -- "$2-$3"
+ }
+ 
+-sa_repo_install() {  # <name> <package> <version> [repo_url fingerprint key_url]
+-  [ $# -eq 3 ] || [ $# -eq 6 ] || { echo "usage: sa_repo_install <name> <package> <version> [url fpr keyurl]" >&2; return 64; }
+-  local name=$1 pkg=$2 ver=$3
+-  _sa_repo_valid name "$name"  || { _sa_repo_bad name "$name"; return 64; }
++# _sa_repo_manifest_pin <component>   -> prints pinned_version on stdout
++# rc 0 ok | 65 manifest invalid/ambiguous (message on stderr)
++#        | 66 manifest file absent | 67 component not in manifest (both silent)
++# Matches the component by exact `name`; duplicates are rejected.
++_sa_repo_manifest_pin() {
++  local comp=$1
++  local manifest=${SA_VERSIONS_TOML:-${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/vendor/versions.toml}
++  local i=0 hits=0 pin=""
++
++  [ -f "$manifest" ] || return 66
++  declare -gA TOML_DATA
++  sa_toml_parse "$manifest" || {
++    echo "repo: manifest parse failed: $manifest" >&2
++    return 65
++  }
++
++  while [[ -n "${TOML_DATA[component.$i.name]+x}" ]]; do
++    if [ "${TOML_DATA[component.$i.name]}" = "$comp" ]; then
++      hits=$((hits + 1))
++      pin=${TOML_DATA[component.$i.pinned_version]-}
++    fi
++    i=$((i + 1))
++  done
++
++  [ "$hits" -eq 0 ] && return 67
++  [ "$hits" -eq 1 ] || {
++    echo "repo: manifest has $hits entries named $comp; refusing" >&2
++    return 65
++  }
++  _sa_repo_valid version "$pin" || {
++    echo "repo: manifest pinned_version invalid for $comp" >&2
++    return 65
++  }
++  printf '%s\n' "$pin"
++}
++
++sa_repo_install() {  # <name> <package> <version|pinned> [repo_url fingerprint key_url]
++  [ $# -eq 3 ] || [ $# -eq 6 ] || { echo "usage: sa_repo_install <name> <package> <version|pinned> [url fpr keyurl]" >&2; return 64; }
++
++  local name=$1 pkg=$2 ver=$3 pin rc
++
++  _sa_repo_valid name "$name" || { _sa_repo_bad name "$name"; return 64; }
+   _sa_repo_valid package "$pkg" || { _sa_repo_bad package "$pkg"; return 64; }
+-  _sa_repo_valid version "$ver" || { _sa_repo_bad version "$ver"; return 64; }
++
++  if [ "$ver" = pinned ]; then
++    pin=$(_sa_repo_manifest_pin "$name"); rc=$?
++    case $rc in
++      0) ver=$pin ;;
++      66) echo "repo: versions.toml not found; cannot resolve pinned version" >&2; return 65 ;;
++      67) echo "repo: component $name not in versions.toml" >&2; return 65 ;;
++      *) return 65 ;;
++    esac
++  else
++    _sa_repo_valid version "$ver" || { _sa_repo_bad version "$ver"; return 64; }
++    pin=$(_sa_repo_manifest_pin "$name"); rc=$?
++    case $rc in
++      0) [ "$pin" = "$ver" ] || {
++           echo "repo: $name version $ver != manifest pin $pin; refusing" >&2
++           return 65
++         } ;;
++      66|67) ;;            # no manifest / unlisted component: explicit version as before
++      *) return 65 ;;      # present but broken manifest fails closed
++    esac
++  fi
+   if _sa_repo_ftp "$pkg"; then echo "error=ftp_daemon_refused" >&2; return 3; fi
+   if [ $# -eq 6 ]; then
+     sa_repo_setup "$name" "$4" "$5" "$6" || return $?
+diff --git a/lib/repo_cache.sh b/lib/repo_cache.sh
+--- a/lib/repo_cache.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/repo_cache.sh	2026-11-14 03:42:58.903808655 +0000
+@@ -0,0 +1,51 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/repo_cache.sh -- verified RPM cache keyed by exact NEVRA.
++# Usage: sa_cache_get <nevra>   -> prints cached rpm path (only) on stdout.
++# Every path returns non-zero on failure; dnf output goes to stderr.
++
++: "${SA_RPM_CACHE:=/var/cache/stackalign/rpms}"
++
++# NEVRA charset only; no slashes, globs, spaces, or leading '-'/'.'.
++_sa_nevra_valid() {
++    [[ "$1" =~ ^[A-Za-z0-9_+][A-Za-z0-9._+~^:-]*$ ]] && [[ "$1" != *..* ]]
++}
++
++# Signature/integrity OK AND the file's own NEVRA equals the request.
++_sa_rpm_verify() {
++    local f="$1" want="$2" got
++    [ -f "$f" ] && [ ! -L "$f" ] || return 1
++    rpm --checksig "$f" >/dev/null 2>&1 || return 1
++    got="$(rpm -qp --qf '%{NEVRA}' "$f" 2>/dev/null)" || return 1
++    [ "$got" = "$want" ]
++}
++
++_sa_cache_fetch() {   # $1 nevra  $2 tmpdir  $3 final path
++    local nevra="$1" tmp="$2" final="$3" rpms=()
++    dnf -y download --destdir "$tmp" "$nevra" >&2 || return 1
++    shopt -s nullglob
++    rpms=("$tmp"/*.rpm)
++    shopt -u nullglob
++    [ "${#rpms[@]}" -eq 1 ] || return 1                 # exactly one RPM
++    _sa_rpm_verify "${rpms[0]}" "$nevra" || return 1    # exact identity
++    mv -f "${rpms[0]}" "$final"
++}
++
++sa_cache_get() {
++    local nevra="${1:-}" final tmp rc
++    _sa_nevra_valid "$nevra" || return 1
++    mkdir -p "$SA_RPM_CACHE" || return 1
++    final="$SA_RPM_CACHE/${nevra//:/_}.rpm"
++
++    # Cache hit: exact name only, re-verified (signature + NEVRA).
++    if _sa_rpm_verify "$final" "$nevra"; then
++        printf '%s\n' "$final"; return 0
++    fi
++
++    tmp="$(mktemp -d "$SA_RPM_CACHE/.dl.XXXXXX")" || return 1
++    _sa_cache_fetch "$nevra" "$tmp" "$final"; rc=$?
++    rm -rf "$tmp"                                        # every path cleans up
++    [ "$rc" -eq 0 ] || return 1
++    printf '%s\n' "$final"
++}
+diff --git a/lib/security.sh b/lib/security.sh
+--- a/lib/security.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/security.sh	2026-11-14 03:42:59.531808678 +0000
+@@ -0,0 +1,37 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/security.sh -- advisory ClamAV scan of docroots. Never quarantines or deletes.
++# Findings are appended as JSON lines to SA_AUDIT_QUEUE. YARA is deferred to M7.
++. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
++
++: "${SA_AUDIT_QUEUE:=/etc/stackalign/audit/queue.jsonl}"
++
++_sa_sec_esc() {
++    local s=$1
++    s=${s//\\/\\\\}; s=${s//\"/\\\"}; s=${s//$'\n'/\\n}; s=${s//$'\r'/\\r}; s=${s//$'\t'/\\t}
++    printf '%s' "$s"
++}
++
++# sa_security_scan <docroot>...  rc 0 scan ran (findings advisory) | 2 scanner error | 64 bad args
++sa_security_scan() {
++    [ $# -ge 1 ] || { echo "usage: sa_security_scan <docroot>..." >&2; return 64; }
++    local d out rc line path sig n=0
++    for d in "$@"; do
++        [[ $d == /* && -d $d ]] || { echo "security: not an absolute existing dir: $d" >&2; return 64; }
++    done
++    mkdir -p "$(dirname "$SA_AUDIT_QUEUE")" || return 2
++    for d in "$@"; do
++        rc=0
++        out="$(clamscan -r --infected --no-summary -- "$d" 2>/dev/null)" || rc=$?
++        [ $rc -le 1 ] || { echo "security: clamscan failed on $d (rc=$rc)" >&2; return 2; }
++        while IFS= read -r line; do
++            [[ $line == *" FOUND" ]] || continue
++            path=${line%: *}; sig=${line##*: }; sig=${sig% FOUND}
++            printf '{"severity":"HIGH","component":"clamav","path":"%s","signature":"%s","action":"none"}\n' \
++                "$(_sa_sec_esc "$path")" "$(_sa_sec_esc "$sig")" >> "$SA_AUDIT_QUEUE"
++            n=$((n + 1))
++        done <<< "$out"
++    done
++    echo "security: $n finding(s) queued at $SA_AUDIT_QUEUE (advisory; nothing was changed)"
++}
+diff --git a/lib/sftp.sh b/lib/sftp.sh
+--- a/lib/sftp.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/sftp.sh	2026-11-14 03:42:59.919808692 +0000
+@@ -0,0 +1,95 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/sftp.sh -- chrooted, key-only SFTP accounts (the replacement for an FTP daemon).
++# Uses sshd's internal-sftp inside a Match Group drop-in. No password logins, no shell,
++# no forwarding. Existing system accounts are never converted or deleted.
++# ASSUMPTIONS to verify on a throwaway host: your sshd includes sshd_config.d/*.conf
++# and a Match block in that drop-in does not leak into later directives (check with
++# `sshd -T -C user=alice,addr=127.0.0.1`); sshd -t passes before every reload.
++. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
++
++: "${SA_SFTP_GROUP:=sftponly}"
++: "${SA_SFTP_BASE:=/srv/sftp}"
++: "${SA_SFTP_KEYDIR:=/etc/ssh/sftp_keys}"
++: "${SA_SFTP_DROPIN:=/etc/ssh/sshd_config.d/50-stackalign-sftp.conf}"
++
++_sa_sftp_user_ok() { [[ $1 =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] && [ "$1" != root ]; }
++# Plain public keys only: no authorized_keys options (command=, from=, ...).
++_sa_sftp_key_ok() {
++    [[ $1 =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com)[\ ][A-Za-z0-9+/=]+([\ ][A-Za-z0-9@._-]+)?$ ]]
++}
++_sa_sftp_exists()   { id -- "$1" >/dev/null 2>&1; }
++_sa_sftp_in_group() { id -nG -- "$1" 2>/dev/null | tr ' ' '\n' | grep -qx -- "$SA_SFTP_GROUP"; }
++_sa_sftp_group()    { getent group "$SA_SFTP_GROUP" >/dev/null 2>&1 || groupadd -- "$SA_SFTP_GROUP"; }
++
++# The sshd drop-in, on stdout.
++sa_sftp_render() {
++    printf 'Match Group %s\n' "$SA_SFTP_GROUP"
++    printf '    ChrootDirectory %s/%%u\n' "$SA_SFTP_BASE"
++    printf '    ForceCommand internal-sftp -d /files\n'
++    printf '    AuthorizedKeysFile %s/%%u\n' "$SA_SFTP_KEYDIR"
++    printf '    PasswordAuthentication no\n    KbdInteractiveAuthentication no\n'
++    printf '    PermitTTY no\n    X11Forwarding no\n    AllowTcpForwarding no\n    AllowAgentForwarding no\n'
++}
++
++# Installs the drop-in atomically; sshd -t must pass or the previous state is restored.
++sa_sftp_enable() {
++    local dir new backup=""
++    dir="$(dirname "$SA_SFTP_DROPIN")"
++    [ -d "$dir" ] || { echo "sftp: $dir does not exist" >&2; return 1; }
++    _sa_sftp_group || return 1
++    install -d -m 0755 -o root -g root -- "$SA_SFTP_BASE" "$SA_SFTP_KEYDIR" || return 1
++    new="$(mktemp "$dir/.sa-sftp.XXXXXX")" || return 1
++    sa_sftp_render > "$new" && chmod 0644 -- "$new" || { rm -f -- "$new"; return 1; }
++    if [ -f "$SA_SFTP_DROPIN" ]; then
++        backup="$(mktemp "$dir/.sa-sftp-bak.XXXXXX")" || { rm -f -- "$new"; return 1; }
++        cp -p -- "$SA_SFTP_DROPIN" "$backup"
++    fi
++    mv -f -- "$new" "$SA_SFTP_DROPIN" || { rm -f -- "$new" "$backup"; return 1; }
++    if ! sshd -t >&2; then
++        if [ -n "$backup" ]; then mv -f -- "$backup" "$SA_SFTP_DROPIN"; else rm -f -- "$SA_SFTP_DROPIN"; fi
++        echo "sftp: sshd -t failed; previous configuration restored" >&2; return 1
++    fi
++    if ! systemctl reload sshd; then
++        if [ -n "$backup" ]; then mv -f -- "$backup" "$SA_SFTP_DROPIN"; else rm -f -- "$SA_SFTP_DROPIN"; fi
++        echo "sftp: reload failed; previous configuration restored" >&2; return 1
++    fi
++    [ -z "$backup" ] || rm -f -- "$backup"
++}
++
++# sa_sftp_add_user <user> <public_key_file>   (re-running with the same user rotates the key)
++sa_sftp_add_user() {
++    local user=${1:-} keyfile=${2:-} key chroot tmp
++    _sa_sftp_user_ok "$user" || { echo "sftp: bad username" >&2; return 64; }
++    [ -f "$keyfile" ] || { echo "sftp: key file not found" >&2; return 64; }
++    key="$(<"$keyfile")"
++    _sa_sftp_key_ok "$key" || { echo "sftp: not a plain single-line public key" >&2; return 64; }
++    if _sa_sftp_exists "$user" && ! _sa_sftp_in_group "$user"; then
++        echo "sftp: $user is an existing non-SFTP account; refusing to modify it" >&2; return 1
++    fi
++    _sa_sftp_group || return 1
++    chroot="$SA_SFTP_BASE/$user"
++    if ! _sa_sftp_exists "$user"; then
++        useradd -g "$SA_SFTP_GROUP" -M -d "$chroot" -s /sbin/nologin -- "$user" || return 1
++    fi
++    # sshd requires the chroot path to be root-owned and not group/other-writable.
++    install -d -m 0755 -o root -g root -- "$SA_SFTP_BASE" "$SA_SFTP_KEYDIR" "$chroot" || return 1
++    install -d -m 0700 -o "$user" -g "$SA_SFTP_GROUP" -- "$chroot/files" || return 1
++    tmp="$(mktemp "$SA_SFTP_KEYDIR/.k.XXXXXX")" || return 1
++    printf '%s\n' "$key" > "$tmp" && chmod 0644 -- "$tmp" && chown root:root -- "$tmp" &&
++        mv -f -- "$tmp" "$SA_SFTP_KEYDIR/$user" || { rm -f -- "$tmp"; return 1; }
++    log "sftp: $user ready (chroot $chroot, upload dir /files)"
++}
++
++# sa_sftp_remove_user <user>  -- removes the login and key; the user's data is kept.
++sa_sftp_remove_user() {
++    local user=${1:-}
++    _sa_sftp_user_ok "$user" || { echo "sftp: bad username" >&2; return 64; }
++    _sa_sftp_in_group "$user" || { echo "sftp: $user is not an SFTP account; refusing" >&2; return 1; }
++    userdel -- "$user" || return 1
++    rm -f -- "$SA_SFTP_KEYDIR/$user"
++    log "sftp: removed login for $user; data kept in $SA_SFTP_BASE/$user"
++}
++
++sa_sftp_list() { getent group "$SA_SFTP_GROUP" 2>/dev/null | awk -F: '{ gsub(",", "\n", $4); print $4 }'; }
+diff --git a/lib/tls.sh b/lib/tls.sh
+--- a/lib/tls.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/tls.sh	2026-11-14 03:42:59.415808674 +0000
+@@ -0,0 +1,97 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/tls.sh -- ACME client adapter. Lego primary, Certbot fallback; shells out only.
++# Needs: log, sa_history_snapshot <path> [slug], sa_service_reload_safe <service> <snapshot-id>.
++# ZeroSSL EAB comes from env SA_TLS_EAB_KID / SA_TLS_EAB_HMAC. NOTE: the clients take
++# them as flags, so they are briefly visible in `ps`; keep the host single-tenant.
++. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
++
++: "${SA_CERT_ROOT:=/etc/stackalign/certs}"
++
++_sa_tls_domain_ok() { [[ $1 =~ ^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; }
++_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
++_sa_tls_ca_url() {
++    case $1 in
++        letsencrypt) echo "https://acme-v02.api.letsencrypt.org/directory" ;;
++        zerossl)     echo "https://acme.zerossl.com/v2/DV90" ;;
++        *) return 1 ;;
++    esac
++}
++
++# Reports upstream schedulers; returns 2 if one is active.
++sa_tls_preflight() {
++    local found=0 t
++    for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer; do
++        if systemctl is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
++    done
++    if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -q 'acme\.sh'; then
++        echo "scheduler: acme.sh cron entry present"; found=1
++    fi
++    [ $found -eq 0 ] || return 2
++}
++
++# Refuses while an upstream scheduler is active unless SA_TLS_ALLOW_UPSTREAM=1.
++sa_tls_enable_renewal_timer() {
++    local rc=0
++    sa_tls_preflight >/dev/null || rc=$?
++    if [ $rc -eq 2 ] && [ "${SA_TLS_ALLOW_UPSTREAM:-0}" != 1 ]; then
++        echo "tls: upstream scheduler active; refusing (set SA_TLS_ALLOW_UPSTREAM=1 to override)" >&2
++        return 2
++    fi
++    systemctl enable --now stackalign-renew.timer
++}
++
++# sa_tls_issue <domain> <client> <ca> <challenge> <webroot|dns_provider> <email> <service>
++sa_tls_issue() {
++    [ $# -eq 7 ] || { echo "usage: sa_tls_issue domain client ca challenge webroot|provider email service" >&2; return 64; }
++    local domain=$1 client=$2 ca=$3 chal=$4 extra=$5 email=$6 svc=$7 url lin dir work snap crt key base
++    _sa_tls_domain_ok "$domain" || { echo "tls: bad domain: $domain" >&2; return 64; }
++    case $client in lego|certbot) ;; *) echo "tls: bad client: $client" >&2; return 64 ;; esac
++    url="$(_sa_tls_ca_url "$ca")" || { echo "tls: bad ca: $ca" >&2; return 64; }
++    [[ $email =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || { echo "tls: bad email" >&2; return 64; }
++    [[ $svc =~ ^[A-Za-z0-9_.@-]+$ ]] || { echo "tls: bad service" >&2; return 64; }
++    case $chal in
++        http-01) [[ $extra == /* && -d $extra ]] || { echo "tls: webroot must be an existing absolute dir" >&2; return 64; } ;;
++        dns-01)  [[ $extra =~ ^[a-z0-9-]+$ ]] || { echo "tls: bad dns provider" >&2; return 64; }
++                 [ "$client" = lego ] || { echo "tls: dns-01 needs lego" >&2; return 64; } ;;
++        *) echo "tls: bad challenge: $chal" >&2; return 64 ;;
++    esac
++    if [ "$ca" = zerossl ] && { [ -z "${SA_TLS_EAB_KID:-}" ] || [ -z "${SA_TLS_EAB_HMAC:-}" ]; }; then
++        echo "tls: zerossl needs SA_TLS_EAB_KID and SA_TLS_EAB_HMAC" >&2; return 1
++    fi
++
++    lin="$(_sa_tls_lineage "$domain")"; dir="$SA_CERT_ROOT/$lin"
++    if [ -f "$dir/.client" ] && [ "$(cat "$dir/.client")" != "$client" ]; then
++        echo "tls: $domain is owned by $(cat "$dir/.client"); refusing to switch to $client" >&2; return 1
++    fi
++    mkdir -p "$dir" || return 1
++    work="$(mktemp -d)" || return 1
++
++    if [ "$client" = lego ]; then
++        local args=(--path "$work" --email "$email" --accept-tos --server "$url" --domains "$domain")
++        [ "$ca" = zerossl ] && args+=(--eab --kid "$SA_TLS_EAB_KID" --hmac "$SA_TLS_EAB_HMAC")
++        if [ "$chal" = http-01 ]; then args+=(--http --http.webroot "$extra"); else args+=(--dns "$extra"); fi
++        lego "${args[@]}" run >&2 || { rm -rf "$work"; return 1; }
++        base="${domain/#\*/_}"
++        crt="$work/certificates/$base.crt"; key="$work/certificates/$base.key"
++    else
++        local cargs=(certonly --non-interactive --agree-tos -m "$email" --cert-name "$domain" -d "$domain"
++                     --server "$url" --webroot -w "$extra"
++                     --config-dir "$work/c" --work-dir "$work/w" --logs-dir "$work/l")
++        [ "$ca" = zerossl ] && cargs+=(--eab-kid "$SA_TLS_EAB_KID" --eab-hmac-key "$SA_TLS_EAB_HMAC")
++        certbot "${cargs[@]}" >&2 || { rm -rf "$work"; return 1; }
++        crt="$work/c/live/$domain/fullchain.pem"; key="$work/c/live/$domain/privkey.pem"
++    fi
++    if [ ! -s "$crt" ] || [ ! -s "$key" ]; then echo "tls: client produced no cert/key" >&2; rm -rf "$work"; return 1; fi
++
++    snap="$(sa_history_snapshot "$dir" "pre-tls-$lin")" || { rm -rf "$work"; echo "tls: snapshot failed" >&2; return 1; }
++    ( umask 077
++      cp -- "$crt" "$dir/.fullchain.new" && cp -- "$key" "$dir/.privkey.new" ) || { rm -rf "$work"; return 1; }
++    chmod 644 "$dir/.fullchain.new"; chmod 600 "$dir/.privkey.new"
++    mv -f -- "$dir/.fullchain.new" "$dir/fullchain.pem" && mv -f -- "$dir/.privkey.new" "$dir/privkey.pem" || { rm -rf "$work"; return 1; }
++    printf '%s\n' "$client" > "$dir/.client"
++    rm -rf "$work"
++    sa_service_reload_safe "$svc" "$snap" || { log "tls: reload failed; snapshot $snap holds the previous files"; return 1; }
++    log "tls: $domain issued by $client, deployed to $dir"
++}
+diff --git a/lib/toml.sh b/lib/toml.sh
+--- a/lib/toml.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/toml.sh	2026-11-14 03:42:59.923808692 +0000
+@@ -0,0 +1,113 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# Parse a deliberately small TOML subset; this is not a full TOML implementation.
++declare -A TOML_DATA
++
++sa_toml_parse() {
++    local file="${1-}"
++    local line lineno=0 table="" table_kind="" array_index=-1
++    local key raw_value value full_key tail char next_char
++    local i length closed
++
++    TOML_DATA=()
++
++    if [[ -z "$file" || ! -r "$file" || ! -f "$file" ]]; then
++        printf 'toml: %s: file is not a readable regular file\n' "${file:-<missing>}" >&2
++        return 1
++    fi
++
++    local -A array_counts=()
++
++    while IFS= read -r line || [[ -n "$line" ]]; do
++        ((lineno += 1))
++        line="${line#"${line%%[![:space:]]*}"}"
++        line="${line%"${line##*[![:space:]]}"}"
++        [[ -z "$line" || "$line" == \#* ]] && continue
++
++        if [[ "$line" =~ ^\[\[[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*\]\]$ ]]; then
++            table="${BASH_REMATCH[1]}"
++            table_kind="array"
++            if [[ -n "${array_counts[$table]+present}" ]]; then
++                array_index=${array_counts[$table]}
++            else
++                array_index=0
++            fi
++            array_counts["$table"]=$((array_index + 1))
++            continue
++        fi
++
++        if [[ "$line" =~ ^\[[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*\]$ ]]; then
++            table="${BASH_REMATCH[1]}"
++            table_kind="simple"
++            array_index=-1
++            continue
++        fi
++
++        if [[ "$line" =~ ^([A-Za-z0-9_]+)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
++            key="${BASH_REMATCH[1]}"
++            raw_value="${BASH_REMATCH[2]}"
++            raw_value="${raw_value#"${raw_value%%[![:space:]]*}"}"
++            raw_value="${raw_value%"${raw_value##*[![:space:]]}"}"
++            if [[ -z "$raw_value" ]]; then
++                printf 'toml: %s:%d: missing value for key %s\n' "$file" "$lineno" "$key" >&2
++                TOML_DATA=(); return 1
++            fi
++            if [[ "${raw_value:0:1}" == '"' ]]; then
++                value=""; i=1; length=${#raw_value}; closed=0
++                while (( i < length )); do
++                    char="${raw_value:i:1}"
++                    if [[ "$char" == $'\\' ]]; then
++                        ((i += 1))
++                        if (( i >= length )); then break; fi
++                        next_char="${raw_value:i:1}"
++                        if [[ "$next_char" != '"' && "$next_char" != $'\\' ]]; then
++                            printf 'toml: %s:%d: unsupported string escape\\%s\n' "$file" "$lineno" "$next_char" >&2
++                            TOML_DATA=(); return 1
++                        fi
++                        value+="$next_char"
++                    elif [[ "$char" == '"' ]]; then
++                        closed=1
++                        tail="${raw_value:i+1}"
++                        tail="${tail#"${tail%%[![:space:]]*}"}"
++                        if [[ -n "$tail" && "${tail:0:1}" != '#' ]]; then
++                            printf 'toml: %s:%d: unexpected text after quoted string\n' "$file" "$lineno" >&2
++                            TOML_DATA=(); return 1
++                        fi
++                        break
++                    else
++                        value+="$char"
++                    fi
++                    ((i += 1))
++                done
++                if (( closed == 0 )); then
++                    printf 'toml: %s:%d: unterminated quoted string\n' "$file" "$lineno" >&2
++                    TOML_DATA=(); return 1
++                fi
++            elif [[ "$raw_value" =~ ^[+-]?(0|[1-9][0-9]*)$ || "$raw_value" == true || "$raw_value" == false ]]; then
++                value="$raw_value"
++            else
++                printf 'toml: %s:%d: unsupported or invalid value for key %s\n' "$file" "$lineno" "$key" >&2
++                TOML_DATA=(); return 1
++            fi
++            if [[ -n "$table" ]]; then
++                if [[ "$table_kind" == array ]]; then
++                    full_key="${table}.${array_index}.${key}"
++                else
++                    full_key="${table}.${key}"
++                fi
++            else
++                full_key="$key"
++            fi
++            if [[ -n "${TOML_DATA[$full_key]+present}" ]]; then
++                printf 'toml: %s:%d: duplicate key %s\n' "$file" "$lineno" "$full_key" >&2
++                TOML_DATA=(); return 1
++            fi
++            TOML_DATA["$full_key"]="$value"
++            continue
++        fi
++        printf 'toml: %s:%d: unsupported syntax: %s\n' "$file" "$lineno" "$line" >&2
++        TOML_DATA=(); return 1
++    done < "$file"
++    return 0
++}
+diff --git a/lib/update.sh b/lib/update.sh
+--- a/lib/update.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/update.sh	2026-11-14 03:42:58.807113886 +0000
+@@ -0,0 +1,61 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/update.sh -- transactional package update with RPM rollback.
++# Needs: log, sa_history_snapshot <path> [slug], sa_cache_get,
++#        sa_service_health/sa_service_restart/sa_service_reload_safe (lib/service.sh).
++# Exit codes: 0 ok, 1 update failed and rolled back, 99 rollback failed.
++#
++# Real-contract notes (lib/service.sh):
++#   * sa_service_reload_safe <service> <snapshot-id> restores the CONFIG snapshot
++#     itself on failure, and calls `exit 99` when the service is still unhealthy.
++#     It runs in a subshell here so that exit 99 cannot skip the RPM rollback.
++#   * After `dnf downgrade` the service is restarted and health-checked again,
++#     because the running process may still be the new binary.
++
++# Usage: sa_update_apply <package> <target_nevra> <service> [snapshot_path]
++sa_update_apply() {
++    local pkg="${1:?package}" target="${2:?target nevra}" svc="${3:?service}"
++    local spath="${4:-/etc/$pkg}" old now snap slug rpm_path rc=0
++    old="$(rpm -q --qf '%{NEVRA}' "$pkg")" || { log "update: $pkg not installed"; return 1; }
++
++    # Also rejects services sa_service_health does not know (rc 64).
++    sa_service_health "$svc" || { log "update: $svc is not healthy before the update; refusing"; return 1; }
++    if [ ! -e "$spath" ]; then
++        log "update: snapshot path $spath not found; pass it as the 4th argument"
++        return 1
++    fi
++    slug="pre-update-${pkg//[^A-Za-z0-9_.-]/_}"
++    snap="$(sa_history_snapshot "$spath" "$slug")" || { log "update: snapshot failed"; return 1; }
++    [ -n "$snap" ] || { log "update: empty snapshot id"; return 1; }
++    log "update: $pkg $old -> $target (snapshot $snap of $spath)"
++
++    rpm_path="$(sa_cache_get "$target")" || { log "update: cannot fetch $target"; return 1; }
++
++    if dnf -y install "$rpm_path"; then
++        ( sa_service_reload_safe "$svc" "$snap" ) || rc=$?
++        if [ "$rc" -eq 0 ]; then
++            log "update: $pkg -> $target ok"
++            return 0
++        fi
++        log "update: service check failed (rc=$rc), rolling back to $old"
++    else
++        now="$(rpm -q --qf '%{NEVRA}' "$pkg" 2>/dev/null)" || now=""
++        if [ "$now" = "$old" ]; then
++            log "update: dnf install failed; package unchanged"
++            return 1
++        fi
++        log "update: dnf install failed part-way, rolling back to $old"
++    fi
++
++    if ! dnf -y downgrade "$old"; then
++        log "update: ROLLBACK FAILED, manual repair needed ($old)"
++        return 99
++    fi
++    if sa_service_restart "$svc" && sa_service_health "$svc"; then
++        log "update: rolled back to $old"
++        return 1
++    fi
++    log "update: $svc unhealthy after downgrade to $old; manual repair needed"
++    return 99
++}
+diff --git a/lib/watchtower.sh b/lib/watchtower.sh
+--- a/lib/watchtower.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/lib/watchtower.sh	2026-11-14 03:42:59.039808660 +0000
+@@ -0,0 +1,71 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# lib/watchtower.sh -- advisory audit. Observes and scores; never changes anything.
++
++
++
++. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
++
++: "${SA_WATCHTOWER_QUEUE:=/var/lib/stackalign/watchtower-queue.jsonl}"
++
++_sa_json_escape() {
++    local s="$1"
++    s="${s//\\/\\\\}"; s="${s//\"/\\\"}"
++    s="${s//$'\n'/\\n}"; s="${s//$'\r'/\\r}"; s="${s//$'\t'/\\t}"
++    printf '%s' "$s"
++}
++
++_sa_emit_finding() {
++    printf '{"severity":"%s","component":"%s","message":"%s"}\n' \
++        "$(_sa_json_escape "$1")" "$(_sa_json_escape "$2")" "$(_sa_json_escape "$3")" \
++        >> "$SA_WATCHTOWER_QUEUE"
++}
++
++# Repo checks only (safe in CI; queue path must be writable).
++sa_watchtower_scan() {
++    local root="${1:-.}"
++    mkdir -p "$(dirname "$SA_WATCHTOWER_QUEUE")" || return 1
++    : > "$SA_WATCHTOWER_QUEUE"
++    log "Watchtower: scanning $root"
++
++    grep -q "sa_toml_parse" "$root/lib/repo.sh" 2>/dev/null ||
++        _sa_emit_finding HIGH lib/repo.sh "TOML parser not integrated."
++    grep -rq "sa_cache_get" "$root/lib" 2>/dev/null ||
++        _sa_emit_finding HIGH lib "RPM cache (sa_cache_get) missing."
++    grep -rq "dnf -y downgrade" "$root/lib" "$root/bin" 2>/dev/null ||
++        _sa_emit_finding CRITICAL bin/stackalign "Update rollback (dnf -y downgrade) missing."
++
++    if [ -d "$root/templates/nginx" ] && [ -n "$(find "$root/templates/nginx" -type f 2>/dev/null)" ]; then
++        grep -rqi "claudebot" "$root/templates/nginx" ||
++            _sa_emit_finding HIGH templates/nginx "AI crawler map missing ClaudeBot."
++        grep -rq "fastcgi_no_cache" "$root/templates/nginx" ||
++            _sa_emit_finding CRITICAL templates/nginx "fastcgi_no_cache missing."
++        grep -rq "fastcgi_cache_bypass" "$root/templates/nginx" ||
++            _sa_emit_finding CRITICAL templates/nginx "fastcgi_cache_bypass missing."
++    else
++        _sa_emit_finding MED templates/nginx "Nginx templates missing."
++    fi
++    _sa_watchtower_summary
++}
++
++# Live-host checks (run on the server, usually as root).
++sa_watchtower_live() {
++    mkdir -p "$(dirname "$SA_WATCHTOWER_QUEUE")" || return 1
++    if command -v nginx >/dev/null 2>&1 && ! nginx -t >/dev/null 2>&1; then
++        _sa_emit_finding CRITICAL nginx "Live nginx -t failed."
++    fi
++    if command -v mysqladmin >/dev/null 2>&1 && ! mysqladmin ping >/dev/null 2>&1; then
++        _sa_emit_finding CRITICAL mariadb "MariaDB not responding to ping."
++    fi
++    _sa_watchtower_summary
++}
++
++_sa_watchtower_summary() {
++    echo "--- Watchtower findings ---"
++    if [ -s "$SA_WATCHTOWER_QUEUE" ]; then
++        while IFS= read -r line; do echo "  $line"; done < "$SA_WATCHTOWER_QUEUE"
++    else
++        echo "  No issues found."
++    fi
++}
+diff --git a/tests/test_backup.sh b/tests/test_backup.sh
+--- a/tests/test_backup.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_backup.sh	2026-11-14 03:43:00.907808727 +0000
+@@ -0,0 +1,43 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_backup.sh
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
++mkdir -p "$T/bin"; : > "$T/calls"
++export CALLS="$T/calls" PATH="$T/bin:$PATH"
++fail=0
++check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
++mkfake() { printf "%s
++" "#!/usr/bin/env bash" "$2" > "$T/bin/$1"; chmod +x "$T/bin/$1"; }
++mkfake mysqldump 'echo "mysqldump $*" >> "$CALLS"; [ "${FAKE_DUMP_FAIL:-0}" = 1 ] && exit 1; echo "SELECT 1;"'
++mkfake mariabackup 'echo "mariabackup $*" >> "$CALLS"; for a in "$@"; do case "$a" in --target-dir=*) mkdir -p "${a#--target-dir=}";; esac; done'
++mkfake rclone 'echo "rclone $*" >> "$CALLS"'
++printf '[client]\nuser=backup\n' > "$T/my.cnf"; export SA_MYSQL_DEFAULTS_FILE="$T/my.cnf"
++. "$ROOT/lib/backup.sh"
++
++f="$(sa_backup_dump "$T/out" 2>/dev/null)"; check "dump ok" "$?" 0
++check "dump content" "$(gunzip -c "$f")" "SELECT 1;"
++check "dump mode 600" "$(stat -c %a "$f")" 600
++check "no .part left" "$(ls "$T/out" | grep -c '\.part$')" 0
++grep -q -- "--defaults-extra-file=$T/my.cnf" "$CALLS"; check "creds via defaults file" "$?" 0
++if grep -Eq -- '--password|-p[A-Za-z0-9]' "$CALLS"; then check "no password on argv" 1 0; else check "no password on argv" 0 0; fi
++
++rm -rf "$T/out2"; FAKE_DUMP_FAIL=1 sa_backup_dump "$T/out2" >/dev/null 2>&1; check "dump failure => rc 1" "$?" 1
++check "failed dump leaves no file" "$(ls "$T/out2" 2>/dev/null | wc -l | tr -d ' ')" 0
++sa_backup_dump "../x" >/dev/null 2>&1; check "bad dest dir" "$?" 64
++( unset SA_MYSQL_DEFAULTS_FILE; sa_backup_dump "$T/out3" >/dev/null 2>&1 ); check "missing defaults file" "$?" 64
++
++: > "$CALLS"; sa_backup_physical "$T/phys" >/dev/null 2>&1; check "physical ok" "$?" 0
++grep -q -- "--backup --target-dir=$T/phys" "$CALLS"; check "backup called" "$?" 0
++grep -q -- "--prepare --target-dir=$T/phys" "$CALLS"; check "prepare called" "$?" 0
++sa_backup_physical "$T/phys" >/dev/null 2>&1; check "existing target refused" "$?" 1
++
++mkdir -p "$T/src"
++sa_backup_rclone "$T/src" "b2remote:bucket/path" >/dev/null 2>&1; check "rclone ok" "$?" 0
++grep -q "rclone copy -- $T/src b2remote:bucket/path" "$CALLS"; check "rclone args" "$?" 0
++sa_backup_rclone "$T/src" 'x;rm -rf /' >/dev/null 2>&1; check "bad remote rejected" "$?" 64
++sa_backup_rclone "$T/src" 'r:../etc' >/dev/null 2>&1; check "remote traversal rejected" "$?" 64
++sa_backup_rclone "relative" "r:p" >/dev/null 2>&1; check "bad source rejected" "$?" 64
++exit "$fail"
+diff --git a/tests/test_extensions.sh b/tests/test_extensions.sh
+--- a/tests/test_extensions.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_extensions.sh	2026-11-14 03:43:01.047808732 +0000
+@@ -0,0 +1,25 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_extensions.sh
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
++mkdir -p "$T/bin"; : > "$T/calls"
++export CALLS="$T/calls" PATH="$T/bin:$PATH"
++fail=0
++check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
++mkfake() { printf "%s
++" "#!/usr/bin/env bash" "$2" > "$T/bin/$1"; chmod +x "$T/bin/$1"; }
++mkfake dnf 'echo "dnf $*" >> "$CALLS"; if [ "$1" = -q ] && [ "$2" = list ]; then case " ${FAKE_AVAIL:-} " in *" ${@: -1} "*) exit 0 ;; esac; exit 1; fi; exit 0'
++. "$ROOT/lib/extensions.sh"
++export FAKE_AVAIL="php-pecl-redis php-pecl-imagick"
++
++sa_ext_install "redis,imagick" >/dev/null 2>&1; check "allowed + available => ok" "$?" 0
++grep -q "dnf -y install -- php-pecl-redis php-pecl-imagick" "$CALLS"; check "single install call" "$?" 0
++: > "$CALLS"; sa_ext_install "redis,evil" >/dev/null 2>&1; check "unknown ext rejected" "$?" 64
++grep -q "install" "$CALLS"; check "nothing installed on reject" "$?" 1
++: > "$CALLS"; sa_ext_install "ffmpeg" >/dev/null 2>&1; check "unavailable pkg refused" "$?" 1
++grep -q "dnf -y install" "$CALLS"; check "no install when unavailable" "$?" 1
++: > "$CALLS"; sa_ext_install "" ; check "empty list is no-op" "$?" 0
++exit "$fail"
+diff --git a/tests/test_firewall.sh b/tests/test_firewall.sh
+--- a/tests/test_firewall.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_firewall.sh	2026-11-14 03:43:00.551808714 +0000
+@@ -0,0 +1,54 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_firewall.sh
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
++mkdir -p "$T/bin"; : > "$T/calls"
++export CALLS="$T/calls" PATH="$T/bin:$PATH"
++fail=0
++check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
++mkfake() { printf "%s
++" "#!/usr/bin/env bash" "$2" > "$T/bin/$1"; chmod +x "$T/bin/$1"; }
++mkfake systemctl 'u="${@: -1}"; case " ${FAKE_ACTIVE:-} " in *" $u "*) exit 0 ;; esac; exit 3'
++mkfake nft 'echo "nft $*" >> "$CALLS"; case "$1" in -c) exit "${FAKE_NFT_CHECK_RC:-0}" ;; esac; exit 0'
++mkfake dnf 'echo "dnf $*" >> "$CALLS"; exit 0'
++. "$ROOT/lib/firewall.sh"
++
++sa_fw_validate nftables crowdsec 22 on;   check "validate ok" "$?" 0
++sa_fw_validate iptables crowdsec 22 on 2>/dev/null; check "bad backend" "$?" 64
++sa_fw_validate nftables csf 22 on 2>/dev/null;      check "bad intrusion" "$?" 64
++sa_fw_validate nftables none 0 on 2>/dev/null;      check "port 0 rejected" "$?" 64
++sa_fw_validate nftables none 70000 on 2>/dev/null;  check "port 70000 rejected" "$?" 64
++sa_fw_validate nftables none "22;x" on 2>/dev/null; check "port injection rejected" "$?" 64
++sa_fw_validate nftables none 22 maybe 2>/dev/null;  check "bad http3" "$?" 64
++
++sa_fw_refuse_ftp vsftpd 2>/dev/null;   check "vsftpd refused" "$?" 3
++sa_fw_refuse_ftp Pure-FTPd 2>/dev/null; check "pure-ftpd refused (case)" "$?" 3
++sa_fw_refuse_ftp nginx;                check "nginx allowed" "$?" 0
++
++export FAKE_ACTIVE="firewalld";            check "detect firewalld" "$(sa_fw_detect_backend 2>/dev/null)" firewalld
++export FAKE_ACTIVE="nftables";             check "detect nftables" "$(sa_fw_detect_backend 2>/dev/null)" nftables
++export FAKE_ACTIVE="firewalld nftables";   sa_fw_detect_backend >/dev/null 2>&1; check "mixed refused" "$?" 1
++
++r="$(sa_fw_render_nft 2222 on)"
++case "$r" in *"tcp dport 2222 accept"*) check "ssh port rendered" 0 0 ;; *) check "ssh port rendered" 1 0 ;; esac
++case "$r" in *"udp dport 443 accept"*) check "udp 443 when http3 on" 0 0 ;; *) check "udp 443 when http3 on" 1 0 ;; esac
++r="$(sa_fw_render_nft 22 off)"
++case "$r" in *udp*) check "no udp when http3 off" 1 0 ;; *) check "no udp when http3 off" 0 0 ;; esac
++case "$r" in *"policy drop"*"ct state established"*) check "drop policy + established" 0 0 ;; *) check "drop policy + established" 1 0 ;; esac
++
++: > "$CALLS"; sa_fw_apply_nft 22 on >/dev/null 2>&1; check "apply ok" "$?" 0
++grep -q "^nft -c -f" "$CALLS"; check "checked first" "$?" 0
++grep -q "^nft -f" "$CALLS"; check "then loaded" "$?" 0
++: > "$CALLS"; export FAKE_NFT_CHECK_RC=1
++sa_fw_apply_nft 22 on >/dev/null 2>&1; check "failed check => rc 1" "$?" 1
++grep -q "^nft -f" "$CALLS"; check "failed check => nothing loaded" "$?" 1
++unset FAKE_NFT_CHECK_RC
++
++: > "$CALLS"; sa_fw_install_intrusion crowdsec; grep -q "dnf -y install -- crowdsec crowdsec-firewall-bouncer-nftables" "$CALLS"; check "crowdsec via dnf" "$?" 0
++: > "$CALLS"; sa_fw_install_intrusion fail2ban;  grep -q "dnf -y install -- fail2ban" "$CALLS"; check "fail2ban via dnf" "$?" 0
++: > "$CALLS"; sa_fw_install_intrusion none;      check "none => no-op" "$(wc -c < "$CALLS" | tr -d ' ')" 0
++sa_fw_install_intrusion csf 2>/dev/null; check "csf rejected" "$?" 64
++exit "$fail"
+diff --git a/tests/test_repo_cache.sh b/tests/test_repo_cache.sh
+--- a/tests/test_repo_cache.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_repo_cache.sh	2026-11-14 03:43:00.223808703 +0000
+@@ -0,0 +1,60 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_repo_cache.sh -- exact-NEVRA verification for sa_cache_get.
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
++mkdir -p "$T/bin"; : > "$T/calls"
++export CALLS="$T/calls" PATH="$T/bin:$PATH" SA_RPM_CACHE="$T/cache"
++
++# Fake rpm file content == its NEVRA. FAKE_FILES="name:content name:content".
++cat > "$T/bin/dnf" <<'F'
++#!/usr/bin/env bash
++echo "dnf $*" >> "$CALLS"
++dest=""; while [ $# -gt 0 ]; do [ "$1" = --destdir ] && dest="$2"; shift; done
++for spec in $FAKE_FILES; do printf '%s' "${spec#*:}" > "$dest/${spec%%:*}.rpm"; done
++exit 0
++F
++cat > "$T/bin/rpm" <<'F'
++#!/usr/bin/env bash
++case "$1" in
++  --checksig) [ "${FAKE_SIG_BAD:-0}" = 1 ] && exit 1; exit 0 ;;
++  -qp) cat "${@: -1}" ;;
++esac
++F
++chmod +x "$T/bin/"*
++. "$ROOT/lib/repo_cache.sh"
++
++fail=0
++check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
++W=pkg-2.0-1.x86_64
++
++export FAKE_FILES="a:$W"
++out="$(sa_cache_get "$W" 2>/dev/null)"; rc=$?
++check "download ok"            "$rc" 0
++check "stdout is path only"    "$out" "$SA_RPM_CACHE/$W.rpm"
++: > "$CALLS"; sa_cache_get "$W" >/dev/null 2>&1
++check "hit skips dnf"          "$(wc -l < "$CALLS" | tr -d ' ')" 0
++
++rm -rf "$SA_RPM_CACHE"; export FAKE_FILES="a:pkg-9.9-1.x86_64"
++sa_cache_get "$W" >/dev/null 2>&1; check "wrong NEVRA rejected" "$?" 1
++check "nothing cached on reject" "$(ls "$SA_RPM_CACHE" | wc -l | tr -d ' ')" 0
++
++export FAKE_FILES="a:$W b:$W"
++sa_cache_get "$W" >/dev/null 2>&1; check "two RPMs rejected" "$?" 1
++
++export FAKE_FILES="a:$W" FAKE_SIG_BAD=1
++sa_cache_get "$W" >/dev/null 2>&1; check "bad signature rejected" "$?" 1
++unset FAKE_SIG_BAD
++
++for bad in "../x" "a/b" 'a*b' "-rf" "" "a b"; do
++  sa_cache_get "$bad" >/dev/null 2>&1; check "invalid nevra '$bad'" "$?" 1
++done
++check "no temp dirs left" "$(ls -A "$SA_RPM_CACHE" | grep -c '^\.dl\.')" 0
++
++# corrupt cache entry (wrong NEVRA inside right filename) is not trusted
++printf 'pkg-0.1-1.x86_64' > "$SA_RPM_CACHE/$W.rpm"; export FAKE_FILES="a:$W"
++sa_cache_get "$W" >/dev/null 2>&1; check "bad hit refetched" "$?" 0
++check "refetched content correct" "$(cat "$SA_RPM_CACHE/$W.rpm")" "$W"
++exit "$fail"
+diff --git a/tests/test_repo_toml.sh b/tests/test_repo_toml.sh
+--- a/tests/test_repo_toml.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_repo_toml.sh	2026-11-14 03:43:00.391808709 +0000
+@@ -0,0 +1,66 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_repo_toml.sh -- manifest-driven pin resolution in sa_repo_install.
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
++mkdir -p "$T/bin" "$T/repos"; : > "$T/calls"
++export CALLS="$T/calls" STATE="$T/installed" PATH="$T/bin:$PATH" SA_YUM_REPOS_DIR="$T/repos"
++: > "$T/repos/stackalign-nginx.repo"; : > "$T/repos/stackalign-php.repo"
++
++cat > "$T/bin/dnf" <<'F'
++#!/usr/bin/env bash
++echo "dnf $*" >> "$CALLS"
++[ "$1" = install ] && printf '%s\n' "${@: -1}" >> "$STATE"
++exit 0
++F
++cat > "$T/bin/rpm" <<'F'
++#!/usr/bin/env bash
++[ "$1" = -q ] && grep -qx -- "$2" "$STATE" 2>/dev/null
++F
++chmod +x "$T/bin/"*
++
++export SA_ROOT="$ROOT"
++. "$ROOT/lib/repo.sh"
++
++fail=0
++check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
++reset() { : > "$CALLS"; rm -f "$STATE"; }
++M="$T/versions.toml"
++cp "$ROOT/vendor/versions.toml" "$M"
++export SA_VERSIONS_TOML="$M"
++
++reset; sa_repo_install nginx nginx pinned >/dev/null 2>&1; rc=$?
++check "pinned resolves + installs" "$rc" 0
++grep -q "dnf install -y -- nginx-1.30.6" "$CALLS"; check "dnf got manifest version" "$?" 0
++grep -q "versionlock add -- nginx-1.30.6" "$CALLS"; check "versionlock uses pin" "$?" 0
++
++reset; sa_repo_install nginx nginx 1.30.6 >/dev/null 2>&1; check "explicit == pin ok" "$?" 0
++reset; sa_repo_install nginx nginx 1.29.0 >/dev/null 2>&1; check "explicit != pin refused (65)" "$?" 65
++check "no dnf on mismatch" "$(wc -l < "$CALLS" | tr -d ' ')" 0
++
++reset; sa_repo_install bogus nginx pinned >/dev/null 2>&1; check "unknown component, pinned (65)" "$?" 65
++
++printf '%s\n' '[[component]]' 'name = "nginx"' 'pinned_version = "1.30.6"' \
++  '[[component]]' 'name = "nginx"' 'pinned_version = "1.99.0"' > "$M"
++reset; sa_repo_install nginx nginx pinned >/dev/null 2>&1; check "duplicate component (65)" "$?" 65
++
++printf '%s\n' '[[component]]' 'name = "nginx"' 'pinned_version = "1.30.6"' 'tested_matrix = []' > "$M"
++reset; sa_repo_install nginx nginx pinned >/dev/null 2>&1; check "array value => parse fail (65)" "$?" 65
++reset; sa_repo_install nginx nginx 1.30.6 >/dev/null 2>&1; check "broken manifest fails closed even w/ explicit ver" "$?" 65
++
++printf '%s\n' '[[component]]' 'name = "nginx"' 'pinned_version = "1.0/../x"' > "$M"
++reset; sa_repo_install nginx nginx pinned >/dev/null 2>&1; check "invalid pinned_version (65)" "$?" 65
++
++printf '%s\n' '[[component]]' 'name = "nginx"' 'channel = "stable"' > "$M"
++reset; sa_repo_install nginx nginx pinned >/dev/null 2>&1; check "missing pinned_version (65)" "$?" 65
++
++export SA_VERSIONS_TOML="$T/absent.toml"
++reset; sa_repo_install nginx nginx pinned >/dev/null 2>&1; check "no manifest + pinned (65)" "$?" 65
++reset; sa_repo_install nginx nginx 1.30.6 >/dev/null 2>&1; check "no manifest + explicit: legacy path ok" "$?" 0
++
++cp "$ROOT/vendor/versions.toml" "$M"; export SA_VERSIONS_TOML="$M"
++reset; sa_repo_install php php-fpm 8.5.12 >/dev/null 2>&1; check "unlisted-by-name pkg, repo name php matches" "$?" 0
++reset; sa_repo_install nginx nginx 'pinned; rm' >/dev/null 2>&1; check "injection-shaped version rejected (64)" "$?" 64
++exit "$fail"
+diff --git a/tests/test_security.sh b/tests/test_security.sh
+--- a/tests/test_security.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_security.sh	2026-11-14 03:43:00.783808723 +0000
+@@ -0,0 +1,37 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_security.sh
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
++mkdir -p "$T/bin"; : > "$T/calls"
++export CALLS="$T/calls" PATH="$T/bin:$PATH"
++fail=0
++check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
++mkfake() { printf "%s
++" "#!/usr/bin/env bash" "$2" > "$T/bin/$1"; chmod +x "$T/bin/$1"; }
++mkfake clamscan 'echo "clamscan $*" >> "$CALLS"; printf "%s" "${FAKE_OUT:-}"; exit "${FAKE_RC:-0}"'
++export SA_AUDIT_QUEUE="$T/audit/queue.jsonl"; mkdir -p "$T/www"
++. "$ROOT/lib/security.sh"
++
++FAKE_OUT=$'/var/www/a/evil.php: Eicar-Test-Signature FOUND\n' FAKE_RC=1 sa_security_scan "$T/www" >/dev/null; check "findings => rc 0 (advisory)" "$?" 0
++check "one JSON line queued" "$(wc -l < "$SA_AUDIT_QUEUE" | tr -d ' ')" 1
++grep -q '"path":"/var/www/a/evil.php"' "$SA_AUDIT_QUEUE"; check "path recorded" "$?" 0
++grep -q '"signature":"Eicar-Test-Signature"' "$SA_AUDIT_QUEUE"; check "signature recorded" "$?" 0
++grep -q '"action":"none"' "$SA_AUDIT_QUEUE"; check "action none" "$?" 0
++if grep -Eq -- '--remove|--move|--copy' "$CALLS"; then check "no quarantine/delete flags" 1 0; else check "no quarantine/delete flags" 0 0; fi
++
++: > "$SA_AUDIT_QUEUE"
++FAKE_OUT=$'/var/www/a"b/x.php: Sig.One FOUND\n' FAKE_RC=1 sa_security_scan "$T/www" >/dev/null
++grep -q '/var/www/a\\"b/x.php' "$SA_AUDIT_QUEUE"; check "quote escaped in JSON" "$?" 0
++
++: > "$SA_AUDIT_QUEUE"; out="$(FAKE_OUT="" FAKE_RC=0 sa_security_scan "$T/www")"
++case "$out" in *"0 finding(s)"*) check "clean scan reports 0" 0 0 ;; *) check "clean scan reports 0" 1 0 ;; esac
++check "clean scan queues nothing" "$(wc -c < "$SA_AUDIT_QUEUE" | tr -d ' ')" 0
++
++FAKE_RC=2 sa_security_scan "$T/www" >/dev/null 2>&1; check "scanner error => rc 2" "$?" 2
++sa_security_scan "relative/dir" >/dev/null 2>&1; check "relative docroot rejected" "$?" 64
++sa_security_scan "$T/nope" >/dev/null 2>&1; check "missing docroot rejected" "$?" 64
++sa_security_scan >/dev/null 2>&1; check "no args => 64" "$?" 64
++exit "$fail"
+diff --git a/tests/test_sftp.sh b/tests/test_sftp.sh
+--- a/tests/test_sftp.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_sftp.sh	2026-11-14 03:43:50.613414953 +0000
+@@ -0,0 +1,90 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_sftp.sh
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
++mkdir -p "$T/bin" "$T/sshd_config.d"; : > "$T/calls"; : > "$T/users"
++export CALLS="$T/calls" USERS="$T/users" GROUPF="$T/group" PATH="$T/bin:$PATH"
++fail=0
++check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
++mkfake() { printf "%s\n" "#!/usr/bin/env bash" "$2" > "$T/bin/$1"; chmod +x "$T/bin/$1"; }
++
++# users file lines: "name" (normal account) or "name:sftp"
++mkfake id 'u="${@: -1}"; l="$(grep -E "^$u(:|$)" "$USERS" | head -1)"; [ -n "$l" ] || exit 1; if [ "$1" = -nG ]; then echo -n "$u wheel"; case "$l" in *:sftp) echo -n " sftponly" ;; esac; echo; fi'
++mkfake getent 'if [ "$1" = group ]; then [ -f "$GROUPF" ] || exit 2; echo "sftponly:x:1001:alice,carol"; fi'
++mkfake groupadd 'echo "groupadd $*" >> "$CALLS"; touch "$GROUPF"'
++mkfake useradd 'echo "useradd $*" >> "$CALLS"; echo "${@: -1}:sftp" >> "$USERS"'
++mkfake userdel 'echo "userdel $*" >> "$CALLS"; grep -v "^${@: -1}:" "$USERS" > "$USERS.n"; mv "$USERS.n" "$USERS"'
++mkfake install 'echo "install $*" >> "$CALLS"; for a in "$@"; do case "$a" in /*) mkdir -p "$a" ;; esac; done'
++mkfake chown 'echo "chown $*" >> "$CALLS"'
++mkfake sshd 'echo "sshd $*" >> "$CALLS"; exit "${FAKE_SSHD_RC:-0}"'
++mkfake systemctl 'echo "systemctl $*" >> "$CALLS"; [ "$1" = reload ] && exit "${FAKE_RELOAD_RC:-0}"; exit 0'
++
++export SA_SFTP_BASE="$T/sftp" SA_SFTP_KEYDIR="$T/keys" SA_SFTP_DROPIN="$T/sshd_config.d/50-stackalign-sftp.conf"
++. "$ROOT/lib/sftp.sh"
++
++KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyData0123456789abcdefghijk user@host'
++printf '%s\n' "$KEY" > "$T/good.pub"
++printf '%s\n' 'command="rm -rf /" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA x' > "$T/opts.pub"
++printf '%s\n%s\n' "$KEY" "$KEY" > "$T/two.pub"
++printf '%s\n' 'ssh-dss AAAAB3NzaC1kc3MAAACB x' > "$T/dss.pub"
++
++for bad in "root" "Alice" "a b" "../x" "a;b" "" "-rf"; do
++  sa_sftp_add_user "$bad" "$T/good.pub" >/dev/null 2>&1; check "bad user '$bad'" "$?" 64
++done
++for kf in opts two dss; do
++  sa_sftp_add_user eve "$T/$kf.pub" >/dev/null 2>&1; check "bad key ($kf)" "$?" 64
++done
++sa_sftp_add_user eve "$T/missing.pub" >/dev/null 2>&1; check "missing key file" "$?" 64
++grep -q useradd "$CALLS"; check "no useradd on bad input" "$?" 1
++
++sa_sftp_add_user alice "$T/good.pub" >/dev/null 2>&1; check "add alice ok" "$?" 0
++grep -q "groupadd -- sftponly" "$CALLS"; check "group created when missing" "$?" 0
++grep -q "useradd -g sftponly -M -d $T/sftp/alice -s /sbin/nologin -- alice" "$CALLS"; check "useradd flags (nologin, no home skeleton)" "$?" 0
++grep -q "install -d -m 0755 -o root -g root -- $T/sftp $T/keys $T/sftp/alice" "$CALLS"; check "chroot root-owned 0755" "$?" 0
++grep -q "install -d -m 0700 -o alice -g sftponly -- $T/sftp/alice/files" "$CALLS"; check "upload dir owned by user 0700" "$?" 0
++check "key file content" "$(cat "$T/keys/alice")" "$KEY"
++check "key file mode 644" "$(stat -c %a "$T/keys/alice")" 644
++grep -q "chown root:root" "$CALLS"; check "key file root-owned" "$?" 0
++
++: > "$CALLS"; sa_sftp_add_user alice "$T/good.pub" >/dev/null 2>&1; check "re-add rotates key" "$?" 0
++grep -q "useradd" "$CALLS"; check "no second useradd" "$?" 1
++grep -q "groupadd" "$CALLS"; check "group not recreated" "$?" 1
++
++echo "bob" >> "$USERS"
++: > "$CALLS"; sa_sftp_add_user bob "$T/good.pub" >/dev/null 2>&1; check "existing normal account refused" "$?" 1
++[ -e "$T/keys/bob" ]; check "no key written for refused account" "$?" 1
++
++sa_sftp_remove_user bob >/dev/null 2>&1; check "remove non-SFTP account refused" "$?" 1
++grep -q userdel "$CALLS"; check "no userdel for bob" "$?" 1
++sa_sftp_remove_user alice >/dev/null 2>&1; check "remove sftp user ok" "$?" 0
++grep -q "userdel -- alice" "$CALLS" && ! grep -q -- "userdel -r" "$CALLS"; check "userdel without -r" "$?" 0
++[ -e "$T/keys/alice" ]; check "key removed" "$?" 1
++[ -d "$T/sftp/alice/files" ]; check "data kept" "$?" 0
++
++r="$(sa_sftp_render)"
++for want in "Match Group sftponly" "ChrootDirectory $T/sftp/%u" "ForceCommand internal-sftp -d /files" "AuthorizedKeysFile $T/keys/%u" "PasswordAuthentication no" "PermitTTY no" "AllowTcpForwarding no"; do
++  case "$r" in *"$want"*) check "render has: $want" 0 0 ;; *) check "render has: $want" 1 0 ;; esac
++done
++
++: > "$CALLS"; sa_sftp_enable >/dev/null 2>&1; check "enable ok" "$?" 0
++grep -q "Match Group sftponly" "$SA_SFTP_DROPIN"; check "drop-in installed" "$?" 0
++grep -q "^sshd -t" "$CALLS"; check "sshd -t ran" "$?" 0
++grep -q "systemctl reload sshd" "$CALLS"; check "sshd reloaded" "$?" 0
++check "no temp files left" "$(ls -A "$T/sshd_config.d" | grep -c '^\.sa-sftp')" 0
++
++printf 'OLD\n' > "$SA_SFTP_DROPIN"; : > "$CALLS"
++FAKE_SSHD_RC=1 sa_sftp_enable >/dev/null 2>&1; check "sshd -t failure => rc 1" "$?" 1
++check "previous drop-in restored" "$(cat "$SA_SFTP_DROPIN")" OLD
++grep -q "reload" "$CALLS"; check "no reload after failed check" "$?" 1
++
++rm -f "$SA_SFTP_DROPIN"; FAKE_SSHD_RC=1 sa_sftp_enable >/dev/null 2>&1
++[ -e "$SA_SFTP_DROPIN" ]; check "first-time failure removes drop-in" "$?" 1
++
++printf 'OLD\n' > "$SA_SFTP_DROPIN"; FAKE_RELOAD_RC=1 sa_sftp_enable >/dev/null 2>&1; check "reload failure => rc 1" "$?" 1
++check "reload failure restores previous" "$(cat "$SA_SFTP_DROPIN")" OLD
++
++check "list members" "$(sa_sftp_list | tr '\n' ' ')" "alice carol "
++exit "$fail"
+diff --git a/tests/test_tls.sh b/tests/test_tls.sh
+--- a/tests/test_tls.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_tls.sh	2026-11-14 03:43:00.675808719 +0000
+@@ -0,0 +1,62 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_tls.sh
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
++mkdir -p "$T/bin"; : > "$T/calls"
++export CALLS="$T/calls" PATH="$T/bin:$PATH"
++fail=0
++check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
++mkfake() { printf "%s
++" "#!/usr/bin/env bash" "$2" > "$T/bin/$1"; chmod +x "$T/bin/$1"; }
++mkfake systemctl 'echo "systemctl $*" >> "$CALLS"; case "$1" in is-active) u="${@: -1}"; case " ${FAKE_ACTIVE:-} " in *" $u "*) exit 0 ;; esac; exit 3 ;; esac; exit 0'
++mkfake crontab 'printf "%s\n" "${FAKE_CRON:-}"'
++mkfake lego 'echo "lego $*" >> "$CALLS"; p=""; d=""; while [ $# -gt 0 ]; do case "$1" in --path) p="$2";; --domains) d="$2";; esac; shift; done; b="${d/#\*/_}"; mkdir -p "$p/certificates"; echo CRT > "$p/certificates/$b.crt"; echo KEY > "$p/certificates/$b.key"'
++mkfake certbot 'echo "certbot $*" >> "$CALLS"; c=""; n=""; while [ $# -gt 0 ]; do case "$1" in --config-dir) c="$2";; --cert-name) n="$2";; esac; shift; done; mkdir -p "$c/live/$n"; echo CRT > "$c/live/$n/fullchain.pem"; echo KEY > "$c/live/$n/privkey.pem"'
++export SA_CERT_ROOT="$T/certs"; mkdir -p "$T/web"
++sa_history_snapshot() { echo "snapshot $*" >> "$CALLS"; echo SNAP7; }
++RELOAD_RC=0
++sa_service_reload_safe() { echo "reload $*" >> "$CALLS"; return "$RELOAD_RC"; }
++. "$ROOT/lib/tls.sh"
++D=example.com; E=ops@example.com
++
++sa_tls_issue $D lego letsencrypt http-01 "$T/web" $E nginx >/dev/null 2>&1; check "lego http-01 ok" "$?" 0
++check "fullchain deployed" "$(cat "$SA_CERT_ROOT/$D/fullchain.pem")" CRT
++check "privkey mode 600" "$(stat -c %a "$SA_CERT_ROOT/$D/privkey.pem")" 600
++check ".client recorded" "$(cat "$SA_CERT_ROOT/$D/.client")" lego
++grep -q "reload nginx SNAP7" "$CALLS"; check "reload got service+snapshot" "$?" 0
++grep -q "snapshot $SA_CERT_ROOT/$D pre-tls-$D" "$CALLS"; check "snapshot before deploy" "$?" 0
++sa_tls_issue $D certbot letsencrypt http-01 "$T/web" $E nginx >/dev/null 2>&1; check "client switch refused" "$?" 1
++
++sa_tls_issue "*.example.org" lego letsencrypt dns-01 cloudflare $E nginx >/dev/null 2>&1; check "wildcard dns-01 ok" "$?" 0
++check "wildcard lineage dir" "$(cat "$SA_CERT_ROOT/_wildcard_.example.org/fullchain.pem")" CRT
++grep -q -- "--dns cloudflare" "$CALLS"; check "dns provider passed" "$?" 0
++
++sa_tls_issue "a;b.com" lego letsencrypt http-01 "$T/web" $E nginx >/dev/null 2>&1; check "bad domain" "$?" 64
++sa_tls_issue $D lego letsencrypt http-01 "$T/web" "not-an-email" nginx >/dev/null 2>&1; check "bad email" "$?" 64
++sa_tls_issue d2.example.com certbot letsencrypt dns-01 cloudflare $E nginx >/dev/null 2>&1; check "dns-01 needs lego" "$?" 64
++sa_tls_issue d2.example.com lego letsencrypt http-01 relative/dir $E nginx >/dev/null 2>&1; check "relative webroot" "$?" 64
++sa_tls_issue d2.example.com lego bogusca http-01 "$T/web" $E nginx >/dev/null 2>&1; check "bad ca" "$?" 64
++
++sa_tls_issue z.example.com lego zerossl http-01 "$T/web" $E nginx >/dev/null 2>&1; check "zerossl needs EAB" "$?" 1
++export SA_TLS_EAB_KID=kid1 SA_TLS_EAB_HMAC=hmac1
++sa_tls_issue z.example.com lego zerossl http-01 "$T/web" $E nginx >/dev/null 2>&1; check "zerossl with EAB ok" "$?" 0
++grep -q -- "--eab --kid kid1 --hmac hmac1" "$CALLS"; check "EAB flags passed" "$?" 0
++sa_tls_issue c.example.com certbot letsencrypt http-01 "$T/web" $E nginx >/dev/null 2>&1; check "certbot ok" "$?" 0
++check "certbot cert deployed" "$(cat "$SA_CERT_ROOT/c.example.com/privkey.pem")" KEY
++
++RELOAD_RC=1; sa_tls_issue r.example.com lego letsencrypt http-01 "$T/web" $E nginx >/dev/null 2>&1; check "reload failure => rc 1" "$?" 1
++RELOAD_RC=0
++
++unset FAKE_ACTIVE FAKE_CRON
++sa_tls_preflight >/dev/null; check "preflight clean" "$?" 0
++FAKE_ACTIVE="certbot.timer" sa_tls_preflight >/dev/null; check "preflight sees certbot.timer" "$?" 2
++FAKE_CRON="0 0 * * * /root/.acme.sh/acme.sh --cron" sa_tls_preflight >/dev/null; check "preflight sees acme.sh cron" "$?" 2
++
++: > "$CALLS"; FAKE_ACTIVE="certbot.timer" sa_tls_enable_renewal_timer >/dev/null 2>&1; check "timer refused while certbot.timer active" "$?" 2
++grep -q "enable --now" "$CALLS"; check "timer not enabled" "$?" 1
++FAKE_ACTIVE="certbot.timer" SA_TLS_ALLOW_UPSTREAM=1 sa_tls_enable_renewal_timer >/dev/null 2>&1; check "override allows timer" "$?" 0
++grep -q "enable --now stackalign-renew.timer" "$CALLS"; check "timer enabled with override" "$?" 0
++exit "$fail"
+diff --git a/tests/test_update.sh b/tests/test_update.sh
+--- a/tests/test_update.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_update.sh	2026-11-14 03:43:00.092939380 +0000
+@@ -0,0 +1,88 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_update.sh -- sa_update_apply against the REAL service.sh contract
++# (reload_safe may `exit 99`; downgrade must be followed by restart + health).
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
++mkdir -p "$T/bin" "$T/etc-pkg"; : > "$T/calls"; echo OLD-1.0-1.x86_64 > "$T/installed"
++export CALLS="$T/calls" PATH="$T/bin:$PATH"
++
++cat > "$T/bin/dnf" <<'F'
++#!/usr/bin/env bash
++echo "dnf $*" >> "$CALLS"
++case "$*" in
++  *downgrade*) [ "${FAKE_DOWNGRADE_RC:-0}" = 0 ] && echo OLD-1.0-1.x86_64 > "$STATE"; exit "${FAKE_DOWNGRADE_RC:-0}" ;;
++  *install*)   [ "${FAKE_INSTALL_RC:-0}" = 0 ] && echo NEW-2.0-1.x86_64 > "$STATE"
++               [ "${FAKE_INSTALL_PARTIAL:-0}" = 1 ] && echo NEW-2.0-1.x86_64 > "$STATE"
++               exit "${FAKE_INSTALL_RC:-0}" ;;
++esac
++exit 0
++F
++cat > "$T/bin/rpm" <<'F'
++#!/usr/bin/env bash
++cat "$STATE"
++F
++chmod +x "$T/bin/"*
++export STATE="$T/installed"
++
++log() { :; }
++sa_history_snapshot() { echo "snapshot $*" >> "$CALLS"; echo SNAP42; }
++sa_cache_get() { echo "$T/NEW.rpm"; }
++HC="$T/healthcount"
++sa_service_health() {
++    echo "health $*" >> "$CALLS"
++    local n; n=$(( $(cat "$HC" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$HC"
++    [ "${FAKE_HEALTH_FAIL_FROM:-0}" -gt 0 ] && [ "$n" -ge "$FAKE_HEALTH_FAIL_FROM" ] && return 1
++    [ "$1" = bogus ] && return 64
++    return 0
++}
++sa_service_restart() { echo "restart $*" >> "$CALLS"; return "${FAKE_RESTART_RC:-0}"; }
++sa_service_reload_safe() {
++    echo "reload $*" >> "$CALLS"
++    [ "${FAKE_RELOAD_EXIT99:-0}" = 1 ] && exit 99      # the real helper does this
++    return "${FAKE_RELOAD_RC:-0}"
++}
++. "$ROOT/lib/update.sh"
++
++fail=0
++check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
++reset() { : > "$CALLS"; : > "$HC"; echo OLD-1.0-1.x86_64 > "$STATE"; unset FAKE_RELOAD_RC FAKE_RELOAD_EXIT99 FAKE_DOWNGRADE_RC FAKE_INSTALL_RC FAKE_INSTALL_PARTIAL FAKE_HEALTH_FAIL_FROM FAKE_RESTART_RC; }
++has() { grep -q -- "$1" "$CALLS"; }
++run() { ( sa_update_apply pkg NEW-2.0-1.x86_64 svc "$T/etc-pkg" ) >/dev/null 2>&1; }
++
++reset; run; check "success => 0" "$?" 0
++has "dnf -y downgrade"; check "no downgrade on success" "$?" 1
++has "snapshot $T/etc-pkg pre-update-pkg"; check "snapshot: one path + slug" "$?" 0
++has "reload svc SNAP42"; check "reload got service + snapshot id" "$?" 0
++
++reset; export FAKE_RELOAD_RC=1; run; check "reload fails, downgrade ok => 1" "$?" 1
++has "dnf -y downgrade OLD-1.0-1.x86_64"; check "downgrade to old NEVRA" "$?" 0
++has "restart svc"; check "restart after downgrade" "$?" 0
++
++reset; export FAKE_RELOAD_EXIT99=1; run; check "reload_safe exit 99 is caught => rollback => 1" "$?" 1
++has "dnf -y downgrade OLD-1.0-1.x86_64"; check "downgrade still attempted after exit 99" "$?" 0
++
++reset; export FAKE_RELOAD_RC=1 FAKE_DOWNGRADE_RC=1; run; check "downgrade fails => 99" "$?" 99
++
++reset; export FAKE_RELOAD_RC=1 FAKE_HEALTH_FAIL_FROM=2; run; check "unhealthy after downgrade => 99" "$?" 99
++reset; export FAKE_RELOAD_RC=1 FAKE_RESTART_RC=1; run; check "restart fails after downgrade => 99" "$?" 99
++
++reset; export FAKE_HEALTH_FAIL_FROM=1; run; check "unhealthy before update => refuse (1)" "$?" 1
++has "dnf"; check "no dnf when unhealthy" "$?" 1
++
++reset; ( sa_update_apply pkg NEW-2.0-1.x86_64 bogus "$T/etc-pkg" ) >/dev/null 2>&1; check "unknown service refused" "$?" 1
++has "dnf"; check "no dnf for unknown service" "$?" 1
++
++reset; export FAKE_INSTALL_RC=1; run; check "install fails, unchanged => 1" "$?" 1
++has "downgrade"; check "no downgrade when nothing changed" "$?" 1
++reset; export FAKE_INSTALL_RC=1 FAKE_INSTALL_PARTIAL=1; run; check "install fails part-way => rollback => 1" "$?" 1
++has "dnf -y downgrade OLD-1.0-1.x86_64"; check "downgrade after partial install" "$?" 0
++
++reset; ( sa_update_apply pkg NEW-2.0-1.x86_64 svc "$T/missing" ) >/dev/null 2>&1; check "missing snapshot path => 1" "$?" 1
++has "dnf"; check "no dnf when refused" "$?" 1
++
++reset; ( sa_update_apply 'lib++' NEW-2.0-1.x86_64 svc "$T/etc-pkg" ) >/dev/null 2>&1
++has "snapshot $T/etc-pkg pre-update-lib__"; check "slug sanitised (lib++ -> lib__)" "$?" 0
++exit "$fail"
+diff --git a/tests/test_update_cli.sh b/tests/test_update_cli.sh
+--- a/tests/test_update_cli.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/test_update_cli.sh	2026-11-14 03:43:19.666327542 +0000
+@@ -0,0 +1,106 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# tests/test_update_cli.sh -- CLI-level proof, using the REAL history.sh and service.sh:
++# exit codes 0/1/99 reach the shell, config is restored, the RPM is downgraded.
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++CLI="$ROOT/bin/stackalign"
++W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
++mkdir -p "$W/bin" "$W/etc-nginx" "$W/cache"
++
++TARGET="nginx-1.31.0-1.el9.x86_64"
++OLD="nginx-1.30.6-1.el9.x86_64"
++export FAKE_TARGET="$TARGET" STATE="$W/installed" NEWF="$W/new" ETC="$W/etc-nginx" DNF_LOG="$W/dnf.log"
++export SA_HISTORY_ROOT="$W/hist" SA_SECRETS_DIR="$W/secrets" SA_RPM_CACHE="$W/cache"
++: > "$W/cache/$TARGET.rpm"                 # pre-seeded: no real download
++
++# dnf: install = new binary + new config; downgrade = old binary (new marker removed)
++cat > "$W/bin/dnf" <<'F'
++#!/usr/bin/env bash
++echo "dnf $*" >> "$DNF_LOG"
++case "$*" in
++  *downgrade*) [ "${DNF_DOWNGRADE_RC:-0}" = 0 ] || exit "$DNF_DOWNGRADE_RC"
++               echo "nginx-1.30.6-1.el9.x86_64" > "$STATE"; rm -f "$NEWF"; exit 0 ;;
++  *install*)   echo "nginx-1.31.0-1.el9.x86_64" > "$STATE"; : > "$NEWF"; echo new > "$ETC/nginx.conf"; exit 0 ;;
++esac
++exit 0
++F
++# rpm: -qp => the package file's NEVRA; -q --qf => installed NEVRA from state
++cat > "$W/bin/rpm" <<'F'
++#!/usr/bin/env bash
++case "$*" in
++  *"-qp"*) printf '%s' "$FAKE_TARGET" ;;
++  *"--qf"*) cat "$STATE" ;;
++esac
++exit 0
++F
++# systemctl: queries ok; reload/restart fail while the NEW binary is installed (unless NEW_OK=1)
++cat > "$W/bin/systemctl" <<'F'
++#!/usr/bin/env bash
++case "$1" in
++  is-active) exit 0 ;;
++  reload|restart) if [ -e "$NEWF" ] && [ "${NEW_OK:-0}" != 1 ]; then exit 1; fi; exit 0 ;;
++esac
++exit 0
++F
++# nginx -t: fails while the NEW binary is installed iff NEW_BROKEN=1
++cat > "$W/bin/nginx" <<'F'
++#!/usr/bin/env bash
++if [ -e "$NEWF" ] && [ "${NEW_BROKEN:-0}" = 1 ]; then exit 1; fi
++exit 0
++F
++chmod +x "$W/bin/"*
++export PATH="$W/bin:$PATH"
++echo "$OLD" > "$STATE"
++
++pass=0; fail=0
++ok()  { pass=$((pass+1)); echo "ok   - $1"; }
++bad() { fail=$((fail+1)); echo "FAIL - $1"; [ -s "$DNF_LOG" ] && sed 's/^/       dnf: /' "$DNF_LOG"; }
++reset() { : > "$DNF_LOG"; echo "$OLD" > "$STATE"; rm -f "$NEWF"; echo old > "$ETC/nginx.conf"; rm -rf "$W/hist"
++          unset DNF_DOWNGRADE_RC NEW_OK NEW_BROKEN; }
++apply() { OUT=$("$CLI" update apply nginx "$TARGET" nginx "$ETC" --apply 2>&1); RC=$?; }
++logged() { grep -q -- "$1" "$DNF_LOG"; }
++
++reset; export NEW_OK=1; apply
++[ $RC -eq 0 ] && ok "healthy update => exit 0" || bad "healthy update => exit 0 (rc=$RC) $OUT"
++! logged "downgrade" && ok "no downgrade on success" || bad "no downgrade on success"
++[ "$(cat "$ETC/nginx.conf")" = new ] && ok "new config kept on success" || bad "new config kept on success"
++
++reset; apply
++[ $RC -eq 1 ] && ok "reload fails => rolled back => exit 1" || bad "reload fails => exit 1 (rc=$RC) $OUT"
++logged "dnf -y install" && logged "dnf -y downgrade $OLD" && ok "install then downgrade to old NEVRA" || bad "install then downgrade to old NEVRA"
++[ "$(cat "$ETC/nginx.conf")" = old ] && ok "config restored from snapshot" || bad "config restored from snapshot"
++[ "$(cat "$STATE")" = "$OLD" ] && ok "package back at old NEVRA" || bad "package back at old NEVRA"
++
++reset; export NEW_BROKEN=1; apply
++[ $RC -eq 1 ] && ok "new binary broken (reload_safe exit 99 caught) => recovered => exit 1" || bad "broken new binary => exit 1 (rc=$RC) $OUT"
++logged "dnf -y downgrade $OLD" && ok "downgrade still attempted after reload_safe exit 99" || bad "downgrade still attempted after exit 99"
++[ "$(cat "$ETC/nginx.conf")" = old ] && ok "config restored (broken-binary case)" || bad "config restored (broken-binary case)"
++
++reset; export DNF_DOWNGRADE_RC=1; apply
++[ $RC -eq 99 ] && ok "downgrade fails => exit 99" || bad "downgrade fails => exit 99 (rc=$RC) $OUT"
++
++reset; OUT=$("$CLI" update apply nginx "$TARGET" nginx "$ETC" 2>&1); RC=$?
++{ [ $RC -eq 0 ] && [[ $OUT == *"plan:"* ]] && [[ $OUT == *"--apply"* ]]; } && ok "no --apply => plan only, exit 0" || bad "plan mode (rc=$RC)"
++[ ! -s "$DNF_LOG" ] && [ "$(cat "$ETC/nginx.conf")" = old ] && ok "plan mode changes nothing" || bad "plan mode changes nothing"
++
++reset; OUT=$("$CLI" --plan update apply nginx "$TARGET" nginx "$ETC" --apply 2>&1); RC=$?
++[ $RC -eq 64 ] && ok "--plan with --apply => 64" || bad "--plan with --apply => 64 (rc=$RC)"
++
++reset; OUT=$("$CLI" plan update apply nginx "$TARGET" nginx "$ETC" 2>&1); RC=$?
++{ [ $RC -eq 0 ] && [ ! -s "$DNF_LOG" ]; } && ok "plan <cmd> alias is read-only" || bad "plan alias (rc=$RC)"
++
++reset; OUT=$("$CLI" update apply nginx "$TARGET" --apply 2>&1); RC=$?
++{ [ $RC -eq 64 ] && [ ! -s "$DNF_LOG" ]; } && ok "bad arg count => 64, no dnf" || bad "bad arg count (rc=$RC)"
++
++reset; OUT=$("$CLI" update apply nginx "$TARGET" apache "$ETC" --apply 2>&1); RC=$?
++{ [ $RC -eq 1 ] && [ ! -s "$DNF_LOG" ]; } && ok "unknown service refused before any change" || bad "unknown service (rc=$RC)"
++
++reset; OUT=$("$CLI" update check 2>&1); RC=$?
++{ [ $RC -eq 2 ] && [[ $OUT == *"not implemented"* ]]; } && ok "update check is an honest stub (rc 2)" || bad "update check stub (rc=$RC)"
++
++reset; OUT=$("$CLI" update bogus 2>&1); RC=$?
++[ $RC -eq 64 ] && ok "unknown update subcommand => 64" || bad "unknown update subcommand (rc=$RC)"
++
++echo "passed=$pass failed=$fail"; [ $fail -eq 0 ]
+diff --git a/vendor/versions.toml b/vendor/versions.toml
+--- a/vendor/versions.toml	1970-01-01 00:00:00.000000000 +0000
++++ b/vendor/versions.toml	2026-11-14 03:43:00.090872786 +0000
+@@ -0,0 +1,18 @@
++# SPDX-License-Identifier: MIT
++# Author: Lewis James Seals Jr.
++# vendor/versions.toml (fixture mirroring PR #17 shape)
++[[component]]
++name = "nginx"
++channel = "stable"
++pinned_version = "1.30.6"
++tested_matrix = ""
++
++[[component]]
++name = "php"
++pinned_version = "8.5.12"
++tested_matrix = ""
++
++[[component]]
++name = "mariadb"
++pinned_version = "12.3.3"
++tested_matrix = ""
