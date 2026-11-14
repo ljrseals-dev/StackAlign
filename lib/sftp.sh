@@ -32,7 +32,7 @@ _sa_sftp_set_random_password() {
     secret="$(openssl rand -hex 32)" || return 1
     hash="$(openssl passwd -6 "$secret")" || { unset secret; return 1; }
     unset secret
-    printf '%s:%s\\n' "$user" "$hash" | chpasswd -e || { unset hash; return 1; }
+    printf '%s:%s\n' "$user" "$hash" | chpasswd -e || { unset hash; return 1; }
     unset hash
 }
 
