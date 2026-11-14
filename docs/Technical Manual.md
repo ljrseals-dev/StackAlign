@@ -134,6 +134,16 @@ Non-LEMP Applications: StackAlign deploys Nginx, PHP-FPM, MariaDB, and Redis. Ap
 
 FTP Daemons: FTP is insecure by design, and secure alternatives (SFTP via SSH, rsync over SSH) are universally available. StackAlign does not install or configure FTP servers.
 
+FTP service clarification — 2026-11-13T13:09:34-06:00
+
+The exclusion above remains in force: StackAlign does not install or configure FTP servers. It does not prohibit an operator from running an independently installed and managed FTP server on the same host. Where that external FTP service is used, ordinary authenticated client-to-server uploads and downloads must remain available, while FTP-to-FTP third-party transfers (FXP)—where the StackAlign host is asked to transfer directly between FTP servers—must be rejected by the service's software-level controls. The restriction must not be implemented by disabling the FTP service or indiscriminately blocking ordinary client/server transfers.
+
+This is a specified policy for an independently managed service, not a claim that StackAlign supplies an FTP daemon, configures a daemon, or currently enforces the restriction. The firewall/security-policy basis is not evidence of a verified firewall rule. The selected daemon and enforcement mechanism must be identified and tested before this behavior can be marked implemented or verified. FTPS and SFTP are separate protocols; this clarification makes no claim that either is enabled or disabled.
+
+[SPECIFIED] — software enforcement and runtime behavior not verified
+
+<!-- Review comment: 2026-11-13T13:09:34-06:00; additive clarification. The original FTP Daemons exclusion sentence is retained verbatim. -->
+
 Unmanaged AI/ML Tooling: StackAlign does not install CUDA drivers, PyTorch, TensorFlow, or similar AI/ML frameworks. These tools have complex dependency graphs and version requirements that are outside StackAlign's scope.
 
 4. Glossary

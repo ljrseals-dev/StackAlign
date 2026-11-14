@@ -45,3 +45,24 @@
 Record checks as PASS, FAIL, NOT RUN, or BLOCKED. A written design is not implementation; a conversation-only draft is not a repository file; a written test plan is not a test result. A passing CI job proves only the checks that actually ran against that commit. No performance, memory, isolation, or recovery-time claim is validated unless reproducible evidence is recorded.
 
 This PR updates documentation only; the M2a implementation and tests were merged separately in PR #3.
+
+
+## Timestamped policy clarification — 2026-11-13
+
+| Area | State | Verified notes |
+|---|---|---|
+| FTP server availability | Specified; implementation unverified | Intended policy retains ordinary client-to-server FTP upload/download capability only for an independently installed and managed FTP service; StackAlign does not install or configure that daemon. StackAlign's current README says firewall management and web-stack installation are not built. |
+| FTP-to-FTP / third-party transfer | Specified; software enforcement unverified | Third-party FTP/FXP transfers using an independently managed FTP service on the StackAlign host as a transfer endpoint must be refused. This must not disable the FTP server or block ordinary client-to-server transfers. No firewall-only enforcement is claimed. |
+| FTPS and SFTP | Not specified by this clarification | Separate protocols; their availability and firewall policy must not be inferred from the FTP rule. |
+
+**Verification record:** At 2026-11-13T13:05:19-06:00 (America/Chicago, UTC-06:00), README.md on main was checked and states that firewall management is not built and StackAlign is not production-ready. A repository-scoped GitHub code search for FTP/FTPS/SFTP/firewall terms returned no indexed matches. This is a source/status check only, not a runtime test.
+
+**Checks:** Documentation/source inspection: PASS. FTP daemon configuration inspection: NOT RUN (no daemon implementation identified in the checked main documentation/search). Client-to-server FTP test: NOT RUN. FTP-to-FTP/FXP refusal test: NOT RUN. Firewall enforcement test: NOT RUN.
+
+<!-- Review comment: 2026-11-13T13:05:19-06:00; additive status entry. Prior status statements and project wording retained. -->
+<!-- Verification comment: PASS applies only to checking the cited documentation and search result. It does not mean FTP policy enforcement or transfer tests passed. -->
+
+
+**Manual alignment — 2026-11-13T13:09:34-06:00:** `docs/Technical Manual.md` on `main` was fetched and its Section 3.3 exclusion was confirmed. The original statement that StackAlign does not install or configure FTP servers is retained. The added clarification permits only an independently installed/managed FTP service, preserves ordinary client/server transfers, and specifies software-level rejection of FTP-to-FTP/FXP. This remains **SPECIFIED / UNVERIFIED**; no daemon configuration or runtime transfer test has been performed.
+
+<!-- Manual-alignment review comment: 2026-11-13T13:09:34-06:00; additive note only. Existing status entries retained. -->
