@@ -11,6 +11,7 @@ fi
 
 command -v sshd >/dev/null 2>&1 || { echo "SKIP: OpenSSH server is not installed"; exit 0; }
 command -v sftp >/dev/null 2>&1 || { echo "SKIP: OpenSSH client is not installed"; exit 0; }
+SSHD_BIN="$(readlink -f "$(command -v sshd)")"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 T="$(mktemp -d /var/lib/stackalign-sftp-test.XXXXXX)"
@@ -87,7 +88,7 @@ grep -Fq 'permittty yes' <<<"$SSH_EFFECTIVE"
 grep -Fq 'allowtcpforwarding yes' <<<"$SSH_EFFECTIVE"
 grep -Fq 'chrootdirectory none' <<<"$SSH_EFFECTIVE"
 
-sshd -D -f "$T/sshd_config" -E "$T/sshd.log" &
+"$SSHD_BIN" -D -f "$T/sshd_config" -E "$T/sshd.log" &
 SSHD_PID=$!
 for _ in $(seq 1 50); do
   if ssh -p "$PORT" -i "$T/ordinary_client" -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=1 "$SSH_USER@127.0.0.1" true >/dev/null 2>&1; then
