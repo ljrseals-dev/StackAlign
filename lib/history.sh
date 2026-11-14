@@ -61,8 +61,8 @@ _sa_hist_write_undo() {
         printf 'snapshot=%q\n' "$dir/snapshot$p"
         printf 'parent=$(dirname -- "$target")\n'
         printf 'base=$(basename -- "$target")\n'
-        printf 'stage="$parent/.$base.stackalign-new.$"\n'
-        printf 'backup="$parent/.$base.stackalign-old.$"\n'
+        printf 'stage="$parent/.$base.stackalign-new.$$"\n'
+        printf 'backup="$parent/.$base.stackalign-old.$$"\n'
         printf 'mkdir -p -- "$parent"\n'
         printf 'cp -a -- "$snapshot" "$stage"\n'
         printf 'had_old=0\n'

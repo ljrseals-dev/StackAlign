@@ -49,4 +49,20 @@ n=$(sa_history_list | wc -l)
 [ "$n" -ge 3 ] && ok "list works ($n entries)" || bad "list works"
 [ -x "$(sa_history_path "$id")/undo.sh" ] && ok "undo.sh generated" || bad "undo.sh generated"
 
+# Undo stage/backup paths retain PID expansion in the generated script.
+root="$T/undo-pid"
+mkdir -p "$root"
+printf 'v1\n' > "$root/target.conf"
+pid_id=$(sa_history_snapshot "$root/target.conf" pidtemps)
+pid_undo="$SA_HISTORY_ROOT/$pid_id/undo.sh"
+rc=0
+grep -Fq 'stackalign-new.$$' "$pid_undo" || rc=1
+grep -Fq 'stackalign-old.$$' "$pid_undo" || rc=1
+if grep -Fq 'stackalign-new.$"' "$pid_undo" || grep -Fq 'stackalign-old.$"' "$pid_undo"; then rc=1; fi
+printf 'v2\n' > "$root/target.conf"
+bash "$pid_undo" >/dev/null 2>&1 || rc=1
+bash "$pid_undo" >/dev/null 2>&1 || rc=1
+[ "$(cat "$root/target.conf")" = v1 ] || rc=1
+if find "$root" -name '.*.stackalign-*' -print -quit | grep -q .; then rc=1; fi
+[ "$rc" -eq 0 ] && ok "undo stage/backup names are PID-scoped" || bad "undo stage/backup names are PID-scoped"
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
