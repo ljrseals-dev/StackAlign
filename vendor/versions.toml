@@ -12,7 +12,7 @@ gpg_fingerprint = "TO_BE_FILLED_FROM_NGINX.ORG"
 release_info = "https://nginx.org/en/CHANGES"
 version_api = "https://nginx.org/en/download.html"
 policy = "security-only"
-tested_matrix = []
+tested_matrix = ""
 source_of_truth_checked_at = "2026-11-12"
 
 [[component]]
@@ -25,7 +25,7 @@ gpg_fingerprint = "TO_BE_FILLED_FROM_PHP.NET"
 release_info = "https://www.php.net/ChangeLog-8.php"
 version_api = "https://www.php.net/releases/index.php?json"
 policy = "security-only"
-tested_matrix = []
+tested_matrix = ""
 source_of_truth_checked_at = "2026-11-12"
 
 [[component]]
@@ -38,5 +38,5 @@ gpg_fingerprint = "TO_BE_FILLED_FROM_MARIADB.ORG"
 release_info = "https://mariadb.com/kb/en/release-notes/"
 version_api = "https://downloads.mariadb.org/rest-api/mariadb/"
 policy = "security-only"
-tested_matrix = []
+tested_matrix = ""
 source_of_truth_checked_at = "2026-11-12"
