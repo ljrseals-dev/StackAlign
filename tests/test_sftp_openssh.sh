@@ -104,7 +104,7 @@ printf 'pwd\nput %s payload\n' "$T/payload" | sftp -b - -P "$PORT" -i "$T/sftp_c
 grep -Fq '/files' "$T/sftp.out"
 cmp "$T/payload" "$SA_SFTP_BASE/$SFTP_USER/files/payload"
 
-ORDINARY_OUT="$(ssh -p "$PORT" -i "$T/ordinary_client" -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$SSH_USER@127.0.0.1" 'printf ordinary-login-ok')"
+ORDINARY_OUT="$(timeout 15s ssh -p "$PORT" -i "$T/ordinary_client" -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$SSH_USER@127.0.0.1" 'printf ordinary-login-ok')"
 [ "$ORDINARY_OUT" = ordinary-login-ok ]
 
 echo "test_sftp_openssh: real sshd config, effective Match policy, chrooted SFTP transfer, and ordinary SSH login passed"
