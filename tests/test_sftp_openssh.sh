@@ -13,7 +13,7 @@ command -v sshd >/dev/null 2>&1 || { echo "SKIP: OpenSSH server is not installed
 command -v sftp >/dev/null 2>&1 || { echo "SKIP: OpenSSH client is not installed"; exit 0; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-T="$(mktemp -d)"
+T="$(mktemp -d /var/lib/stackalign-sftp-test.XXXXXX)"
 GROUP="saftp$(printf '%x' "$$" | tail -c 5)"
 SFTP_USER="sftp$(printf '%x' "$$" | tail -c 5)"
 SSH_USER="ssh$(printf '%x' "$$" | tail -c 6)"
