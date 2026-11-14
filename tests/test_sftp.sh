@@ -72,7 +72,12 @@ done
 grep -q "Match Group sftponly" "$SA_SFTP_DROPIN"; check "drop-in installed" "$?" 0
 grep -q "^sshd -t" "$CALLS"; check "sshd -t ran" "$?" 0
 grep -q "systemctl reload sshd" "$CALLS"; check "sshd reloaded" "$?" 0
-check "no temp files left" "$(ls -A "$T/sshd_config.d" | grep -c '^\.sa-sftp')" 0
+leftovers=0
+for f in "$T/sshd_config.d"/.sa-sftp*; do
+  [ -e "$f" ] || continue
+  leftovers=$((leftovers + 1))
+done
+check "no temp files left" "$leftovers" 0
 
 printf 'OLD\n' > "$SA_SFTP_DROPIN"; : > "$CALLS"
 FAKE_SSHD_RC=1 sa_sftp_enable >/dev/null 2>&1; check "sshd -t failure => rc 1" "$?" 1
