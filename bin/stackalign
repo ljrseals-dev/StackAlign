@@ -318,9 +318,6 @@ cmd_update() {
     plan)
       cmd_update_plan "$@"
       return $? ;;
-    plan)
-      cmd_update_plan "$@"
-      return $? ;;
     apply)
       { [ $# -eq 3 ] || [ $# -eq 4 ]; } || {
         echo "usage: stackalign update apply <package> <target_nevra> <service> [snapshot_path]" >&2
