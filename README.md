@@ -19,10 +19,12 @@ The following capabilities are present in `main`. Their stated validation bounda
 - **Render-plan portability:** plan/apply comparisons use named temporary files rather than process substitution; diff errors are distinguished from ordinary differences.
 - **History undo safety:** generated undo scripts use PID-scoped stage and backup names.
 - **Nginx AI-crawler matching:** additional crawler user-agent patterns are included in the existing map. `make lint` and `make test` passed on the PR head; `nginx -t` against a fully rendered configuration has **not** been run.
+- **Opt-in egress firewall and passive LAN audit:** `stackalign egress` provides plan-first, explicitly applied nftables OUTPUT rules and a read-only neighbour-cache audit. It is non-persistent; mock tests do not prove kernel or live-network behavior. See [EGRESS.md](docs/EGRESS.md).
 - **Release-artifact verification foundation:** `lib/verify.sh` verifies a detached GPG signature over `SHA256SUMS`, an independently provisioned keyring and pinned primary-key fingerprint, signed metadata expiry, and artifact SHA-256. See [Release Artifact Trust](docs/RELEASE-TRUST.md).
 
 ### Documentation and policy records
 
+- [Egress firewall and passive LAN audit](docs/EGRESS.md)
 - [Technical Manual](docs/Technical%20Manual.md) records the FTP server boundary: StackAlign does not install or configure an FTP daemon, but an operator may run an independently installed and managed FTP server. Ordinary authenticated client-to-server uploads/downloads remain permitted; FTP-to-FTP third-party transfers (FXP) are to be refused. **Software enforcement is unverified.** FTPS behavior is not specified by that policy note.
 - [TLS client design](docs/TLS-CLIENTS.md) documents Certbot, acme.sh, and Lego lineage ownership. It is a design document only; it does not install clients, issue certificates, configure schedulers, or implement runtime TLS orchestration.
 - [Clean-room provenance audit](docs/design/clean-room-provenance-audit.md) records **RISK DETECTED — provenance incomplete**, including unresolved imported archive/document rights and missing provenance evidence. This is not a finding that GPL code is present and is not a legal opinion.
@@ -31,7 +33,7 @@ The following capabilities are present in `main`. Their stated validation bounda
 
 - StackAlign does **not** install Nginx, PHP-FPM, or MariaDB as a complete web stack. `install.sh` refuses to run until a release hash is pinned.
 - The release verifier is not wired into `install.sh` or an update workflow. Its downgrade helper is not yet bound to a signed release manifest. No self-update mechanism is included.
-- TLS runtime orchestration, certificate issuance/renewal, backups, firewall management, tenant management, and production FTP/SFTP service management are not established as complete StackAlign workflows.
+- TLS runtime orchestration, certificate issuance/renewal, backups, tenant management, and production FTP/SFTP service management are not established as complete StackAlign workflows. The egress firewall is an opt-in module only: it is not persistent, not enabled by install/update/boot, and not validated on a real kernel or disposable VM.
 - The manual update path has not been validated against a real DNF repository, package transaction, running service, or real-host rollback.
 - The Nginx crawler-map change still needs `nginx -t` against a rendered configuration.
 - No real-host signing-key lifecycle, package-update, SSH chroot, or production runtime validation is claimed.
