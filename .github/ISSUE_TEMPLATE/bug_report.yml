@@ -1,0 +1,80 @@
+name: Bug report
+description: Report a reproducible defect in StackAlign
+title: "[BUG] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use a disposable environment only. Do not include passwords, tokens, private keys, personal data, or production secrets.
+  - type: input
+    id: commit
+    attributes:
+      label: StackAlign commit SHA
+      description: Output of git rev-parse HEAD
+      placeholder: full commit SHA
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Distribution and version
+      placeholder: AlmaLinux 9.x / Rocky Linux 9.x
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Kernel, architecture, and VM/container runtime
+      placeholder: kernel; x86_64; KVM / Podman / Docker
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Exact commands and exit status
+      description: Include commands in order. Remove secrets before submitting.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and relevant output
+      description: Redact credentials, tokens, keys, and sensitive host details.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Did the test change system state?
+      options:
+        - No known changes
+        - Files or permissions
+        - Users or groups
+        - Packages or repositories
+        - Services or SSH configuration
+        - Firewall or network configuration
+        - Unsure
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I used a disposable VM/container and did not use production data or real credentials.
+          required: true
+        - label: I removed secrets and sensitive personal/host information from this report.
+          required: true
