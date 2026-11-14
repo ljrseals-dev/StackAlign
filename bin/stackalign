@@ -316,7 +316,7 @@ cmd_update() {
   local sub="${1:-}"; shift || true
   case "$sub" in
     plan)
-      cmd_update_plan "$@"
+      cmd_update_plan plan "$@"
       return $? ;;
     apply)
       { [ $# -eq 3 ] || [ $# -eq 4 ]; } || {
