@@ -22,6 +22,8 @@ PORT=$((22000 + ($$ % 20000)))
 SSHD_PID=""
 
 cleanup() {
+  local rc=$?
+  if [ "$rc" -ne 0 ] && [ -f "$T/sshd.log" ]; then echo "OpenSSH server log:" >&2; cat "$T/sshd.log" >&2; fi
   if [ -n "$SSHD_PID" ]; then kill "$SSHD_PID" 2>/dev/null || true; wait "$SSHD_PID" 2>/dev/null || true; fi
   userdel "$SFTP_USER" 2>/dev/null || true
   userdel "$SSH_USER" 2>/dev/null || true
@@ -44,6 +46,7 @@ ssh-keygen -q -t ed25519 -N '' -f "$T/host_key"
 . "$ROOT/lib/sftp.sh"
 sa_sftp_add_user "$SFTP_USER" "$T/sftp_client.pub"
 useradd -m -s /bin/sh "$SSH_USER"
+_sa_sftp_set_random_password "$SSH_USER"
 install -d -m 0700 -o "$SSH_USER" -g "$SSH_USER" "/home/$SSH_USER/.ssh"
 install -m 0600 -o "$SSH_USER" -g "$SSH_USER" "$T/ordinary_client.pub" "/home/$SSH_USER/.ssh/authorized_keys"
 
