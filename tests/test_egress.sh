@@ -91,6 +91,15 @@ calls_has '^nft -f'; check "timer failure never loads rules" "$?" 1
 grep -q "NOTHING was loaded" "$T/err"; check "timer failure accurately reported" "$?" 0
 unset FAKE_SDRUN_RC
 
+: > "$CALLS"; export FAKE_TIMER_ACTIVE=1
+sa_egress_apply "$T/allow" 9.9.9.9 none >/dev/null 2>&1; check "apply without new timer" "$?" 0
+calls_has "systemctl stop stackalign-egress-revert.timer"; check "stale timer cancelled even when secs=0" "$?" 0
+[ "$(line_of 'systemctl stop stackalign-egress-revert.timer')" -lt "$(line_of '^nft -f')" ]; check "stale timer cancelled before new load" "$?" 0
+: > "$CALLS"; export FAKE_STOP_RC=1
+sa_egress_apply "$T/allow" 9.9.9.9 none >/dev/null 2>&1; check "stale timer cancel failure refuses apply" "$?" 1
+calls_has '^nft -f'; check "cancel failure prevents load" "$?" 1
+unset FAKE_STOP_RC FAKE_TIMER_ACTIVE
+
 : > "$CALLS"; export FAKE_NFT_LIST_RC=0
 sa_egress_apply "$T/allow" 9.9.9.9 none >/dev/null 2>&1; check "existing table can be atomically replaced" "$?" 0
 grep -q '^nft -c -f' "$CALLS"; check "replacement is checked" "$?" 0
