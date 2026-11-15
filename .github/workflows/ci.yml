@@ -19,6 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Provision supported Python runtime
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Verify Python runtime
+        run: python --version
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck gnupg openssh-server openssh-client
       - run: make lint
@@ -32,6 +38,8 @@ jobs:
     steps:
       - name: Install test dependencies
         run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients
+      - name: Verify Python runtime
+        run: python3 --version
       - uses: actions/checkout@v6
       - run: make lint
       - run: make test

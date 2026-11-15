@@ -18,8 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Install test dependencies
+        run: sudo apt-get update && sudo apt-get install -y shellcheck python3
+      - name: Verify Python runtime
+        run: python3 --version
       - run: make lint
       - run: make test
 
@@ -31,6 +33,8 @@ jobs:
     steps:
       - name: Install test dependencies
         run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git
+      - name: Verify Python runtime
+        run: python3 --version
       - uses: actions/checkout@v6
       - run: make lint
       - run: make test
