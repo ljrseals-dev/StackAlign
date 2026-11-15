@@ -28,7 +28,9 @@ fail=0
 check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }
 reset() { : > "$CALLS"; rm -f "$STATE"; }
 M="$T/versions.toml"
-cp "$ROOT/vendor/versions.toml" "$M"
+# Own fixture: this suite must not depend on, or break when you change, the real vendor/versions.toml.
+fixture() { printf '%s\n' '[[component]]' 'name = "nginx"' 'pinned_version = "1.30.6"' 'tested_matrix = ""' '' '[[component]]' 'name = "php"' 'pinned_version = "8.5.12"' 'tested_matrix = ""' '' '[[component]]' 'name = "mariadb"' 'pinned_version = "12.3.3"' 'tested_matrix = ""' > "$M"; }
+fixture
 export SA_VERSIONS_TOML="$M"
 
 reset; sa_repo_install nginx nginx pinned >/dev/null 2>&1; rc=$?
@@ -60,7 +62,7 @@ export SA_VERSIONS_TOML="$T/absent.toml"
 reset; sa_repo_install nginx nginx pinned >/dev/null 2>&1; check "no manifest + pinned (65)" "$?" 65
 reset; sa_repo_install nginx nginx 1.30.6 >/dev/null 2>&1; check "no manifest + explicit: legacy path ok" "$?" 0
 
-cp "$ROOT/vendor/versions.toml" "$M"; export SA_VERSIONS_TOML="$M"
+fixture; export SA_VERSIONS_TOML="$M"
 reset; sa_repo_install php php-fpm 8.5.12 >/dev/null 2>&1; check "unlisted-by-name pkg, repo name php matches" "$?" 0
 reset; sa_repo_install nginx nginx 'pinned; rm' >/dev/null 2>&1; check "injection-shaped version rejected (64)" "$?" 64
 exit "$fail"
