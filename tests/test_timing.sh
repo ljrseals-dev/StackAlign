@@ -30,6 +30,14 @@ output="$(STACKALIGN_TIMING=1 timed "enabled command" printf 'timed-output' 2>"$
 [[ "$output" == "timed-output" ]]
 grep -Fq '[timing] enabled command' "$tmp"
 
+# A platform without GNU nanosecond date support must still run the command.
+date() { printf 'N'; }
+: > "$tmp"
+output="$(STACKALIGN_TIMING=1 timed "fallback clock" printf 'fallback-output' 2>"$tmp")"
+unset -f date
+[[ "$output" == "fallback-output" ]]
+[[ ! -s "$tmp" ]]
+
 : > "$tmp"
 if STACKALIGN_TIMING=1 timed "enabled failure" bash -c 'exit 19' 2>"$tmp"; then
     echo "FAIL: timed hid an enabled command's exit status" >&2
