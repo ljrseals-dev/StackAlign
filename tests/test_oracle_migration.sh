@@ -54,6 +54,7 @@ cat > "$T/repos/oracle.repo" <<'EOF'
 [ol8_baseos_latest]
 enabled=1
 gpgcheck=1
+baseurl=https://yum.oracle.com/repo/OracleLinux/OL8/baseos/latest/x86_64/
 EOF
 out=$(bash "$T/stackalign-oracle" update plan) || { echo "update plan failed; log:"; cat "$FAKE_LOG" 2>/dev/null || true; exit 1; }
 [[ "$out" == *"PLAN ONLY"* ]]
