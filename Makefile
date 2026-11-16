@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 SHELL := /bin/bash
-SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh) $(wildcard tests/*.sh)
+SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh) $(wildcard tests/*.sh) scripts/time-tests.sh tests/lib/timing.sh
 
-.PHONY: test lint headers all
+.PHONY: test test-timed lint headers all
 all: lint headers test
 
 # Rule 1: SPDX header + author on every source file (first 5 lines).
@@ -23,6 +23,10 @@ test:
 	echo "=== tests/test_tune_math.py (PROVISIONAL tuner)"; \
 	python3 -I tests/test_tune_math.py || { echo "SUITE FAILED: tests/test_tune_math.py"; fail=1; }; \
 	if [ $$fail -ne 0 ]; then echo "RESULT: FAIL"; exit 1; else echo "RESULT: all suites passed"; fi
+
+# Additive timing entry point; the canonical test target above is unchanged.
+test-timed:
+	@./scripts/time-tests.sh
 
 # bash -n always; shellcheck only if installed (reported, never silently skipped).
 lint:
