@@ -61,11 +61,11 @@ check_repos() {
     # Refuse enabled repositories with explicitly disabled package signature checks.
     awk '
       /^\[[^]]+\]/ { if (section && enabled=="1" && gpgcheck!="1") bad=1
-                       section=1; enabled=""; gpgcheck="" }
+                       section=1; enabled="1"; gpgcheck="" }
       /^[[:space:]]*enabled[[:space:]]*=/ {v=$0; sub(/^[^=]*=/,"",v); gsub(/[[:space:]]/,"",v); enabled=v}
       /^[[:space:]]*gpgcheck[[:space:]]*=/ {v=$0; sub(/^[^=]*=/,"",v); gsub(/[[:space:]]/,"",v); gpgcheck=v}
       END {if (section && enabled=="1" && gpgcheck!="1") bad=1; exit bad}
-    ' "$f" || die "repository $f has an enabled section with gpgcheck=0"
+    ' "$f" || die "repository $f has an enabled section without explicit gpgcheck=1"
   done
 }
 
