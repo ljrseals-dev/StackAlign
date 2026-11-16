@@ -31,7 +31,7 @@ sa_repo_doctor() {
   done
   [ "$section" = repo ] || { echo "doctor: only --section repo is supported by this entry point" >&2; return 64; }
 
-  local os_id=unknown os_version=unknown arch backend=none backend_version=unknown os_release_file=${SA_OS_RELEASE_FILE:-/etc/os-release}
+  local os_id=unknown os_version=unknown os_name=unknown arch backend=none backend_version=unknown os_release_file=${SA_OS_RELEASE_FILE:-/etc/os-release}
   local eol=false vault=false dir=${SA_YUM_REPOS_DIR:-/etc/yum.repos.d}
   local -a files=()
   local pass=0 warn=0 fail=0 skip=0 status
@@ -40,11 +40,11 @@ sa_repo_doctor() {
   if [ -r "$os_release_file" ]; then
     # shellcheck disable=SC1091
     . "$os_release_file"
-    os_id=${ID:-unknown}; os_version=${VERSION_ID:-unknown}
+    os_id=${ID:-unknown}; os_version=${VERSION_ID:-unknown}; os_name=${NAME:-unknown}
   fi
   family=$os_id; version=$os_version
   case "$os_id" in
-    centos) case "$os_version" in 7|7.*) family=centos-7; eol=true; vault=true ;; *) family=centos-stream ;; esac ;;
+    centos) case "$os_version" in 7|7.*) family=centos-7; eol=true; vault=true ;; 8|8.*) family=unknown; eol=true ;; *) case "$os_name" in *"CentOS Stream"*) family=centos-stream ;; *) family=unknown ;; esac ;; esac ;;
     rhel|rocky|almalinux|ol|fedora) [ "$os_id" != ol ] || family=oraclelinux ;;
     *) family=unknown ;;
   esac
