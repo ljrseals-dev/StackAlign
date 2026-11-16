@@ -43,7 +43,7 @@ printf '#!/bin/bash\nexit 0\n' > "$T/centos2ol.sh"
 chmod +x "$T/centos2ol.sh"
 HASH=$(/usr/bin/sha256sum "$T/centos2ol.sh" | awk '{print $1}')
 out=$(bash "$T/stackalign-oracle" convert plan --script "$T/centos2ol.sh" --sha256 "$HASH" --snapshot-id vm-snapshot)
-[[ "$out" == *"PLAN ONLY"* && "$out" == *"CentOS 7.9.2009"* ]]
+[[ "$out" == *"PLAN ONLY"* && "$out" == *"centos 7.9.2009"* ]]
 if bash "$T/stackalign-oracle" convert plan --script "$T/centos2ol.sh" --sha256 "$(printf '0%.0s' {1..64})" --snapshot-id vm-snapshot >/dev/null 2>&1; then exit 1; fi
 if bash "$T/stackalign-oracle" convert plan --script "$T/centos2ol.sh" --sha256 "$HASH" >/dev/null 2>&1; then exit 1; fi
 cat > "$T/os-release" <<'EOF'
