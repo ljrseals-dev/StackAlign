@@ -31,7 +31,7 @@ sa_repo_doctor() {
   done
   [ "$section" = repo ] || { echo "doctor: only --section repo is supported by this entry point" >&2; return 64; }
 
-  local os_id=unknown os_version=unknown arch backend=none backend_version=unknown
+  local os_id=unknown os_version=unknown arch backend=none backend_version=unknown os_release_file=${SA_OS_RELEASE_FILE:-/etc/os-release}
   local eol=false vault=false dir=${SA_YUM_REPOS_DIR:-/etc/yum.repos.d}
   local -a files=() repo_ids=()
   local pass=0 warn=0 fail=0 skip=0 status detail title hint
@@ -72,7 +72,7 @@ sa_repo_doctor() {
   if [ -d "$dir" ]; then
     while IFS= read -r -d '' f; do files+=("$f"); done < <(find "$dir" -maxdepth 1 -type f -name '*.repo' -print0 2>/dev/null | sort -z)
   fi
-  local syntax_bad=0 f count=0 section_id enabled_value
+  local syntax_bad=0 f count=0 section_id enabled_value enabled_total=0
   for f in "${files[@]}"; do
     awk '
       /^[[:space:]]*([#;]|$)/ { next }
