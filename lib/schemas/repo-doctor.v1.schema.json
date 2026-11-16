@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stackalign.invalid/schemas/repo-doctor.v1.schema.json",
+  "title": "StackAlign repository doctor result",
+  "type": "object",
+  "required": ["schema", "generated_at", "host", "summary", "checks"],
+  "properties": {
+    "schema": { "const": "stackalign.repo.doctor/v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "host": {
+      "type": "object",
+      "required": ["family", "version", "arch", "backend", "eol", "vault_eligible"],
+      "properties": {
+        "family": { "type": "string" },
+        "version": { "type": "string" },
+        "arch": { "type": "string" },
+        "backend": { "enum": ["dnf", "yum", "none"] },
+        "eol": { "type": "boolean" },
+        "vault_eligible": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": ["pass", "warn", "fail", "skip", "overall"],
+      "properties": {
+        "pass": { "type": "integer", "minimum": 0 },
+        "warn": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "skip": { "type": "integer", "minimum": 0 },
+        "overall": { "enum": ["PASS", "WARN", "FAIL"] }
+      },
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "status", "details"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^REPO-00[1-9]$" },
+          "title": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["PASS", "WARN", "FAIL", "SKIP"] },
+          "details": {
+            "type": "object",
+            "required": ["detail"],
+            "properties": { "detail": { "type": "string" } },
+            "additionalProperties": false
+          },
+          "remediation_hint": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
