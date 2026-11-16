@@ -34,9 +34,41 @@ _sa_eg_ip4() {
     for o in "${octets[@]}"; do [[ $o =~ ^(0|[1-9][0-9]{0,2})$ ]] && [ "$o" -le 255 ] || return 1; done
 }
 _sa_eg_ip6() {
-    local a=$1 p=""
-    if [[ $a == */* ]]; then p=${a#*/}; a=${a%/*}; [[ $p =~ ^[0-9]{1,3}$ ]] && [ "$p" -le 128 ] || return 1; fi
-    [[ $a == *:* && $a =~ ^[0-9A-Fa-f:]+$ ]]
+    local a=$1 p="" left right part group
+    local -a groups=()
+    if [[ $a == */* ]]; then
+        p=${a#*/}; a=${a%/*}
+        [[ $p =~ ^[0-9]{1,3}$ ]] && [ "$p" -le 128 ] || return 1
+    fi
+    # Accept only syntactically complete IPv6 literals: at most one "::",
+    # exactly eight hextets without compression, and fewer than eight with it.
+    [[ $a == *:* && $a =~ ^[0-9A-Fa-f:]+$ ]] || return 1
+    if [[ $a == *::* ]]; then
+        left=${a%%::*}; right=${a#*::}
+        [[ $right != *::* ]] || return 1
+        if [[ -n $left ]]; then
+            IFS=: read -r -a groups <<< "$left"
+            for group in "${groups[@]}"; do
+                [[ $group =~ ^[0-9A-Fa-f]{1,4}$ ]] || return 1
+            done
+        fi
+        local left_count=${#groups[@]}
+        groups=()
+        if [[ -n $right ]]; then
+            IFS=: read -r -a groups <<< "$right"
+            for group in "${groups[@]}"; do
+                [[ $group =~ ^[0-9A-Fa-f]{1,4}$ ]] || return 1
+            done
+        fi
+        [ $((left_count + ${#groups[@]})) -lt 8 ]
+    else
+        [[ $a != :* && $a != *: ]] || return 1
+        IFS=: read -r -a groups <<< "$a"
+        [ "${#groups[@]}" -eq 8 ] || return 1
+        for group in "${groups[@]}"; do
+            [[ $group =~ ^[0-9A-Fa-f]{1,4}$ ]] || return 1
+        done
+    fi
 }
 _sa_eg_host() { [[ $1 =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ && $1 == *.* && ! $1 =~ ^[0-9.]+$ ]]; }
 _sa_eg_port() { [[ $1 =~ ^[0-9]{1,5}$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]; }
