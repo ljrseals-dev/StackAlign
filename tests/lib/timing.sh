@@ -7,25 +7,28 @@
 #   . "$(dirname "$0")/lib/timing.sh"
 #   timed "label" command arg1 arg2
 #
-# Commands are always executed; timing output is emitted only when
-# STACKALIGN_TIMING=1. The wrapped command's exit status is preserved.
+# When timing is disabled, the command runs directly with no date subprocesses.
+# When enabled, the wrapped command's output and exit status are preserved.
 timed() {
     local label="$1"
     shift
-    local start end rc
 
-    start=$(date +%s%N)
+    if [[ "${STACKALIGN_TIMING:-0}" != "1" ]]; then
+        "$@"
+        return $?
+    fi
+
+    local start end rc
+    start=$(date +%s%N) || return
     if "$@"; then
         rc=0
     else
         rc=$?
     fi
-    end=$(date +%s%N)
+    end=$(date +%s%N) || return
 
-    if [[ "${STACKALIGN_TIMING:-0}" == "1" ]]; then
-        printf '  [timing] %-45s %6dms\n' \
-            "$label" "$(( (end-start)/1000000 ))" >&2
-    fi
+    printf '  [timing] %-45s %6dms\n' \
+        "$label" "$(( (end-start)/1000000 ))" >&2
 
     return "$rc"
 }
