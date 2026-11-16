@@ -19,6 +19,50 @@ readonly BASE_URL="https://github.com/ljrseals-dev/stackalign/releases/download"
 
 die() { echo "install.sh: $*" >&2; exit "${2:-1}"; }
 
+# Installer-only presentation flags are consumed here, not passed to the CLI.
+# All other arguments retain their original order and are forwarded unchanged.
+QUIET=0
+NO_BANNER="${STACKALIGN_NO_BANNER:-}"
+INSTALL_ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --quiet) QUIET=1 ;;
+    --no-banner) NO_BANNER=1 ;;
+    *) INSTALL_ARGS+=("$arg") ;;
+  esac
+done
+
+print_banner() {
+  # Keep automation and redirected logs quiet; never emit escape codes unless
+  # stdout is an interactive terminal and the terminal supports color.
+  [ -n "${NO_BANNER:-}" ] && return 0
+  [ -n "${CI:-}" ] && return 0
+  [ -t 1 ] || return 0
+  [ "$QUIET" = 1 ] && return 0
+
+  local reset='' bold='' accent=''
+  if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    reset=$'\033[0m'
+    bold=$'\033[1m'
+    accent=$'\033[36m'
+  fi
+
+  printf '%s%s' "$accent" "$bold"
+  cat <<'BANNER'
++====================================================================+
+|                                                                    |
+|     S T A C K A L I G N                                            |
+|     ----------------------------------------------------------     |
+|     Enterprise Infrastructure Alignment Platform                  |
+|                                                                    |
++====================================================================+
+BANNER
+  printf '%s\n' "$reset"
+  printf '  installer v%s\n\n' "$VERSION"
+}
+
+print_banner
+
 if [ "$EXPECTED_SHA256" = "PLACEHOLDER" ]; then
   die "refusing to run: EXPECTED_SHA256 is PLACEHOLDER (unreleased skeleton)" 3
 fi
@@ -53,14 +97,14 @@ BIN="$TMP/x/stackalign-$VERSION/bin/stackalign"
 [ -f "$BIN" ] && [ -x "$BIN" ] || die "release has no executable bin/stackalign" 5
 
 # Global flags must precede the command in bin/stackalign, so --yes is moved
-# ahead of 'install'. Everything else is passed through unchanged.
+# ahead of 'install'. Installer presentation flags were already consumed.
 pre=(); rest=()
-for a in "$@"; do
+for a in "${INSTALL_ARGS[@]}"; do
   if [ "$a" = "--yes" ]; then pre+=(--yes); else rest+=("$a"); fi
 done
 # Not exec: the EXIT trap must still clean the temp dir.
 set +e
-"$BIN" ${pre[@]+"${pre[@]}"} install --apply ${rest[@]+"${rest[@]}"}
+"$BIN" "${pre[@]}" install --apply "${rest[@]}"
 rc=$?
 set -e
 exit "$rc"
