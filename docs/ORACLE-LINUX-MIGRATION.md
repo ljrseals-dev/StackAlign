@@ -7,7 +7,7 @@ Status: implementation added; real conversion and live package transactions NOT 
 
 ## Purpose and safety boundary
 
-`bin/stackalign-oracle` separates a CentOS-to-Oracle-Linux conversion from
+`bash bin/stackalign-oracle` separates a CentOS-to-Oracle-Linux conversion from
 subsequent Oracle Linux package updates. It does **not** configure Oracle Linux
 repositories directly on CentOS and does not claim that such mixed repositories
 are a supported or safe CentOS update channel.
@@ -32,7 +32,7 @@ Example:
 
 ```bash
 sha256sum centos2ol.sh
-bin/stackalign-oracle convert plan \
+bash bin/stackalign-oracle convert plan \
   --script ./centos2ol.sh \
   --sha256 <64-hex-sha256> \
   --snapshot-id <verified-backup-id>
@@ -43,7 +43,7 @@ restorable backup, run from a local console:
 
 ```bash
 SA_ORACLE_CONFIRM=CONVERT-CENTOS-TO-ORACLE-LINUX \
-  bin/stackalign-oracle convert apply \
+  bash bin/stackalign-oracle convert apply \
   --script ./centos2ol.sh \
   --sha256 <64-hex-sha256> \
   --snapshot-id <verified-backup-id> --apply
@@ -61,9 +61,9 @@ refused. The package manager retains responsibility for repository metadata,
 dependency solving, signatures and transactions.
 
 ```bash
-bin/stackalign-oracle update plan
+bash bin/stackalign-oracle update plan
 SA_ORACLE_CONFIRM=APPLY-ORACLE-LINUX-UPDATES \
-  bin/stackalign-oracle update apply --apply
+  bash bin/stackalign-oracle update apply --apply
 ```
 
 The plan uses the package manager's assume-no transaction preview. The apply
