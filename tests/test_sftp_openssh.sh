@@ -53,7 +53,7 @@ timed "set ordinary SSH account random password" _sa_sftp_set_random_password "$
 timed "create ordinary SSH authorized_keys directory" install -d -m 0700 -o "$SSH_USER" -g "$SSH_USER" "/home/$SSH_USER/.ssh"
 timed "install ordinary SSH authorized key" install -m 0600 -o "$SSH_USER" -g "$SSH_USER" "$T/ordinary_client.pub" "/home/$SSH_USER/.ssh/authorized_keys"
 
-sa_sftp_render > "$SA_SFTP_DROPIN"
+timed "render generated SFTP sshd policy" sa_sftp_render > "$SA_SFTP_DROPIN"
 cat > "$T/sshd_config" <<EOF
 Port $PORT
 ListenAddress 127.0.0.1
