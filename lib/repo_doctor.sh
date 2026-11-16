@@ -37,11 +37,14 @@ sa_repo_doctor() {
   local pass=0 warn=0 fail=0 skip=0 status
   local family version
   arch=$(uname -m 2>/dev/null || printf unknown)
-  if [ -r "$os_release_file" ]; then
-    # shellcheck disable=SC1090,SC1091
-    . "$os_release_file"
-    os_id=${ID:-unknown}; os_version=${VERSION_ID:-unknown}; os_name=${NAME:-unknown}
+  if [ ! -r "$os_release_file" ]; then
+    printf 'repo doctor: OS release file is missing or unreadable: %s\\n' "$os_release_file" >&2
+    return 6
   fi
+  # Dynamic path is configurable; readability is checked immediately above.
+  # shellcheck disable=SC1090,SC1091
+  . "$os_release_file"
+  os_id=${ID:-unknown}; os_version=${VERSION_ID:-unknown}; os_name=${NAME:-unknown}
   family=$os_id; version=$os_version
   case "$os_id" in
     centos) case "$os_version" in 7|7.*) family=centos-7; eol=true; vault=true ;; 8|8.*) family=unknown; eol=true ;; *) case "$os_name" in *"CentOS Stream"*) family=centos-stream ;; *) family=unknown ;; esac ;; esac ;;
