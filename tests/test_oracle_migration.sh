@@ -36,8 +36,8 @@ chmod +x "$T/bin/"*
 export PATH="$T/bin:$PATH" FAKE_LOG="$T/log"
 # Run in isolated root by substituting system paths via mount-independent test copy.
 # The script supports test overrides only through the test fixture's sed copy.
-cp "$BIN" bash "$T/stackalign-oracle"
-sed -i "s|/etc/os-release|$T/os-release|g; s|/etc/yum.repos.d|$T/repos|g" bash "$T/stackalign-oracle"
+cp "$BIN" "$T/stackalign-oracle"
+sed -i "s|/etc/os-release|$T/os-release|g; s|/etc/yum.repos.d|$T/repos|g" "$T/stackalign-oracle"
 printf '#!/bin/bash\nexit 0\n' > "$T/centos2ol.sh"
 chmod +x "$T/centos2ol.sh"
 HASH=$(/usr/bin/sha256sum "$T/centos2ol.sh" | awk '{print $1}')
