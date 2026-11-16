@@ -99,7 +99,26 @@ _sa_parse() {
 }
 
 cmd_doctor() {
-  _sa_parse "" "$@"; [ ${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: ${POS[0]}"
+  local section=all json=0 strict=0 arg
+  while [ $# -gt 0 ]; do
+    arg=$1; shift
+    case $arg in
+      --section) [ $# -gt 0 ] || _sa_die "--section needs a value"; section=$1; shift ;;
+      --json) json=1 ;;
+      --strict) strict=1 ;;
+      *) _sa_die "unexpected argument: $arg" ;;
+    esac
+  done
+  [ "$section" = all ] || [ "$section" = repo ] || _sa_die "unsupported doctor section: $section"
+  source "$SA_ROOT/lib/repo_doctor.sh"
+  if [ "$section" = repo ]; then
+    local -a repo_args=()
+    [ "$json" -eq 0 ] || repo_args+=(--json)
+    [ "$strict" -eq 0 ] || repo_args+=(--strict)
+    sa_repo_doctor --section repo "${repo_args[@]}"
+    return $?
+  fi
+  [ "$json" -eq 0 ] || _sa_die "--json currently requires --section repo"
   local crit=0 daemon
   echo "doctor: read-only (no changes made)"
   if [ -f "$SA_CONF_PATH" ]; then
@@ -119,6 +138,10 @@ cmd_doctor() {
       echo "NOTICE: independently managed FTP daemon detected: $daemon (StackAlign does not install or configure it)"
     fi
   done
+  echo "doctor: repository section"
+  sa_repo_doctor --section repo $([ "$strict" -eq 1 ] && printf '%s' '--strict')
+  local repo_rc=$?
+  [ "$repo_rc" -eq 0 ] || crit=1
   [ $crit -eq 0 ] && echo "doctor: no critical findings" || echo "doctor: critical findings present"
   return $crit
 }
