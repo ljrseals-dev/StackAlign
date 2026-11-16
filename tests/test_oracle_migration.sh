@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 set -Eeuo pipefail
-trap 'rc=$?; echo "oracle test failed at line $LINENO (rc=$rc)" >&2; exit "$rc"' ERR
+trap 'printf "oracle test failed at line %s (rc=%s)\n" "$LINENO" "$?" >&2' ERR
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
