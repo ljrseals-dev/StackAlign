@@ -3,7 +3,7 @@
 # Author: Lewis James Seals Jr.
 # tests/vm_egress_smoke.sh -- REAL-HOST smoke test for lib/egress.sh. NOT run by `make test`.
 #
-# Run ONLY on a disposable VM (IPv6 enabled if you want the IPv6 steps), as root, from the
+# Run ONLY on an IPv6-enabled disposable VM, as root, from the
 # VM's CONSOLE, never over SSH. Takes about 4 minutes. It loads real nftables rules, so
 # outbound traffic is blocked for up to a minute at a time. Every step has a revert timer and
 # the script removes its table on exit.
@@ -31,7 +31,7 @@ export SA_EGRESS_REVERT_UNIT="$UNIT" SA_EGRESS_TABLE="stackalign_egress"
 if [ "${1:-}" = "--dry-run" ]; then
     cat <<PLAN
 Plan (nothing is executed in --dry-run):
-  S0  baseline: $V4 reachable; IPv6 route present? ($V6 reachable)
+  S0  baseline: $V4 and $V6 reachable; IPv6 is mandatory for this acceptance test
   S1  rendered ruleset passes the real 'nft -c' on this machine
   S2  apply an EMPTY allowlist, revert 60s: table loaded, $V4 and $V6 blocked
   S3  wait 65s: revert fired, table gone, $V4 and $V6 reachable again
@@ -65,8 +65,11 @@ HAVE6=0; ip -6 route show default 2>/dev/null | grep -q . && HAVE6=1
 
 echo "== S0 baseline"
 reach "$V4" && ok "S0 $V4 reachable before any rules" || { bad "S0 $V4 not reachable; fix the VM network first"; exit 1; }
-if [ $HAVE6 -eq 1 ]; then reach "$V6" && ok "S0 $V6 reachable" || { skp "S0 IPv6 route exists but $V6 unreachable: IPv6 steps skipped"; HAVE6=0; }
-else skp "S0 no IPv6 default route: IPv6 steps skipped"; fi
+if [ $HAVE6 -eq 1 ]; then
+    reach "$V6" && ok "S0 $V6 reachable" || { bad "S0 IPv6 route exists but $V6 is unreachable; IPv6 validation is mandatory"; HAVE6=0; }
+else
+    bad "S0 no IPv6 default route; run this acceptance test on an IPv6-enabled VM"
+fi
 
 echo "== S1 real nft -c on the rendered ruleset"
 sa_egress_render "$W/allow" "$DNS" none > "$W/r.nft" 2>"$W/err" && nft -c -f "$W/r.nft" 2>"$W/err" && ok "S1 ruleset accepted by this nft" || { bad "S1 nft rejected the ruleset: $(head -3 "$W/err")"; }
