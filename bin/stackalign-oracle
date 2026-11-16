@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr.
+#
+# StackAlign Oracle Linux migration/update wrapper.
+# This deliberately invokes Oracle's separately obtained centos2ol.sh;
+# it does not impersonate a CentOS-compatible Oracle update repository.
+set -Eeuo pipefail
+umask 077
+
+usage() {
+  cat <<'EOF'
+Usage:
+  stackalign-oracle convert plan --script FILE --sha256 HEX --snapshot-id ID
+  stackalign-oracle convert apply --script FILE --sha256 HEX --snapshot-id ID --apply
+  stackalign-oracle update plan
+  stackalign-oracle update apply --apply
+
+CentOS 7/8 conversion requires a locally obtained Oracle centos2ol.sh,
+an operator-verified SHA-256, and a completed system snapshot/backup.
+The checksum establishes file integrity against the operator's supplied
+value; it does not independently authenticate Oracle as publisher.
+
+Updates run only after the host identifies as Oracle Linux 7/8.
+Free public YUM availability is not represented as an Extended Support
+entitlement or a guarantee of post-EOL security coverage.
+EOF
+}
+
+die() { printf 'stackalign-oracle: %s\n' "$*" >&2; exit 2; }
+need_value() { [ "$#" -ge 2 ] && [ -n "$2" ] || die "$1 requires a value"; }
+is_root() { [ "$(id -u)" -eq 0 ]; }
+read_os() {
+  [ -r /etc/os-release ] || die "/etc/os-release is unavailable"
+  # Parse only ID and VERSION_ID as data; never source os-release.
+  OS_ID=$(awk -F= '$1=="ID" {gsub(/"/,"",$2); print $2}' /etc/os-release)
+  OS_VERSION=$(awk -F= '$1=="VERSION_ID" {gsub(/"/,"",$2); print $2}' /etc/os-release)
+  OS_MAJOR=${OS_VERSION%%.*}
+  ARCH=$(uname -m)
+}
+check_centOS() {
+  read_os
+  case "$OS_ID:$OS_MAJOR:$ARCH" in
+    centos:7:x86_64|centos:8:x86_64) ;;
+    *) die "conversion supports CentOS 7/8 x86_64 only (detected $OS_ID $OS_VERSION $ARCH)" ;;
+  esac
+}
+check_oracle() {
+  read_os
+  case "$OS_ID:$OS_MAJOR:$ARCH" in
+    ol:7:x86_64|ol:8:x86_64) ;;
+    *) die "updates are allowed only on Oracle Linux 7/8 x86_64 (detected $OS_ID $OS_VERSION $ARCH)" ;;
+  esac
+}
+check_repos() {
+  local files=() f
+  shopt -s nullglob
+  files=(/etc/yum.repos.d/*.repo)
+  (("${#files[@]}" > 0)) || die "no YUM repository files found"
+  for f in "${files[@]}"; do
+    # Refuse enabled repositories with explicitly disabled package signature checks.
+    awk '
+      /^\[[^]]+\]/ { if (section && enabled=="1" && gpgcheck=="0") bad=1
+                       section=1; enabled=""; gpgcheck="" }
+      /^[[:space:]]*enabled[[:space:]]*=/ {v=$0; sub(/^[^=]*=/,"",v); gsub(/[[:space:]]/,"",v); enabled=v}
+      /^[[:space:]]*gpgcheck[[:space:]]*=/ {v=$0; sub(/^[^=]*=/,"",v); gsub(/[[:space:]]/,"",v); gpgcheck=v}
+      END {if (section && enabled=="1" && gpgcheck=="0") bad=1; exit bad}
+    ' "$f" || die "repository $f has an enabled section with gpgcheck=0"
+  done
+}
+
+convert() {
+  local mode=$1 script="" expected="" snapshot=""
+  shift
+  local apply=0
+  while (($#)); do
+    case "$1" in
+      --script) need_value "$1" "${2-}"; script=$2; shift 2 ;;
+      --sha256) need_value "$1" "${2-}"; expected=$2; shift 2 ;;
+      --snapshot-id) need_value "$1" "${2-}"; snapshot=$2; shift 2 ;;
+      --apply) apply=1; shift ;;
+      *) die "unexpected argument: $1" ;;
+    esac
+  done
+  [ -n "$script" ] || die "--script is required"
+  [ -n "$snapshot" ] || die "--snapshot-id is required"
+  [[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || die "--sha256 must be exactly 64 hexadecimal characters"
+  [ -f "$script" ] && [ ! -L "$script" ] || die "script must be an existing regular non-symlink file"
+  check_centOS
+  local actual
+  actual=$(sha256sum -- "$script" | awk '{print $1}')
+  [ "${actual,,}" = "${expected,,}" ] || die "script SHA-256 mismatch"
+  if [ "$mode" = plan ]; then
+    cat <<EOF
+PLAN ONLY — no changes made
+Detected: $OS_ID $OS_VERSION ($ARCH)
+Operation: Oracle centos2ol conversion
+Script: $script
+SHA-256: $actual
+Operator snapshot ID: $snapshot
+Execution: bash --noprofile --norc $script
+A full system snapshot/backup must already exist and be restorable.
+The conversion may replace CentOS packages, repositories, boot configuration,
+and kernel packages. Review Oracle's script and its own preflight output.
+EOF
+    [ "$apply" -eq 0 ] || die "plan mode cannot be combined with --apply"
+    return 0
+  fi
+  [ "$apply" -eq 1 ] || die "apply mode requires --apply"
+  is_root || die "conversion apply requires root"
+  printf 'About to convert CentOS %s to Oracle Linux. Snapshot: %s\n' "$OS_MAJOR" "$snapshot" >&2
+  [ "${SA_ORACLE_CONFIRM:-}" = "CONVERT-CENTOS-TO-ORACLE-LINUX" ] ||
+    die "set SA_ORACLE_CONFIRM=CONVERT-CENTOS-TO-ORACLE-LINUX to acknowledge the destructive OS conversion"
+  bash --noprofile --norc "$script"
+  read_os
+  [ "$OS_ID" = ol ] || die "conversion command returned but /etc/os-release does not identify Oracle Linux"
+  printf 'CONVERSION CHECK: OS now identifies as %s %s. Reboot and service validation remain required.\n' "$OS_ID" "$OS_VERSION"
+}
+
+update() {
+  local mode=$1 apply=0
+  shift
+  while (($#)); do
+    case "$1" in --apply) apply=1; shift ;; *) die "unexpected argument: $1" ;; esac
+  done
+  check_oracle
+  check_repos
+  local pm
+  if command -v dnf >/dev/null 2>&1; then pm=dnf
+  elif command -v yum >/dev/null 2>&1; then pm=yum
+  else die "neither dnf nor yum is available"
+  fi
+  if [ "$mode" = plan ]; then
+    [ "$apply" -eq 0 ] || die "plan mode cannot be combined with --apply"
+    printf 'PLAN ONLY — Oracle Linux %s (%s); package manager: %s\n' "$OS_VERSION" "$ARCH" "$pm"
+    "$pm" --assumeno update
+    return $?
+  fi
+  [ "$apply" -eq 1 ] || die "update apply requires --apply"
+  is_root || die "update apply requires root"
+  [ "${SA_ORACLE_CONFIRM:-}" = "APPLY-ORACLE-LINUX-UPDATES" ] ||
+    die "set SA_ORACLE_CONFIRM=APPLY-ORACLE-LINUX-UPDATES to confirm the package transaction"
+  "$pm" -y update
+}
+
+main() {
+  (($# >= 2)) || { usage; exit 64; }
+  local group=$1 mode=$2
+  shift 2
+  case "$group:$mode" in
+    convert:plan|convert:apply) convert "$mode" "$@" ;;
+    update:plan|update:apply) update "$mode" "$@" ;;
+    *) usage >&2; exit 64 ;;
+  esac
+}
+main "$@"
