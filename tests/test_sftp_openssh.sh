@@ -75,8 +75,13 @@ Subsystem sftp internal-sftp
 Include $SA_SFTP_DROPIN
 EOF
 
-timed "sshd configuration syntax validation" sshd -t -f "$T/sshd_config"
-echo "PASS: sshd -t"
+if timed "sshd configuration syntax validation" sshd -t -f "$T/sshd_config"; then
+  echo "PASS: sshd -t"
+else
+  echo "FAIL: sshd -t rejected generated configuration" >&2
+  cat "$T/sshd_config" >&2
+  exit 1
+fi
 SFTP_EFFECTIVE="$(timed "sshd effective SFTP Match policy" sshd -T -f "$T/sshd_config" -C "user=$SFTP_USER,host=localhost,addr=127.0.0.1")"
 SSH_EFFECTIVE="$(timed "sshd effective ordinary SSH policy" sshd -T -f "$T/sshd_config" -C "user=$SSH_USER,host=localhost,addr=127.0.0.1")"
 grep -Fq 'forcecommand internal-sftp -d /files' <<<"$SFTP_EFFECTIVE" || { echo "FAIL: SFTP ForceCommand missing" >&2; printf '%s\n' "$SFTP_EFFECTIVE" >&2; exit 1; }
