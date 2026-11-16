@@ -25,7 +25,7 @@
     {"if":{"properties":{"op":{"enum":["apply","dry-run"]}},"required":["op"]},"then":{"required":["plan","evidence"],"properties":{"evidence":{"$ref":"#/$defs/evidenceApply"}}}},
     {"if":{"properties":{"op":{"const":"rollback"}},"required":["op"]},"then":{"required":["plan","evidence"],"properties":{"evidence":{"$ref":"#/$defs/evidenceRollback"}}}},
     {"if":{"properties":{"op":{"const":"prune"}},"required":["op"]},"then":{"required":["evidence"],"properties":{"evidence":{"$ref":"#/$defs/evidencePrune"}}}},
-    {"if":{"properties":{"op":{"const":"override"}},"required":["op"]},"then":{"required":["evidence"],"properties":{"evidence":{"$ref":"#/$defs/evidenceOverride"}}}
+    {"if":{"properties":{"op":{"const":"override"}},"required":["op"]},"then":{"required":["evidence"],"properties":{"evidence":{"$ref":"#/$defs/evidenceOverride"}}}}
   ],
   "$defs":{
     "sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},
