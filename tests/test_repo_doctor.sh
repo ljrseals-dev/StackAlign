@@ -52,10 +52,11 @@ after=$(snapshot)
 [[ "$before" == "$after" ]] || { echo "doctor changed repository directory contents or metadata" >&2; exit 1; }
 
 json=$(sa_repo_doctor --section repo --json)
-python3 - "$ROOT" <<<"$json" <<'PY'
+printf '%s\\n' "$json" >"$T/doctor.json"
+python3 - "$ROOT" "$T/doctor.json" <<'PY'
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
-data = json.load(sys.stdin)
+data = json.loads(pathlib.Path(sys.argv[2]).read_text())
 schema = json.loads((root / "lib/schemas/repo-doctor.v1.schema.json").read_text())
 try:
     import jsonschema
