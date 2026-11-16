@@ -99,12 +99,12 @@ BIN="$TMP/x/stackalign-$VERSION/bin/stackalign"
 # Global flags must precede the command in bin/stackalign, so --yes is moved
 # ahead of 'install'. Installer presentation flags were already consumed.
 pre=(); rest=()
-for a in "${INSTALL_ARGS[@]}"; do
+for a in ${INSTALL_ARGS[@]+"${INSTALL_ARGS[@]}"}; do
   if [ "$a" = "--yes" ]; then pre+=(--yes); else rest+=("$a"); fi
 done
 # Not exec: the EXIT trap must still clean the temp dir.
 set +e
-"$BIN" "${pre[@]}" install --apply "${rest[@]}"
+"$BIN" ${pre[@]+"${pre[@]}"} install --apply ${rest[@]+"${rest[@]}"}
 rc=$?
 set -e
 exit "$rc"
