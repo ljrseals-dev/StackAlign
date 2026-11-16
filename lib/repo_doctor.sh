@@ -38,7 +38,7 @@ sa_repo_doctor() {
   local family version
   arch=$(uname -m 2>/dev/null || printf unknown)
   if [ -r "$os_release_file" ]; then
-    # shellcheck disable=SC1091
+    # shellcheck disable=SC1090,SC1091
     . "$os_release_file"
     os_id=${ID:-unknown}; os_version=${VERSION_ID:-unknown}; os_name=${NAME:-unknown}
   fi
