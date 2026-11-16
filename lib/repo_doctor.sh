@@ -7,7 +7,7 @@
 _sa_repo_doc_escape() {
   local s=$1
   s=${s//\\/\\\\}; s=${s//\"/\\\"}
-  s=${s//$'\n'/\\n}; s=${s//$'\r'/\\r}; s=${s//$'\t'/\\t}
+  s=${s//$'\n'/\n}; s=${s//$'\r'/\\r}; s=${s//$'\t'/\\t}
   printf '%s' "$s"
 }
 
@@ -38,7 +38,7 @@ sa_repo_doctor() {
   local family version
   arch=$(uname -m 2>/dev/null || printf unknown)
   if [ ! -r "$os_release_file" ]; then
-    printf 'repo doctor: OS release file is missing or unreadable: %s\\n' "$os_release_file" >&2
+    printf 'repo doctor: OS release file is missing or unreadable: %s\n' "$os_release_file" >&2
     return 6
   fi
   # Dynamic path is configurable; readability is checked immediately above.
