@@ -125,6 +125,12 @@ rm -rf "$T/src"; mkdir -p "$T/src/stackalign-$VER"; echo hi > "$T/src/stackalign
 tar -czf "$T/fix/$PKG" -C "$T/src" "stackalign-$VER"; sha=$(sha256sum "$T/fix/$PKG" | awk '{print $1}'); mkscript "$sha"; runi
 [ $RC -eq 5 ] && ok "release without bin/stackalign refused (rc 5)" || bad "release without bin/stackalign (rc=$RC)"
 
+# 3c. Installer presentation flags are consumed and never reach the CLI.
+runi --quiet extra1
+{ [ $RC -eq 0 ] && [ "$(cat "$FAKE_OUT")" = "ARGS: install --apply extra1" ]; } && ok "--quiet suppresses banner mode and is not forwarded" || bad "--quiet handling (rc=$RC: $OUT)"
+runi --no-banner extra1
+{ [ $RC -eq 0 ] && [ "$(cat "$FAKE_OUT")" = "ARGS: install --apply extra1" ]; } && ok "--no-banner is not forwarded" || bad "--no-banner handling (rc=$RC: $OUT)"
+
 # 12. static properties of the shipped script
 code=$(grep -vE '^[[:space:]]*#' "$ROOT/install.sh")
 [ "$(grep -c 'curl ' <<<"$code")" = 1 ] && ok "static: exactly one curl in code" || bad "static: exactly one curl"
