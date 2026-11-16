@@ -1,8 +1,8 @@
 # StackAlign
 
-An early-stage Bash-based foundation for a pre-tuned LEMP (Nginx, MariaDB, PHP-FPM) installer and manager, targeting EL-family x86_64 servers.
+An experimental Bash-based LEMP installer and manager for EL-family x86_64 servers.
 
-**StackAlign does not install a web stack yet. It is not production-ready.**
+**Beta scope:** StackAlign can bootstrap distro-packaged Nginx, MariaDB, and PHP-FPM on EL9 x86_64 and expose a loopback-only PHP endpoint. It is not production-ready and is not a general-purpose public web-hosting deployment.
 
 ## Project status — 14 November 2026
 
@@ -12,7 +12,8 @@ StackAlign is an experimental foundation intended for review and disposable-envi
 
 The following capabilities are present in `main`. Their stated validation boundaries still apply.
 
-- **Core CLI and foundation:** `version`, `help`, `plan`, `doctor`, `rollback`, and `secret gen/list`; configuration, rendering, history, service, and repository helpers.
+- **Core CLI and foundation:** `version`, `help`, `plan`, `install`, `doctor`, `rollback`, and `secret gen/list`; configuration, rendering, history, service, and repository helpers.
+- **EL9 LEMP bootstrap (beta):** `stackalign install` plans an installation of `nginx`, `mariadb-server`, `php-fpm`, and `php-mysqlnd` from already-enabled DNF repositories. `stackalign install --apply` requires root, gates to EL9 x86_64, adjusts the PHP-FPM www pool, creates an Nginx server on `127.0.0.1:8080`, validates both configurations, and enables/starts the three services. Mock-command tests cover the plan and apply sequence; real EL9 installation and rollback remain unverified. See [LEMP beta guide](docs/LEMP-BETA.md).
 - **Repository manifest pins:** `vendor/versions.toml` is parsed for component pins. Invalid, duplicate, malformed, or missing requested pins fail closed. The manifest's `tested_matrix` values are empty; they do not establish a supported host matrix.
 - **RPM cache verification:** package cache entries are checked against exact NEVRA and RPM signature verification before reuse. Tests use fake package tools; real repository/signing-key and host package flows remain unverified.
 - **Manual package updates:** `stackalign update apply` uses a transactional update path with configuration snapshot/service-health handling and RPM downgrade recovery. `watchtower` is advisory. CI exercises mocked failure and rollback paths; no live DNF transaction, service restart, or real-host rollback has been validated.
@@ -31,7 +32,7 @@ The following capabilities are present in `main`. Their stated validation bounda
 
 ### Not implemented or not validated
 
-- StackAlign does **not** install Nginx, PHP-FPM, or MariaDB as a complete web stack. `install.sh` refuses to run until a release hash is pinned.
+- The LEMP bootstrap is limited to EL9 x86_64, distro-provided package versions, and a loopback-only endpoint. It does not configure public ingress, TLS, DNS, firewall rules, application databases/users, tenant isolation, backups, or production hardening. `install.sh` remains a release bootstrapper and refuses to run until a release hash is pinned.
 - The release verifier is not wired into `install.sh` or an update workflow. Its downgrade helper is not yet bound to a signed release manifest. No self-update mechanism is included.
 - TLS runtime orchestration, certificate issuance/renewal, backups, tenant management, and production FTP/SFTP service management are not established as complete StackAlign workflows. The egress firewall is an opt-in module only: it is not persistent, not enabled by install/update/boot, and not validated on a real kernel or disposable VM.
 - The manual update path has not been validated against a real DNF repository, package transaction, running service, or real-host rollback.
