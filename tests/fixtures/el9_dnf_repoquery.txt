@@ -1,0 +1,26 @@
+Loaded plugins: builddep, changelog, config-manager, copr, playground, repoclosure
+DNF version: 4.14.0
+Repo-id            : appstream
+Repo-name          : AlmaLinux 9 - AppStream
+Repo-revision      : 1728000000
+Repo-updated       : Fri Nov 15 00:00:00 2026
+Repo-baseurl       : https://repo.almalinux.org/almalinux/9/AppStream/x86_64/os/
+Repo-filename      : /etc/yum.repos.d/almalinux-appstream.repo
+Repo-pkgs          : 8321
+
+Repo-id            : baseos
+Repo-name          : AlmaLinux 9 - BaseOS
+Repo-baseurl       : https://repo.almalinux.org/almalinux/9/BaseOS/x86_64/os/
+Repo-filename      : /etc/yum.repos.d/almalinux-baseos.repo
+Repo-pkgs          : 2104
+
+Repo-id            : crb
+Repo-name          : AlmaLinux 9 - CRB
+Repo-enabled       : 0
+Repo-filename      : /etc/yum.repos.d/almalinux-crb.repo
+
+Repo-id            : epel
+Repo-name          : Extra Packages for Enterprise Linux 9 - x86_64
+Repo-metalink      : https://mirrors.fedoraproject.org/metalink?repo=epel-9&arch=x86_64
+Repo-filename      : /etc/yum.repos.d/epel.repo
+Repo-pkgs          : 18124

@@ -1,0 +1,23 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://stackalign.dev/schemas/repo-mirrors-rank.v1.schema.json",
+  "title":"StackAlign mirror ranking result",
+  "type":"object","additionalProperties":false,
+  "required":["schema","policy_version","policy_sha256","generated_at","repo","history_window","weights","thresholds","ranking","excluded"],
+  "properties":{
+    "schema":{"const":"stackalign.repo.mirrors.rank/v1"},
+    "policy_version":{"type":"string","minLength":1},
+    "policy_sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "generated_at":{"type":"string","format":"date-time"},
+    "repo":{"type":"string","pattern":"^[A-Za-z0-9._:-]+$"},
+    "history_window":{"type":"integer","minimum":1,"maximum":100},
+    "weights":{"$ref":"#/$defs/weights"},
+    "thresholds":{"type":"object","additionalProperties":false,"required":["metadata_age_threshold_seconds"],"properties":{"metadata_age_threshold_seconds":{"type":"integer","minimum":60}}},
+    "ranking":{"type":"array","items":{"$ref":"#/$defs/ranked"}},
+    "excluded":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["url","reason"],"properties":{"url":{"type":"string","format":"uri"},"reason":{"enum":["UNREACHABLE","NO_METADATA","STALE_METADATA","UNVERIFIED_SIGNATURE","DENY_LISTED"]}}}}
+  },
+  "$defs":{
+    "weights":{"type":"object","additionalProperties":false,"required":["latency","freshness","preference","instability"],"properties":{"latency":{"type":"number","minimum":0,"maximum":1},"freshness":{"type":"number","minimum":0,"maximum":1},"preference":{"type":"number","minimum":0,"maximum":1},"instability":{"type":"number","minimum":0,"maximum":1}}},
+    "ranked":{"type":"object","additionalProperties":false,"required":["rank","url","score","inputs","norm"],"properties":{"rank":{"type":"integer","minimum":1},"url":{"type":"string","format":"uri"},"score":{"type":"number","minimum":0,"maximum":1},"inputs":{"type":"object","additionalProperties":false,"required":["latency_ms_median","metadata_age_seconds","metalink_preference","history_failures"],"properties":{"latency_ms_median":{"type":"integer","minimum":0},"metadata_age_seconds":{"type":"integer","minimum":0},"metalink_preference":{"type":"integer","minimum":0,"maximum":100},"history_failures":{"type":"integer","minimum":0}}},"norm":{"type":"object","additionalProperties":false,"required":["latency","freshness","preference","instability"],"properties":{"latency":{"type":"number","minimum":0,"maximum":1},"freshness":{"type":"number","minimum":0,"maximum":1},"preference":{"type":"number","minimum":0,"maximum":1},"instability":{"type":"number","minimum":0,"maximum":1}}}}}
+  }
+}

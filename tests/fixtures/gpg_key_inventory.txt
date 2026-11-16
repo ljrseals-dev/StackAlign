@@ -1,0 +1,10 @@
+# SYNTHETIC TEST DATA ONLY; fingerprints are not authoritative.
+path: /etc/pki/rpm-gpg/TEST-KEY-ALMALINUX-9
+fingerprint: 1111111111111111111111111111111111111111
+uid: Synthetic AlmaLinux test key
+expires: 2032-11-15
+
+path: /etc/pki/rpm-gpg/TEST-KEY-EPEL-9
+fingerprint: 2222222222222222222222222222222222222222
+uid: Synthetic EPEL test key
+expires: 2029-06-30

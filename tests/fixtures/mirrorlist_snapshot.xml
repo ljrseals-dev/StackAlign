@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<metalink version="3.0" xmlns="http://www.metalinker.org/" type="dynamic" pubdate="Fri, 15 Nov 2026 00:00:00 GMT">
+  <files><file name="repomd.xml"><verification><hash type="sha256">5a1b2c3d4e5f60718293a4b5c6d7e8f905a1b2c3d4e5f60718293a4b5c6d7e8f90</hash></verification>
+  <resources>
+    <url protocol="https" location="US" preference="99">https://mirror.example-us.edu/epel/9/repodata/repomd.xml</url>
+    <url protocol="https" location="DE" preference="98">https://mirror.example-de.de/epel/9/repodata/repomd.xml</url>
+    <url protocol="https" location="JP" preference="97">https://mirror.example-jp.jp/epel/9/repodata/repomd.xml</url>
+  </resources></file></files>
+</metalink>

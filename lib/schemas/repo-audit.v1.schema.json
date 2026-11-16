@@ -1,0 +1,41 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://stackalign.dev/schemas/repo-audit.v1.schema.json",
+  "title":"StackAlign repository audit record",
+  "description":"One UTF-8 JSON object per newline-terminated line. Sequence and hash-chain checks are semantic reader/writer rules.",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema","seq","ts","op","actor","host","result","exit_code","duration_ms","prev_line_sha256"],
+  "properties":{
+    "schema":{"const":"stackalign.repo.audit/v1"},
+    "seq":{"type":"integer","minimum":1},
+    "ts":{"type":"string","format":"date-time"},
+    "op":{"enum":["apply","rollback","prune","override","dry-run"]},
+    "actor":{"$ref":"#/$defs/actor"},
+    "host":{"$ref":"#/$defs/host"},
+    "plan":{"$ref":"#/$defs/planRef"},
+    "result":{"enum":["ok","failed","rolled-back","aborted"]},
+    "exit_code":{"type":"integer","minimum":0},
+    "duration_ms":{"type":"integer","minimum":0},
+    "evidence":{"type":"object"},
+    "redactions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["field","rule"],"properties":{"field":{"type":"string"},"rule":{"enum":["query-string","userinfo","machine-id","ssh-sock","header"]}}}},
+    "prev_line_sha256":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^[0-9a-f]{64}$"}]}
+  },
+  "allOf":[
+    {"if":{"properties":{"op":{"enum":["apply","dry-run"]}},"required":["op"]},"then":{"required":["plan","evidence"],"properties":{"evidence":{"$ref":"#/$defs/evidenceApply"}}}},
+    {"if":{"properties":{"op":{"const":"rollback"}},"required":["op"]},"then":{"required":["plan","evidence"],"properties":{"evidence":{"$ref":"#/$defs/evidenceRollback"}}}},
+    {"if":{"properties":{"op":{"const":"prune"}},"required":["op"]},"then":{"required":["evidence"],"properties":{"evidence":{"$ref":"#/$defs/evidencePrune"}}}},
+    {"if":{"properties":{"op":{"const":"override"}},"required":["op"]},"then":{"required":["evidence"],"properties":{"evidence":{"$ref":"#/$defs/evidenceOverride"}}}
+  ],
+  "$defs":{
+    "sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "actor":{"type":"object","additionalProperties":false,"required":["user","uid","invoked_as"],"properties":{"user":{"type":"string"},"uid":{"type":"integer","minimum":0},"invoked_as":{"enum":["sudo","root","user","system"]},"tty":{"type":["string","null"]},"ssh_connection":{"type":["string","null"]}}},
+    "host":{"type":"object","additionalProperties":false,"required":["family","version","arch","backend","backend_version","kernel","machine_id_sha256","eol","vault_eligible"],"properties":{"family":{"type":"string"},"version":{"type":"string"},"arch":{"type":"string"},"backend":{"enum":["dnf","yum"]},"backend_version":{"type":"string"},"kernel":{"type":"string"},"machine_id_sha256":{"$ref":"#/$defs/sha256"},"eol":{"type":"boolean"},"vault_eligible":{"type":"boolean"}}},
+    "planRef":{"type":"object","additionalProperties":false,"required":["plan_sha256","file"],"properties":{"plan_sha256":{"$ref":"#/$defs/sha256"},"file":{"type":"string","minLength":1}}},
+    "networkOp":{"type":"object","additionalProperties":false,"required":["kind","target","method","status","duration_ms"],"properties":{"kind":{"enum":["metadata-refresh","metalink-fetch","key-fetch","probe"]},"target":{"type":"string"},"method":{"enum":["GET","HEAD","DNS"]},"status":{"enum":["ok","timeout","http_error","tls_error","dns_error","sig_fail"]},"http_status":{"type":["integer","null"],"minimum":100,"maximum":599},"duration_ms":{"type":"integer","minimum":0},"bytes":{"type":["integer","null"],"minimum":0}}},
+    "evidenceApply":{"type":"object","additionalProperties":false,"required":["plan_sha256","confirm_hash","backup_label","backup_manifest_sha256","files_before","files_after","files_unexpected_changes","network_ops","rolled_back"],"properties":{"plan_sha256":{"$ref":"#/$defs/sha256"},"confirm_hash":{"$ref":"#/$defs/sha256"},"backup_label":{"type":["string","null"]},"backup_manifest_sha256":{"oneOf":[{"type":"null"},{"$ref":"#/$defs/sha256"}]},"files_before":{"type":"object","additionalProperties":{"$ref":"#/$defs/sha256"}},"files_after":{"type":"object","additionalProperties":{"$ref":"#/$defs/sha256"}},"files_unexpected_changes":{"type":"array","items":{"type":"string"}},"network_ops":{"type":"array","items":{"$ref":"#/$defs/networkOp"}},"rolled_back":{"type":"boolean"}}},
+    "evidenceRollback":{"type":"object","additionalProperties":false,"required":["original_apply_seq","original_plan_sha256","backup_label","backup_manifest_sha256","files_restored","files_verified","files_mismatched"],"properties":{"original_apply_seq":{"type":"integer","minimum":1},"original_plan_sha256":{"$ref":"#/$defs/sha256"},"backup_label":{"type":"string"},"backup_manifest_sha256":{"$ref":"#/$defs/sha256"},"files_restored":{"type":"object","additionalProperties":{"$ref":"#/$defs/sha256"}},"files_verified":{"type":"integer","minimum":0},"files_mismatched":{"type":"array","items":{"type":"string"}},"result_reason":{"type":"string"}}},
+    "evidencePrune":{"type":"object","additionalProperties":false,"required":["archived_through_seq","archive_sha256"],"properties":{"archived_through_seq":{"type":"integer","minimum":1},"archive_sha256":{"$ref":"#/$defs/sha256"}}},
+    "evidenceOverride":{"type":"object","additionalProperties":false,"required":["flag","reason","affected_section"],"properties":{"flag":{"const":"--ignore-repo-doctor"},"reason":{"type":"string","minLength":1},"affected_section":{"type":"string","minLength":1}}}
+  }
+}

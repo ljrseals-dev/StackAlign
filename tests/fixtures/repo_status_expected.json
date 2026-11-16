@@ -1,0 +1,13 @@
+{
+  "schema":"stackalign.repo.status/v1",
+  "host":{"family":"almalinux","version":"9.4","arch":"x86_64","backend":"dnf","eol":false,"vault_eligible":false},
+  "repos":[
+    {"id":"baseos","enabled":true,"file":"/etc/yum.repos.d/almalinux-baseos.repo","source":"baseurl"},
+    {"id":"appstream","enabled":true,"file":"/etc/yum.repos.d/almalinux-appstream.repo","source":"baseurl"},
+    {"id":"crb","enabled":false,"file":"/etc/yum.repos.d/almalinux-crb.repo","source":"baseurl"},
+    {"id":"epel","enabled":false,"file":"/etc/yum.repos.d/epel.repo","source":"metalink"}
+  ],
+  "keys":{"configured":2,"verified":2,"unverifiable":0},
+  "journal_last_entry_at":"2026-11-15T22:14:00Z",
+  "warnings":[]
+}

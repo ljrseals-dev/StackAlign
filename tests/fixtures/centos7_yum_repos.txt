@@ -1,0 +1,17 @@
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+Repo-id      : base
+Repo-name    : CentOS-7 - Base
+Repo-mirrors : http://mirrorlist.centos.org/?release=7&arch=x86_64&repo=os
+Repo-baseurl : (none)
+Repo-filename: /etc/yum.repos.d/CentOS-Base.repo
+Repo-status  : ERROR (EOL mirrorlist)
+
+Repo-id      : updates
+Repo-name    : CentOS-7 - Updates
+Repo-mirrors : http://mirrorlist.centos.org/?release=7&arch=x86_64&repo=updates
+Repo-status  : ERROR
+
+Repo-id      : extras
+Repo-name    : CentOS-7 - Extras
+Repo-status  : ERROR
