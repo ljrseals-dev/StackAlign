@@ -63,7 +63,7 @@ try:
 except ImportError as exc:
     raise SystemExit("jsonschema is required for doctor contract validation") from exc
 jsonschema.Draft202012Validator.check_schema(schema)
-jsonschema.validate(data, schema)
+jsonschema.validate(data, schema, format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER)
 assert data["summary"]["overall"] == "PASS"
 assert [c["id"] for c in data["checks"]] == [f"REPO-{i:03d}" for i in range(1, 10)]
 assert all({"id", "status", "details"} <= set(c) for c in data["checks"])
