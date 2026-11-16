@@ -93,6 +93,35 @@ make test
 - `make test` runs every `tests/test_*.sh` suite and then `tests/test_tune_math.py`. It continues through the suites and returns failure if any suite fails.
 - `make all` runs lint, header checks, and tests.
 
+### Repository doctor (phase 1)
+
+The repository doctor is read-only. It inspects local `.repo` files and host
+metadata; it does not invoke `dnf repolist`, `yum repolist`, or any command
+that can refresh repository metadata. Backend discovery uses only the backend
+version command.
+
+**Network probes are disabled in phase 1. REPO-005 and REPO-006 return SKIP.**
+REPO-005 metadata reachability, REPO-006 GPG verification, REPO-008 journal
+health, and REPO-009 backup integrity remain explicitly unimplemented checks.
+The doctor does not import keys, write caches, create lock files, or modify
+repository configuration. A missing or unreadable OS-release file returns
+exit status 6.
+
+Run:
+
+```bash
+bash bin/stackalign doctor --section repo
+bash bin/stackalign doctor --section repo --json
+bash bin/stackalign doctor --section repo --strict
+```
+
+The JSON output is governed by
+`lib/schemas/repo-doctor.v1.schema.json`. The current doctor tests validate
+that output against the schema and verify that the configured repository
+directory remains byte-for-byte and metadata-identical during inspection.
+The DNF/YUM text fixtures and `repo_status_expected.json` are reserved for the
+next repository-status parser phase; they are not yet consumed by this doctor.
+
 ### Optional test timing
 
 The canonical `make test` recipe and its discovery/order remain unchanged. To measure total test-suite wall time, use the additive target:
