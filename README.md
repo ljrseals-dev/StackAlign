@@ -1,127 +1,192 @@
 # StackAlign
 
-An experimental Bash-based LEMP installer and manager for EL-family x86_64 servers.
+**A Bash-based Linux operations toolkit for guarded installation, package workflows, and host administration.**
 
-**Beta scope:** StackAlign can bootstrap distro-packaged Nginx, MariaDB, and PHP-FPM on EL9 x86_64 and expose a loopback-only PHP endpoint. It is not production-ready and is not a general-purpose public web-hosting deployment.
+StackAlign is an experimental project for EL-family Linux systems. Its current LEMP bootstrap is deliberately narrow: it installs distribution-packaged Nginx, MariaDB, and PHP-FPM on EL9 x86_64 and exposes a PHP endpoint on loopback only.
 
-## Project status — 14 November 2026
+> [!WARNING]
+> **Experimental beta — not production-ready.** Use disposable virtual machines or containers only. Do not run this project on production hosts, machines containing important data, or systems with real credentials. A passing test suite is not proof of safe real-host operation.
 
-StackAlign is an experimental foundation intended for review and disposable-environment testing. The project follows one rule: **measure, do not claim**.
+## What StackAlign is
 
-### Implemented and integrated
+StackAlign combines a Bash CLI, operational shell libraries, tests, and documentation. Its design emphasizes:
 
-The following capabilities are present in `main`. Their stated validation boundaries still apply.
+- Plan before apply; mutating workflows require explicit opt-in.
+- Distribution packages and the host's configured package repositories.
+- No hidden telemetry, network bootstrap, or remote configuration.
+- No secrets committed to the repository, logs, or snapshots.
+- Clear separation between implemented behavior, design intent, mock-test coverage, and real-host validation.
+- Evidence before performance, security, compatibility, or recovery claims.
 
-- **Core CLI and foundation:** `version`, `help`, `plan`, `install`, `doctor`, `rollback`, and `secret gen/list`; configuration, rendering, history, service, and repository helpers.
-- **EL9 LEMP bootstrap (beta):** `stackalign install` plans an installation of `nginx`, `mariadb-server`, `php-fpm`, and `php-mysqlnd` from already-enabled DNF repositories. `stackalign install --apply` requires root, gates to EL9 x86_64, adjusts the PHP-FPM www pool, creates an Nginx server on `127.0.0.1:8080`, validates both configurations, and enables/starts the three services. Mock-command tests cover the plan and apply sequence; real EL9 installation and rollback remain unverified. See [LEMP beta guide](docs/LEMP-BETA.md).
-- **Repository manifest pins:** `vendor/versions.toml` is parsed for component pins. Invalid, duplicate, malformed, or missing requested pins fail closed. The manifest's `tested_matrix` values are empty; they do not establish a supported host matrix.
-- **RPM cache verification:** package cache entries are checked against exact NEVRA and RPM signature verification before reuse. Tests use fake package tools; real repository/signing-key and host package flows remain unverified.
-- **Manual package updates:** `stackalign update apply` uses a transactional update path with configuration snapshot/service-health handling and RPM downgrade recovery. `watchtower` is advisory. CI exercises mocked failure and rollback paths; no live DNF transaction, service restart, or real-host rollback has been validated.
-- **Render-plan portability:** plan/apply comparisons use named temporary files rather than process substitution; diff errors are distinguished from ordinary differences.
-- **History undo safety:** generated undo scripts use PID-scoped stage and backup names.
-- **Nginx AI-crawler matching:** additional crawler user-agent patterns are included in the existing map. `make lint` and `make test` passed on the PR head; `nginx -t` against a fully rendered configuration has **not** been run.
-- **Opt-in egress firewall and passive LAN audit:** `stackalign egress` provides plan-first, explicitly applied nftables OUTPUT rules and a read-only neighbour-cache audit. It is non-persistent; mock tests do not prove kernel or live-network behavior. See [EGRESS.md](docs/EGRESS.md).
-- **Release-artifact verification foundation:** `lib/verify.sh` verifies a detached GPG signature over `SHA256SUMS`, an independently provisioned keyring and pinned primary-key fingerprint, signed metadata expiry, and artifact SHA-256. See [Release Artifact Trust](docs/RELEASE-TRUST.md).
+StackAlign is not a general-purpose hosting panel, an unattended updater, or a production deployment system.
 
-### Documentation and policy records
+## Current implementation
 
-- [Egress firewall and passive LAN audit](docs/EGRESS.md)
-- [Technical Manual](docs/Technical%20Manual.md) records the FTP server boundary: StackAlign does not install or configure an FTP daemon, but an operator may run an independently installed and managed FTP server. Ordinary authenticated client-to-server uploads/downloads remain permitted; FTP-to-FTP third-party transfers (FXP) are to be refused. **Software enforcement is unverified.** FTPS behavior is not specified by that policy note.
-- [TLS client design](docs/TLS-CLIENTS.md) documents Certbot, acme.sh, and Lego lineage ownership. It is a design document only; it does not install clients, issue certificates, configure schedulers, or implement runtime TLS orchestration.
-- [Clean-room provenance audit](docs/design/clean-room-provenance-audit.md) records **RISK DETECTED — provenance incomplete**, including unresolved imported archive/document rights and missing provenance evidence. This is not a finding that GPL code is present and is not a legal opinion.
+The repository contains the following implemented areas. Each item is subject to the validation limits stated below.
 
-### Not implemented or not validated
+| Area | Current behavior | Important boundary |
+|---|---|---|
+| CLI foundation | Version/help, planning, read-only doctor, rollback/history, secret helpers, and supporting libraries | The CLI contains recognized commands that are still stubs or gated; command names alone do not mean the workflow is implemented. |
+| EL9 LEMP bootstrap | Plans or applies installation of Nginx, MariaDB, PHP-FPM, and PHP MySQL support from already-enabled DNF repositories | EL9 x86_64 only; loopback endpoint; mock-tested, not yet established as a production installer. |
+| Package trust/cache | RPM cache checks use exact NEVRA and RPM signature verification | Real repository/key lifecycle and host package flows remain unverified. |
+| Manual package updates | Transaction-oriented update path includes configuration snapshots, service-health handling, and RPM downgrade recovery | No live DNF transaction or real-host rollback has been validated. |
+| Egress controls | Opt-in nftables OUTPUT policy and passive neighbour-cache inspection | Non-persistent, not enabled automatically, and not validated on a real kernel/network. |
+| Release verification | Detached GPG signature, pinned primary-key fingerprint, signed metadata expiry, and artifact SHA-256 verification foundation | Not yet integrated into the release installer or update workflow. |
+| Oracle Linux migration wrapper | Guarded CentOS 7/8 conversion wrapper and Oracle Linux 7/8 update wrapper | Fake-tool tests only; live conversion and package updates have not been run. |
+| SFTP module/tests | Chrooted key-only SFTP policy and a real-sshd integration test path | CI coverage is not a substitute for disposable-host validation. |
 
-- The LEMP bootstrap is limited to EL9 x86_64, distro-provided package versions, and a loopback-only endpoint. It does not configure public ingress, TLS, DNS, firewall rules, application databases/users, tenant isolation, backups, or production hardening. `install.sh` remains a release bootstrapper and refuses to run until a release hash is pinned.
-- The release verifier is not wired into `install.sh` or an update workflow. Its downgrade helper is not yet bound to a signed release manifest. No self-update mechanism is included.
-- TLS runtime orchestration, certificate issuance/renewal, backups, tenant management, and production FTP/SFTP service management are not established as complete StackAlign workflows. The egress firewall is an opt-in module only: it is not persistent, not enabled by install/update/boot, and not validated on a real kernel or disposable VM.
-- The manual update path has not been validated against a real DNF repository, package transaction, running service, or real-host rollback.
-- The Nginx crawler-map change still needs `nginx -t` against a rendered configuration.
-- No real-host signing-key lifecycle, package-update, SSH chroot, or production runtime validation is claimed.
-- CI success proves only the checks run against the specific commit. It does not prove installation, isolation, recovery, security, performance, or production readiness.
+The current LEMP bootstrap is limited to distro-provided packages and an Nginx listener on `127.0.0.1:8080`. It does not configure public ingress, TLS, DNS, firewall rules, application databases/users, tenant isolation, backups, or production hardening. See [LEMP beta guide](docs/LEMP-BETA.md).
 
-### Outstanding integration work — not included in main
+## Quick start
 
-Three draft pull requests remain open and are not part of the integrated baseline:
+### Requirements
 
-- [PR #10 — read-only update planning](https://github.com/ljrseals-dev/StackAlign/pull/10): `stackalign update plan` and T36 coverage remain outstanding. The latest recorded CI attempts for its head failed. Do not describe this work as superseded by the separate manual `update apply` path.
-- [PR #26 — operational library modules](https://github.com/ljrseals-dev/StackAlign/pull/26): the latest recorded CI attempts for its head failed. Its firewall/FTP behavior must be reconciled with the policy below before merge: ordinary authenticated client-to-server FTP remains permitted when an independently installed and managed FTP server exists; FTP-to-FTP third-party transfers (FXP) are refused. Do not reject all FTP use.
-- [PR #28 — chrooted key-only SFTP management](https://github.com/ljrseals-dev/StackAlign/pull/28): the latest recorded CI attempts for its head failed. Real OpenSSH configuration validation, chroot isolation, key-only login, and preservation of ordinary login behavior remain unverified.
+- Bash
+- GNU/Linux environment
+- `make`
+- Python 3 for the complete test suite
+- EL9 x86_64 for the LEMP apply path
+- Root privileges only for explicitly applied system changes
 
-These PRs require corrective changes and passing required CI before merge. PR #28 additionally requires disposable-host OpenSSH/chroot validation. Until then, they are release blockers, not implemented capabilities of `main`.
+Ubuntu 24.04 is used as a CI environment; it is not currently a supported deployment target for the LEMP bootstrap.
 
-## CI and validation
+### Inspect the CLI
 
-GitHub Actions completed the post-merge `main` run successfully for commit `3e51169484e42083d9ead1364577ca6b24e910a6`: [run 43556286513](https://github.com/ljrseals-dev/StackAlign/actions/runs/43556286513). That run is the CI result for the integrated tree at that commit. It does not cover the three open draft PRs below, nor does it establish real-host behavior.
+From a checkout:
 
-Use precise evidence labels:
+```bash
+bash bin/stackalign version
+bash bin/stackalign help
+bash bin/stackalign doctor
+```
+
+### Plan the LEMP bootstrap
+
+On a disposable supported EL9 VM:
+
+```bash
+sudo bash bin/stackalign install
+```
+
+Review the plan and the [LEMP beta guide](docs/LEMP-BETA.md) before considering apply. Apply is explicitly mutating:
+
+```bash
+sudo bash bin/stackalign install --apply
+```
+
+The apply path requires root and gates the host to EL9 x86_64. It installs the distro packages, configures the PHP-FPM www pool and an Nginx site, validates the generated configurations, then enables/starts the services. Package installation is not rolled back automatically if a later step fails; consult the guide for exact recovery limitations.
+
+The repository's top-level `install.sh` is a release bootstrapper and intentionally refuses to run until a release hash is pinned. The commands above invoke the checked-out CLI directly; they are not a signed release installation.
+
+## Development and tests
+
+Run the standard checks:
+
+```bash
+make lint
+make headers
+make test
+```
+
+- `make lint` runs `bash -n` across the shell files and runs ShellCheck when installed. If ShellCheck is absent, that fact is reported and the ShellCheck check is skipped.
+- `make headers` checks the SPDX and author headers on the configured source/test/workflow files.
+- `make test` runs every `tests/test_*.sh` suite and then `tests/test_tune_math.py`. It continues through the suites and returns failure if any suite fails.
+- `make all` runs lint, header checks, and tests.
+
+### Optional test timing
+
+The canonical `make test` recipe and its discovery/order remain unchanged. To measure total test-suite wall time, use the additive target:
+
+```bash
+make test-timed
+```
+
+The timing helper can also report selected command durations in the OpenSSH integration test:
+
+```bash
+STACKALIGN_TIMING=1 make test
+```
+
+When timing is disabled, wrapped commands run directly without clock subprocesses. If nanosecond clock support is unavailable, instrumentation falls back to ordinary command execution; the wrapper preserves command output and exit status. The overall timer uses Bash's coarse `SECONDS` counter when GNU nanosecond timestamps are unavailable.
+
+Timing output is diagnostic only. No test is skipped, reordered, parallelized, or replaced by this instrumentation. No performance improvement is claimed until timings have been collected and compared on equivalent environments.
+
+### CI
+
+The repository's CI workflows exercise Ubuntu and AlmaLinux 9. Treat a CI result as evidence only for the exact commit and checks that actually ran. CI does not establish successful installation, real firewall behavior, real package transactions, recovery, security, or production readiness.
+
+## Important limits and open validation
+
+The following are not established as complete production workflows:
+
+- Public web ingress, TLS issuance/renewal, DNS, and production firewall configuration.
+- Application database/user provisioning, tenant management/isolation, and backups.
+- Unattended updates or self-update.
+- A release installer integrated with the release-signature verifier.
+- Real-host package update transactions, service recovery, and rollback.
+- Real-host egress firewall behavior, persistence, or network recovery.
+- Live CentOS conversion, Oracle repository access, reboot, and post-update service validation.
+- Production SFTP deployment and chroot isolation on a disposable target host.
+- Measured PHP-FPM worker sizing or validated performance claims.
+
+The `tested_matrix` values in `vendor/versions.toml` are empty and do not define a supported host matrix. Package-cache tests use fake package tools; they do not establish repository/signing-key behavior on a real machine.
+
+Memory sizing is not yet a measured capacity guarantee. `SA_PHP_CHILD_MIB=30` and fixed service costs are provisional assumptions. The 512 MiB no-swap case has been checked arithmetically, not load-tested on a real 512 MiB VM. The `m2b/measure-php-child-rss.sh` helper collects measurements but its existence is not measurement evidence.
+
+Use these evidence terms consistently:
 
 - **PASS** — the named check ran and passed on the stated commit/environment.
 - **FAIL** — the named check ran and failed.
 - **NOT RUN** — no result exists.
-- **UNVERIFIED** — implementation or behavior has not been established by the required evidence.
-- A design, source file, test, or CI run is not proof of real-host behavior.
+- **UNVERIFIED** — the behavior has not been established by the required evidence.
 
-## Early testers wanted
+A source file, design note, mock test, CI result, or successful plan does not prove real-host behavior.
 
-We welcome people who want to inspect the foundation, run its checks, and report defects.
+## Documentation
 
-**Safety requirements:**
+- [LEMP beta bootstrap](docs/LEMP-BETA.md) — supported scope, apply behavior, recovery limitations, and host-validation checklist.
+- [Egress firewall and passive LAN audit](docs/EGRESS.md) — opt-in nftables rules and read-only neighbour-cache audit.
+- [Oracle Linux migration and updates](docs/ORACLE-LINUX-MIGRATION.md) — guarded conversion and package-update workflow.
+- [Release Artifact Trust](docs/RELEASE-TRUST.md) — detached-signature and artifact-verification design/implementation boundary.
+- [TLS client design](docs/TLS-CLIENTS.md) — Certbot, acme.sh, and Lego lineage ownership; design document, not runtime orchestration.
+- [Technical Manual](docs/Technical%20Manual.md) — operational boundaries and policy notes.
+- [Security Architecture Comparison](docs/SECURITY-ARCHITECTURE-COMPARISON.md) — package trust, lifecycle, rollback, provenance, and acceptance policy.
+- [Clean-room provenance audit](docs/design/clean-room-provenance-audit.md) — records incomplete provenance evidence and unresolved imported archive/document rights. It is not a finding that GPL code is present and is not a legal opinion.
+- [Early Tester Call](docs/EARLY-TESTER-CALL.md) — safe testing and defect-reporting guidance.
 
-- Use disposable containers or virtual machines only.
-- Prefer throwaway AlmaLinux 9 or Rocky Linux 9 environments for EL-family testing.
-- Never run StackAlign on a machine that matters or with real credentials.
-- Do not use production systems or important data.
-- Redact passwords, tokens, private keys, and other secrets from all reports.
+The TLS, security architecture, and provenance documents contain design, policy, or audit conclusions; they must not be read as proof that every described control is implemented.
 
-Start with the [Early Tester Call](docs/EARLY-TESTER-CALL.md). Report the distribution and version, kernel, architecture, VM/container type, exact commands, complete output, failures, and reproducible steps.
+## Early testing and defect reports
 
-## Memory tuning and measurement status
+Testing contributions and reproducible defect reports are welcome. Use disposable AlmaLinux 9 or Rocky Linux 9 VMs where EL-family behavior is required.
 
-The M2a arithmetic implementation and contract tests are present. The current pinned test floors are T27 = 391 MiB and T28 = 3389 MiB.
+Include:
 
-The M2b measurement gate remains open:
+1. Distribution, release, kernel, and architecture.
+2. VM/container type and whether the environment is disposable.
+3. Exact command and relevant configuration (with secrets removed).
+4. Complete output and exit status.
+5. Expected versus observed behavior.
+6. Minimal reproducible steps and whether the issue reproduces on a clean environment.
 
-- `SA_PHP_CHILD_MIB=30` is a provisional assumption, not a measured worker footprint.
-- Fixed service costs are also assumptions pending representative host measurements.
-- The 512 MiB no-swap case has been checked arithmetically, not load-tested on a real 512 MiB VM.
-- `m2b/measure-php-child-rss.sh` is provided to collect PHP-FPM worker PSS under baseline and heavier workloads. Its output must be collected on a real test host; it is not evidence until actually run.
-- Do not change the tuning assumptions or claim M2b completion without reviewing the physical measurements.
+Never include passwords, tokens, private keys, production hostnames, or other secrets. Start with the [Early Tester Call](docs/EARLY-TESTER-CALL.md).
 
-No measured sizing table or performance, security, stability, or recovery-time claim is published.
+## Project scope and contribution workflow
 
-## Scope and operating principles
+- Intended deployment scope: EL-family Linux on x86_64. Ubuntu is currently a CI platform, not a supported LEMP deployment target.
+- Installer/runtime code is Bash. Python is used for development-time tests and measurement helpers.
+- Package operations use DNF/YUM and upstream distribution packages; StackAlign does not build replacement forks of Nginx, PHP, or MariaDB.
+- Manual update application is distinct from unattended/self-update behavior.
+- Keep changes on focused branches and submit pull requests.
+- Preserve existing history. Do not force-push or bypass review/CI protections.
+- Do not describe a feature as complete until its implementation and required validation evidence are present.
 
-- Intended deployment scope: EL-family Linux on x86_64. Ubuntu 24.04 is used as a CI environment, not currently a supported deployment target.
-- Bash for installer and runtime code. Python is used for development-time tests and benchmarks.
-- Package operations use DNF and upstream packages; StackAlign does not build source replacements or forks of Nginx, PHP, or MariaDB.
-- Manual update application is distinct from unattended/self-update behavior; no unattended updater is provided.
-- No secrets in the repository, logs, snapshots, or Git history.
-- No telemetry, network bootstrap, or hidden remote configuration.
-- Keep measured results, CI results, and design assumptions clearly distinguished.
+## Oracle Linux legacy migration
 
-The [Security Architecture Comparison](docs/SECURITY-ARCHITECTURE-COMPARISON.md) records StackAlign's DNF-first package policy, repository trust requirements, software lifecycle rules, rollback expectations, clean-room provenance boundaries, and implementation acceptance gates. It is a policy/design document, not evidence that those controls are already implemented.
+`bash bin/stackalign-oracle` provides a guarded CentOS 7/8-to-Oracle Linux conversion wrapper and an Oracle Linux 7/8 package-update wrapper. Conversion requires an operator-provided Oracle `centos2ol.sh`, an independently checked SHA-256, a restorable snapshot, and explicit destructive-operation acknowledgement. Package updates are accepted only after the host identifies as Oracle Linux and every enabled repository explicitly has `gpgcheck=1`.
 
-## Development
-
-Use focused feature branches and pull requests. Preserve existing history and never force-push. Keep `main` protected from unreviewed changes. A merge or passing CI job is not evidence of successful installation or production operation.
+This wrapper has fake-tool unit coverage only. Live CentOS conversion, Oracle repository access, reboot, and post-update service validation remain **NOT RUN / UNVERIFIED**. Public YUM availability is not an Oracle Extended Support entitlement or an ELS security SLA. See [Oracle Linux migration and updates](docs/ORACLE-LINUX-MIGRATION.md).
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-## Oracle Linux legacy migration path
-
-`bash bin/stackalign-oracle` provides a guarded CentOS 7/8-to-Oracle Linux
-conversion wrapper and an Oracle Linux 7/8 package-update wrapper. It does not
-treat Oracle's public YUM service as a drop-in CentOS security repository.
-Conversion requires an operator-provided Oracle `centos2ol.sh`, an independently
-checked SHA-256, a restorable snapshot, and explicit destructive-operation
-acknowledgment. Package updates are accepted only after the host identifies as
-Oracle Linux and every enabled repository explicitly has `gpgcheck=1`.
-
-See [Oracle Linux migration and updates](docs/ORACLE-LINUX-MIGRATION.md).
-This wrapper has fake-tool unit coverage only; live CentOS conversion,
-Oracle repository access, reboot, and post-update service validation remain
-**NOT RUN / UNVERIFIED**. Public YUM availability is not an Oracle Extended
-Support entitlement or an ELS security SLA.

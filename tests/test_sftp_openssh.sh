@@ -14,6 +14,9 @@ command -v sftp >/dev/null 2>&1 || { echo "SKIP: OpenSSH client is not installed
 SSHD_BIN="$(readlink -f "$(command -v sshd)")"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=tests/lib/timing.sh
+. "$ROOT/tests/lib/timing.sh"
+
 T="$(mktemp -d /var/lib/stackalign-sftp-test.XXXXXX)"
 GROUP="saftp$(printf '%x' "$$" | tail -c 5)"
 SFTP_USER="sftp$(printf '%x' "$$" | tail -c 5)"
@@ -32,25 +35,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$T/sshd_config.d" "$T/keys" "$T/sftp" /run/sshd
+timed "create integration-test directories" mkdir -p "$T/sshd_config.d" "$T/keys" "$T/sftp" /run/sshd
 chmod 0755 "$T"
 export SA_SFTP_GROUP="$GROUP"
 export SA_SFTP_BASE="$T/sftp"
 export SA_SFTP_KEYDIR="$T/keys"
 export SA_SFTP_DROPIN="$T/sshd_config.d/50-stackalign-sftp.conf"
 
-ssh-keygen -q -t ed25519 -N '' -f "$T/sftp_client"
-ssh-keygen -q -t ed25519 -N '' -f "$T/ordinary_client"
-ssh-keygen -q -t ed25519 -N '' -f "$T/host_key"
+timed "generate SFTP client key" ssh-keygen -q -t ed25519 -N '' -f "$T/sftp_client"
+timed "generate ordinary SSH client key" ssh-keygen -q -t ed25519 -N '' -f "$T/ordinary_client"
+timed "generate test host key" ssh-keygen -q -t ed25519 -N '' -f "$T/host_key"
 
 . "$ROOT/lib/sftp.sh"
-sa_sftp_add_user "$SFTP_USER" "$T/sftp_client.pub"
-useradd -m -s /bin/sh "$SSH_USER"
-_sa_sftp_set_random_password "$SSH_USER"
-install -d -m 0700 -o "$SSH_USER" -g "$SSH_USER" "/home/$SSH_USER/.ssh"
-install -m 0600 -o "$SSH_USER" -g "$SSH_USER" "$T/ordinary_client.pub" "/home/$SSH_USER/.ssh/authorized_keys"
+timed "sa_sftp_add_user" sa_sftp_add_user "$SFTP_USER" "$T/sftp_client.pub"
+timed "useradd ordinary SSH account" useradd -m -s /bin/sh "$SSH_USER"
+timed "set ordinary SSH account random password" _sa_sftp_set_random_password "$SSH_USER"
+timed "create ordinary SSH authorized_keys directory" install -d -m 0700 -o "$SSH_USER" -g "$SSH_USER" "/home/$SSH_USER/.ssh"
+timed "install ordinary SSH authorized key" install -m 0600 -o "$SSH_USER" -g "$SSH_USER" "$T/ordinary_client.pub" "/home/$SSH_USER/.ssh/authorized_keys"
 
-sa_sftp_render > "$SA_SFTP_DROPIN"
+timed "render generated SFTP sshd policy" sa_sftp_render > "$SA_SFTP_DROPIN"
 cat > "$T/sshd_config" <<EOF
 Port $PORT
 ListenAddress 127.0.0.1
@@ -72,14 +75,15 @@ Subsystem sftp internal-sftp
 Include $SA_SFTP_DROPIN
 EOF
 
-if ! sshd -t -f "$T/sshd_config"; then
+if timed "sshd configuration syntax validation" sshd -t -f "$T/sshd_config"; then
+  echo "PASS: sshd -t"
+else
   echo "FAIL: sshd -t rejected generated configuration" >&2
   cat "$T/sshd_config" >&2
   exit 1
 fi
-echo "PASS: sshd -t"
-SFTP_EFFECTIVE="$(sshd -T -f "$T/sshd_config" -C "user=$SFTP_USER,host=localhost,addr=127.0.0.1")"
-SSH_EFFECTIVE="$(sshd -T -f "$T/sshd_config" -C "user=$SSH_USER,host=localhost,addr=127.0.0.1")"
+SFTP_EFFECTIVE="$(timed "sshd effective SFTP Match policy" sshd -T -f "$T/sshd_config" -C "user=$SFTP_USER,host=localhost,addr=127.0.0.1")"
+SSH_EFFECTIVE="$(timed "sshd effective ordinary SSH policy" sshd -T -f "$T/sshd_config" -C "user=$SSH_USER,host=localhost,addr=127.0.0.1")"
 grep -Fq 'forcecommand internal-sftp -d /files' <<<"$SFTP_EFFECTIVE" || { echo "FAIL: SFTP ForceCommand missing" >&2; printf '%s\n' "$SFTP_EFFECTIVE" >&2; exit 1; }
 grep -Fq 'passwordauthentication no' <<<"$SFTP_EFFECTIVE"
 grep -Fq 'pubkeyauthentication yes' <<<"$SFTP_EFFECTIVE"
@@ -105,13 +109,13 @@ for _ in $(seq 1 50); do
 done
 
 printf 'sftp-chroot-proof\n' > "$T/payload"
-printf 'pwd\nput %s payload\nquit\n' "$T/payload" | timeout 20s sftp -b - -P "$PORT" -i "$T/sftp_client" \
+printf 'pwd\nput %s payload\nquit\n' "$T/payload" | timed "SFTP chrooted file transfer" timeout 20s sftp -b - -P "$PORT" -i "$T/sftp_client" \
   -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
   "$SFTP_USER@127.0.0.1" > "$T/sftp.out"
 grep -Fq '/files' "$T/sftp.out"
 cmp "$T/payload" "$SA_SFTP_BASE/$SFTP_USER/files/payload"
 
-ORDINARY_OUT="$(timeout 15s ssh -p "$PORT" -i "$T/ordinary_client" -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$SSH_USER@127.0.0.1" 'printf ordinary-login-ok')"
+ORDINARY_OUT="$(timed "ordinary SSH public-key login" timeout 15s ssh -p "$PORT" -i "$T/ordinary_client" -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$SSH_USER@127.0.0.1" 'printf ordinary-login-ok')"
 [ "$ORDINARY_OUT" = ordinary-login-ok ]
 
 echo "test_sftp_openssh: real sshd config, effective Match policy, chrooted SFTP transfer, and ordinary SSH login passed"
