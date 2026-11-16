@@ -18,6 +18,7 @@ exit 99
 EOF
 chmod +x "$T/bin/dnf"
 export PATH="$T/bin:$PATH" SA_OS_RELEASE_FILE="$T/os-release" SA_YUM_REPOS_DIR="$T/repos" SA_DNF_CALL_LOG="$T/dnf.log"
+# shellcheck source=../lib/repo_doctor.sh
 source "$ROOT/lib/repo_doctor.sh"
 
 cat >"$T/repos/sample.repo" <<'EOF'
