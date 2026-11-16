@@ -59,6 +59,8 @@ bad "1.2.3.4 icmp 80"; bad "1.2.3.4 tcp 0"; bad "1.2.3.4 tcp 70000"
 bad "1.2.3.4; rm tcp 80"; bad "bad_host! tcp 443"; bad "1.2.3.4 tcp 443 extra"
 bad "300.1.1.1 tcp 443"; bad "1.2.3.4/33 tcp 443"; bad "1.2.3.999 tcp 443"
 bad "010.0.0.1 tcp 443"; bad "08.0.0.1 tcp 443"; bad "1.02.3.4 tcp 443"
+bad "::: tcp 443"; bad "2001::db8::1 tcp 443"; bad "1:2:3:4:5:6:7 tcp 443"
+bad "1:2:3:4:5:6:7:8:9 tcp 443"; bad "12345::1 tcp 443"; bad ":1:2:3:4:5:6:7 tcp 443"
 bad "0.0.0.0/0 tcp 443"; bad "::/0 tcp 443"; bad "0::/0 udp 53"
 printf '%s\n' "0.0.0.0/0 tcp 443" > "$T/any"
 SA_EGRESS_ALLOW_ANY=1 sa_egress_render "$T/any" 9.9.9.9 none >/dev/null 2>&1; check "/0 explicit override" "$?" 0
