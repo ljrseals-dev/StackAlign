@@ -139,7 +139,9 @@ cmd_doctor() {
     fi
   done
   echo "doctor: repository section"
-  sa_repo_doctor --section repo $([ "$strict" -eq 1 ] && printf '%s' '--strict')
+  local -a repo_args=(--section repo)
+  [ "$strict" -eq 0 ] || repo_args+=(--strict)
+  sa_repo_doctor "${repo_args[@]}"
   local repo_rc=$?
   [ "$repo_rc" -eq 0 ] || crit=1
   [ $crit -eq 0 ] && echo "doctor: no critical findings" || echo "doctor: critical findings present"
