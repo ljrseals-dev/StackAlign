@@ -26,7 +26,7 @@ test:
 
 # Additive timing entry point; the canonical test target above is unchanged.
 test-timed:
-	@./scripts/time-tests.sh
+	@bash ./scripts/time-tests.sh
 
 # bash -n always; shellcheck only if installed (reported, never silently skipped).
 lint:
