@@ -62,6 +62,7 @@ sa_lemp_restore() {
 }
 
 sa_lemp_apply() {
+  [ "${SA_LEMP_TESTING:-0}" = 1 ] || [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   sa_lemp_host_check || return $?
   local etc="$SA_LEMP_ETC_ROOT" web="$SA_LEMP_WEB_ROOT"
   local pool="$etc/php-fpm.d/www.conf" site="$etc/nginx/conf.d/stackalign.conf"
