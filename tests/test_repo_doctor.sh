@@ -11,7 +11,7 @@ VERSION_ID=9.4
 EOF
 cat >"$T/bin/dnf" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\\n' "$*" >>"$SA_DNF_CALL_LOG"
+printf '%s\n' "$*" >>"$SA_DNF_CALL_LOG"
 [ "${1:-}" = --version ] && { echo 4.14.0; exit 0; }
 echo "unexpected dnf invocation: $*" >&2
 exit 99
@@ -34,7 +34,7 @@ EOF
 # Snapshot directory and every file: content hashes, sizes, mtimes, and names.
 snapshot() {
   {
-    find "$T/repos" -mindepth 0 -printf '%P|%y|%s|%T@\\n' | LC_ALL=C sort
+    find "$T/repos" -mindepth 0 -printf '%P|%y|%s|%T@\n' | LC_ALL=C sort
     find "$T/repos" -type f -print0 | LC_ALL=C sort -z | xargs -0 -r sha256sum
   }
 }
@@ -52,7 +52,7 @@ after=$(snapshot)
 [[ "$before" == "$after" ]] || { echo "doctor changed repository directory contents or metadata" >&2; exit 1; }
 
 json=$(sa_repo_doctor --section repo --json)
-printf '%s\\n' "$json" >"$T/doctor.json"
+printf '%s\n' "$json" >"$T/doctor.json"
 python3 - "$ROOT" "$T/doctor.json" <<'PY'
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
