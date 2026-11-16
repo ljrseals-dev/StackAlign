@@ -118,6 +118,7 @@ server {
     }
 }
 NGINX
+    sed -i "s|^    root /var/www/stackalign/public;|    root $web/public;|" "$site" || failed=1
     cat > "$web/public/index.php" <<'PHP'
 <?php
 header('Content-Type: text/plain; charset=utf-8');
