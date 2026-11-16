@@ -99,7 +99,8 @@ set -e
 
 # Backend discovery may ask for the version only; it must never refresh metadata.
 [[ -f "$SA_DNF_CALL_LOG" ]]
-[[ "$(cat "$SA_DNF_CALL_LOG")" == "--version" ]]
+grep -q . "$SA_DNF_CALL_LOG"
+! grep -vqx -- "--version" "$SA_DNF_CALL_LOG"
 
 # The supplied parser fixtures belong to the upcoming status-parser phase. Ensure
 # they remain present, but do not claim this doctor currently parses them.
