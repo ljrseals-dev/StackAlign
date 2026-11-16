@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 set -Eeuo pipefail
+trap 'rc=$?; echo "oracle test failed at line $LINENO (rc=$rc)" >&2; exit "$rc"' ERR
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 BIN="$ROOT/bin/stackalign-oracle"
@@ -54,7 +55,7 @@ cat > "$T/repos/oracle.repo" <<'EOF'
 enabled=1
 gpgcheck=1
 EOF
-out=$(bash "$T/stackalign-oracle" update plan)
+out=$(bash "$T/stackalign-oracle" update plan) || { echo "update plan failed; log:"; cat "$FAKE_LOG" 2>/dev/null || true; exit 1; }
 [[ "$out" == *"PLAN ONLY"* ]]
 grep -q 'dnf --assumeno update' "$FAKE_LOG"
 cat > "$T/repos/bad.repo" <<'EOF'
