@@ -56,8 +56,7 @@ not accepted as CentOS Linux by this wrapper.
 ## Update after conversion
 
 Only a host whose `/etc/os-release` identifies `ID=ol`, major version 7 or
-8, and x86_64 is accepted. Enabled repository sections with `gpgcheck=0` are
-refused. The package manager retains responsibility for repository metadata,
+8, and x86_64 is accepted. Every enabled repository must use an Oracle public repository ID for the detected major release, an Oracle-hosted `yum.oracle.com` URL, and explicit `gpgcheck=1`; third-party or unsigned enabled repositories are refused. Oracle Linux 7 uses YUM and Oracle Linux 8 uses DNF. The package manager retains responsibility for repository metadata,
 dependency solving, signatures and transactions.
 
 ```bash
@@ -66,7 +65,7 @@ SA_ORACLE_CONFIRM=APPLY-ORACLE-LINUX-UPDATES \
   bash bin/stackalign-oracle update apply --apply
 ```
 
-The plan uses the package manager's assume-no transaction preview. The apply
+The plan uses the package manager's assume-no transaction preview. The wrapper does not add repository definitions or import keys; it only accepts an already configured Oracle public repository set. The apply
 command performs a full package update and may require reboot. Validate kernel,
 services, application health, repository state and installed package versions
 afterward.
