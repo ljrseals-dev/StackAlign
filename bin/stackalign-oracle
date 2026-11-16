@@ -58,14 +58,28 @@ check_repos() {
   files=(/etc/yum.repos.d/*.repo)
   (("${#files[@]}" > 0)) || die "no YUM repository files found"
   for f in "${files[@]}"; do
-    # Refuse enabled repositories with explicitly disabled package signature checks.
-    awk '
-      /^\[[^]]+\]/ { if (section && enabled=="1" && gpgcheck!="1") bad=1
-                       section=1; enabled="1"; gpgcheck="" }
+    # Only allow enabled Oracle public repository IDs and Oracle-hosted URLs.
+    # Defaults follow yum/dnf semantics: enabled=1 unless explicitly disabled.
+    awk -v major="$OS_MAJOR" '
+      function finish() {
+        if (!section || enabled != "1") return
+        if (gpgcheck != "1") bad=1
+        if (repo !~ ("^ol" major "_")) bad=1
+        if (oracle_url != 1) bad=1
+      }
+      /^\[[^]]+\]/ {
+        finish()
+        repo=$0; sub(/^\[/,"",repo); sub(/\]$/,"",repo)
+        section=1; enabled="1"; gpgcheck=""; oracle_url=0
+        next
+      }
       /^[[:space:]]*enabled[[:space:]]*=/ {v=$0; sub(/^[^=]*=/,"",v); gsub(/[[:space:]]/,"",v); enabled=v}
       /^[[:space:]]*gpgcheck[[:space:]]*=/ {v=$0; sub(/^[^=]*=/,"",v); gsub(/[[:space:]]/,"",v); gpgcheck=v}
-      END {if (section && enabled=="1" && gpgcheck!="1") bad=1; exit bad}
-    ' "$f" || die "repository $f has an enabled section without explicit gpgcheck=1"
+      /^[[:space:]]*(baseurl|mirrorlist|metalink)[[:space:]]*=/ {
+        if ($0 ~ /https?:\/\/yum\.oracle\.com\//) oracle_url=1
+      }
+      END {finish(); exit bad}
+    ' "$f" || die "enabled repository in $f is not an explicitly GPG-checked Oracle public repository"
   done
 }
 
@@ -90,6 +104,16 @@ convert() {
   local actual
   actual=$(sha256sum -- "$script" | awk '{print $1}')
   [ "${actual,,}" = "${expected,,}" ] || die "script SHA-256 mismatch"
+  # Execute a private staged copy so a path replacement after verification
+  # cannot change the bytes that are executed.
+  local stage_dir verified_script staged_hash
+  stage_dir=$(mktemp -d "${TMPDIR:-/tmp}/stackalign-centos2ol.XXXXXX") || die "cannot create private staging directory"
+  chmod 0700 "$stage_dir"
+  verified_script="$stage_dir/centos2ol.sh"
+  cp -- "$script" "$verified_script" || { rm -rf -- "$stage_dir"; die "cannot stage conversion script"; }
+  chmod 0500 "$verified_script"
+  staged_hash=$(sha256sum -- "$verified_script" | awk '{print $1}')
+  [ "${staged_hash,,}" = "${expected,,}" ] || { rm -rf -- "$stage_dir"; die "staged script SHA-256 mismatch"; }
   if [ "$mode" = plan ]; then
     cat <<EOF
 PLAN ONLY — no changes made
@@ -98,7 +122,7 @@ Operation: Oracle centos2ol conversion
 Script: $script
 SHA-256: $actual
 Operator snapshot ID: $snapshot
-Execution: bash --noprofile --norc $script
+Execution: bash --noprofile --norc $verified_script
 A full system snapshot/backup must already exist and be restorable.
 The conversion may replace CentOS packages, repositories, boot configuration,
 and kernel packages. Review Oracle's script and its own preflight output.
@@ -107,7 +131,7 @@ EOF
     return 0
   fi
   [ "$apply" -eq 1 ] || die "apply mode requires --apply"
-  is_root || die "conversion apply requires root"
+  is_root || { rm -rf -- "$stage_dir"; die "conversion apply requires root"; }
   printf 'About to convert CentOS %s to Oracle Linux. Snapshot: %s\n' "$OS_MAJOR" "$snapshot" >&2
   [ "${SA_ORACLE_CONFIRM:-}" = "CONVERT-CENTOS-TO-ORACLE-LINUX" ] ||
     die "set SA_ORACLE_CONFIRM=CONVERT-CENTOS-TO-ORACLE-LINUX to acknowledge the destructive OS conversion"
@@ -126,9 +150,12 @@ update() {
   check_oracle
   check_repos
   local pm
-  if command -v dnf >/dev/null 2>&1; then pm=dnf
-  elif command -v yum >/dev/null 2>&1; then pm=yum
-  else die "neither dnf nor yum is available"
+  if [ "$OS_MAJOR" = 7 ]; then
+    command -v yum >/dev/null 2>&1 || die "yum is required on Oracle Linux 7"
+    pm=yum
+  else
+    command -v dnf >/dev/null 2>&1 || die "dnf is required on Oracle Linux 8"
+    pm=dnf
   fi
   if [ "$mode" = plan ]; then
     [ "$apply" -eq 0 ] || die "plan mode cannot be combined with --apply"
