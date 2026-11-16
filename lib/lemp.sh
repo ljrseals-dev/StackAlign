@@ -50,9 +50,8 @@ EOF
 }
 
 sa_lemp_restore() {
-  local backup=$1 path rel
+  local backup=$1 path
   for path in "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf"; do
-    rel=${path#"$backup"}
     if [ -e "$backup$path" ] || [ -L "$backup$path" ]; then
       cp -a "$backup$path" "$path" || return 1
     else
@@ -66,10 +65,7 @@ sa_lemp_apply() {
   sa_lemp_host_check || return $?
   local etc="$SA_LEMP_ETC_ROOT" web="$SA_LEMP_WEB_ROOT"
   local pool="$etc/php-fpm.d/www.conf" site="$etc/nginx/conf.d/stackalign.conf"
-  local backup tmp failed=0 svc
-  for svc in nginx mariadb php-fpm; do
-    if systemctl is-active --quiet "$svc"; then :; fi
-  done
+  local backup failed=0
   echo "Installing distro-provided LEMP packages (no third-party repositories added)"
   dnf -y install nginx mariadb-server php-fpm php-mysqlnd || { sa_lemp_die "DNF package installation failed"; return 1; }
 
