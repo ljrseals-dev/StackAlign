@@ -33,13 +33,13 @@ sa_repo_doctor() {
 
   local os_id=unknown os_version=unknown arch backend=none backend_version=unknown os_release_file=${SA_OS_RELEASE_FILE:-/etc/os-release}
   local eol=false vault=false dir=${SA_YUM_REPOS_DIR:-/etc/yum.repos.d}
-  local -a files=() repo_ids=()
-  local pass=0 warn=0 fail=0 skip=0 status detail title hint
-  local id family version
+  local -a files=()
+  local pass=0 warn=0 fail=0 skip=0 status
+  local family version
   arch=$(uname -m 2>/dev/null || printf unknown)
-  if [ -r /etc/os-release ]; then
+  if [ -r "$os_release_file" ]; then
     # shellcheck disable=SC1091
-    . /etc/os-release
+    . "$os_release_file"
     os_id=${ID:-unknown}; os_version=${VERSION_ID:-unknown}
   fi
   family=$os_id; version=$os_version
@@ -72,7 +72,7 @@ sa_repo_doctor() {
   if [ -d "$dir" ]; then
     while IFS= read -r -d '' f; do files+=("$f"); done < <(find "$dir" -maxdepth 1 -type f -name '*.repo' -print0 2>/dev/null | sort -z)
   fi
-  local syntax_bad=0 f count=0 section_id enabled_value enabled_total=0
+  local syntax_bad=0 f count=0 enabled_total=0
   for f in "${files[@]}"; do
     awk '
       /^[[:space:]]*([#;]|$)/ { next }
@@ -81,9 +81,6 @@ sa_repo_doctor() {
       { bad=1 }
       END { exit bad }
     ' "$f" || syntax_bad=1
-    while IFS= read -r section_id; do
-      [[ $section_id =~ ^[A-Za-z0-9_.:-]+$ ]] && repo_ids+=("$section_id")
-    done < <(awk '/^[[:space:]]*\[[^][]+\][[:space:]]*$/ {gsub(/^[[:space:]]*\[|\][[:space:]]*$/,""); print}' "$f")
     count=$(awk '
       /^[[:space:]]*\[[^][]+\][[:space:]]*$/ { if (active && enabled !~ /^(0|no|false)$/) n++; active=1; enabled="1"; next }
       active && /^[[:space:]]*enabled[[:space:]]*=/ { v=$0; sub(/^[^=]*=[[:space:]]*/,"",v); v=tolower(v); if (v ~ /^(0|no|false)$/) enabled="0"; else if (v ~ /^(1|yes|true)$/) enabled="1"; else enabled="invalid" }
@@ -92,7 +89,9 @@ sa_repo_doctor() {
     # Accumulate enabled stanzas per file without trusting DNF effective config.
     enabled_total=$((${enabled_total:-0} + count))
   done
-  if [ "$syntax_bad" -eq 0 ]; then
+  if [ "${#files[@]}" -eq 0 ]; then
+    _sa_repo_doc_check REPO-003 "repo config syntax" SKIP "no .repo files found"
+  elif [ "$syntax_bad" -eq 0 ]; then
     _sa_repo_doc_check REPO-003 "repo config syntax" PASS "${#files[@]} files inspected"
   else
     _sa_repo_doc_check REPO-003 "repo config syntax" FAIL "one or more .repo files contain malformed lines" "Review repository stanza syntax before package operations."
