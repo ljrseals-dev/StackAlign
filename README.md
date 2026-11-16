@@ -108,3 +108,19 @@ Use focused feature branches and pull requests. Preserve existing history and ne
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Oracle Linux legacy migration path
+
+`bash bin/stackalign-oracle` provides a guarded CentOS 7/8-to-Oracle Linux
+conversion wrapper and an Oracle Linux 7/8 package-update wrapper. It does not
+treat Oracle's public YUM service as a drop-in CentOS security repository.
+Conversion requires an operator-provided Oracle `centos2ol.sh`, an independently
+checked SHA-256, a restorable snapshot, and explicit destructive-operation
+acknowledgment. Package updates are accepted only after the host identifies as
+Oracle Linux and every enabled repository explicitly has `gpgcheck=1`.
+
+See [Oracle Linux migration and updates](docs/ORACLE-LINUX-MIGRATION.md).
+This wrapper has fake-tool unit coverage only; live CentOS conversion,
+Oracle repository access, reboot, and post-update service validation remain
+**NOT RUN / UNVERIFIED**. Public YUM availability is not an Oracle Extended
+Support entitlement or an ELS security SLA.

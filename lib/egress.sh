@@ -34,7 +34,7 @@ _sa_eg_ip4() {
     for o in "${octets[@]}"; do [[ $o =~ ^(0|[1-9][0-9]{0,2})$ ]] && [ "$o" -le 255 ] || return 1; done
 }
 _sa_eg_ip6() {
-    local a=$1 p="" left right part group
+    local a=$1 p="" left right group
     local -a groups=()
     if [[ $a == */* ]]; then
         p=${a#*/}; a=${a%/*}
