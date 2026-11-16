@@ -9,12 +9,29 @@ cd "$(dirname "$0")/.."
 : "${STACKALIGN_TIMING:=1}"
 export STACKALIGN_TIMING
 
-start=$(date +%s%N)
+if start=$(date +%s%N 2>/dev/null) && [[ "$start" =~ ^[0-9]+$ ]]; then
+    clock_mode=nanoseconds
+else
+    # Bash SECONDS is a portable, coarse fallback when GNU date is unavailable.
+    start=$SECONDS
+    clock_mode=seconds
+fi
+
 rc=0
 make test || rc=$?
-end=$(date +%s%N)
 
-printf '\n[time-tests] total wall clock: %dms (exit=%d)\n' \
-    "$(( (end-start)/1000000 ))" "$rc" >&2
+if [[ "$clock_mode" == "nanoseconds" ]]; then
+    if end=$(date +%s%N 2>/dev/null) && [[ "$end" =~ ^[0-9]+$ ]]; then
+        elapsed_ms=$(( (end-start)/1000000 ))
+    else
+        elapsed_ms=$(( (SECONDS-start)*1000 ))
+        clock_mode=seconds-fallback
+    fi
+else
+    elapsed_ms=$(( (SECONDS-start)*1000 ))
+fi
+
+printf '\n[time-tests] total wall clock: %dms (%s clock, exit=%d)\n' \
+    "$elapsed_ms" "$clock_mode" "$rc" >&2
 
 exit "$rc"
