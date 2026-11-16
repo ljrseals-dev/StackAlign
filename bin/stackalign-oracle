@@ -84,9 +84,8 @@ check_repos() {
 }
 
 convert() {
-  local mode=$1 script="" expected="" snapshot=""
+  local mode=$1 script="" expected="" snapshot="" apply=0
   shift
-  local apply=0
   while (($#)); do
     case "$1" in
       --script) need_value "$1" "${2-}"; script=$2; shift 2 ;;
@@ -101,20 +100,31 @@ convert() {
   [[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || die "--sha256 must be exactly 64 hexadecimal characters"
   [ -f "$script" ] && [ ! -L "$script" ] || die "script must be an existing regular non-symlink file"
   check_centOS
-  local actual
+
+  local actual stage_dir verified_script staged_hash conversion_rc
   actual=$(sha256sum -- "$script" | awk '{print $1}')
   [ "${actual,,}" = "${expected,,}" ] || die "script SHA-256 mismatch"
-  # Execute a private staged copy so a path replacement after verification
-  # cannot change the bytes that are executed.
-  local stage_dir verified_script staged_hash
+
+  # Stage and verify the exact bytes that will be executed (TOCTOU protection).
   stage_dir=$(mktemp -d "${TMPDIR:-/tmp}/stackalign-centos2ol.XXXXXX") || die "cannot create private staging directory"
   chmod 0700 "$stage_dir"
   verified_script="$stage_dir/centos2ol.sh"
-  cp -- "$script" "$verified_script" || { rm -rf -- "$stage_dir"; die "cannot stage conversion script"; }
+  if ! cp -- "$script" "$verified_script"; then
+    rm -rf -- "$stage_dir"
+    die "cannot stage conversion script"
+  fi
   chmod 0500 "$verified_script"
   staged_hash=$(sha256sum -- "$verified_script" | awk '{print $1}')
-  [ "${staged_hash,,}" = "${expected,,}" ] || { rm -rf -- "$stage_dir"; die "staged script SHA-256 mismatch"; }
+  if [ "${staged_hash,,}" != "${expected,,}" ]; then
+    rm -rf -- "$stage_dir"
+    die "staged script SHA-256 mismatch"
+  fi
+
   if [ "$mode" = plan ]; then
+    if [ "$apply" -eq 1 ]; then
+      rm -rf -- "$stage_dir"
+      die "plan mode cannot be combined with --apply"
+    fi
     cat <<EOF
 PLAN ONLY — no changes made
 Detected: $OS_ID $OS_VERSION ($ARCH)
@@ -122,20 +132,37 @@ Operation: Oracle centos2ol conversion
 Script: $script
 SHA-256: $actual
 Operator snapshot ID: $snapshot
-Execution: bash --noprofile --norc $verified_script
+Execution: bash --noprofile --norc <verified staged copy>
 A full system snapshot/backup must already exist and be restorable.
 The conversion may replace CentOS packages, repositories, boot configuration,
 and kernel packages. Review Oracle's script and its own preflight output.
 EOF
-    [ "$apply" -eq 0 ] || die "plan mode cannot be combined with --apply"
+    rm -rf -- "$stage_dir"
     return 0
   fi
-  [ "$apply" -eq 1 ] || die "apply mode requires --apply"
-  is_root || { rm -rf -- "$stage_dir"; die "conversion apply requires root"; }
-  printf 'About to convert CentOS %s to Oracle Linux. Snapshot: %s\n' "$OS_MAJOR" "$snapshot" >&2
-  [ "${SA_ORACLE_CONFIRM:-}" = "CONVERT-CENTOS-TO-ORACLE-LINUX" ] ||
+
+  if [ "$apply" -ne 1 ]; then
+    rm -rf -- "$stage_dir"
+    die "apply mode requires --apply"
+  fi
+  if ! is_root; then
+    rm -rf -- "$stage_dir"
+    die "conversion apply requires root"
+  fi
+  if [ "${SA_ORACLE_CONFIRM:-}" != "CONVERT-CENTOS-TO-ORACLE-LINUX" ]; then
+    rm -rf -- "$stage_dir"
     die "set SA_ORACLE_CONFIRM=CONVERT-CENTOS-TO-ORACLE-LINUX to acknowledge the destructive OS conversion"
-  bash --noprofile --norc "$script"
+  fi
+
+  printf 'About to convert CentOS %s to Oracle Linux. Snapshot: %s\n' "$OS_MAJOR" "$snapshot" >&2
+  if bash --noprofile --norc "$verified_script"; then
+    conversion_rc=0
+  else
+    conversion_rc=$?
+  fi
+  rm -rf -- "$stage_dir"
+  [ "$conversion_rc" -eq 0 ] || return "$conversion_rc"
+
   read_os
   [ "$OS_ID" = ol ] || die "conversion command returned but /etc/os-release does not identify Oracle Linux"
   printf 'CONVERSION CHECK: OS now identifies as %s %s. Reboot and service validation remain required.\n' "$OS_ID" "$OS_VERSION"
