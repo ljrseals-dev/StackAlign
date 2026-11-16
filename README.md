@@ -220,23 +220,3 @@ This wrapper has fake-tool unit coverage only. Live CentOS conversion, Oracle re
 
 MIT. See [LICENSE](LICENSE).
 
-## Repository diagnostics (read-only foundation)
-
-The repository doctor section is available without changing repository configuration:
-
-```bash
-bash bin/stackalign doctor --section repo
-bash bin/stackalign doctor --section repo --json
-bash bin/stackalign doctor --section repo --strict
-```
-
-This first implementation checks the detected distribution, package-manager
-presence, basic `.repo` file syntax, and enabled stanza count. Network metadata
-checks, shared GPG verification, the repository audit journal, and repository
-backup-manifest verification are reported as `SKIP` until their corresponding
-runtime components are implemented. CentOS Linux EOL handling is explicitly
-reported as a warning; Vault is not treated as verified or production-ready.
-
-The doctor section is read-only. It does not refresh metadata, fetch keys, write
-repository files, or perform failover. A passing result is not evidence that
-repository metadata or signing keys are valid.
