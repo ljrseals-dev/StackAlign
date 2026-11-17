@@ -89,6 +89,19 @@ if sa_backup_dump "$TMP/backups-link" >/dev/null 2>&1; then
   echo "FAIL: symlinked destination accepted" >&2; exit 1
 fi
 
+
+# Credential files must be absolute and canonical, not reached through a symlinked parent.
+if (cd "$TMP" && SA_MYSQL_DEFAULTS_FILE="./mysql.cnf" _sa_bk_defaults_ok); then
+  echo "FAIL: relative defaults-file path accepted" >&2; exit 1
+fi
+mkdir -m 700 "$TMP/credentials-dir"
+cp "$TMP/mysql.cnf" "$TMP/credentials-dir/mysql.cnf"
+chmod 600 "$TMP/credentials-dir/mysql.cnf"
+ln -s "$TMP/credentials-dir" "$TMP/credentials-link"
+if SA_MYSQL_DEFAULTS_FILE="$TMP/credentials-link/mysql.cnf" _sa_bk_defaults_ok; then
+  echo "FAIL: defaults file through symlinked parent accepted" >&2; exit 1
+fi
+
 chmod 644 "$TMP/mysql.cnf"
 if sa_backup_dump "$TMP/backups" >/dev/null 2>&1; then
   echo "FAIL: world-readable defaults file accepted" >&2; exit 1
