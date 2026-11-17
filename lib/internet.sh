@@ -147,18 +147,18 @@ sa_internet_doctor() {
   else
     echo "ip: available"
     if output=$(ip -brief address 2>&1); then
-      printf '%s\\n' "$output" | sed 's/^/interface: /'
+      printf '%s\n' "$output" | sed 's/^/interface: /'
     else
-      printf 'interface inspection: FAILED (%s)\\n' "$output" >&2
+      printf 'interface inspection: FAILED (%s)\n' "$output" >&2
       failures=$((failures+1))
     fi
     if output=$(ip route show default 2>&1) && [[ -n $output ]]; then
-      printf '%s\\n' "$output" | sed 's/^/default-route: /'
+      printf '%s\n' "$output" | sed 's/^/default-route: /'
     elif [[ -z $output ]]; then
       echo "default route: MISSING" >&2
       failures=$((failures+1))
     else
-      printf 'default-route inspection: FAILED (%s)\\n' "$output" >&2
+      printf 'default-route inspection: FAILED (%s)\n' "$output" >&2
       failures=$((failures+1))
     fi
   fi
@@ -167,9 +167,9 @@ sa_internet_doctor() {
   else
     echo "getent: available"
     if output=$(getent ahosts example.com 2>&1) && [[ -n $output ]]; then
-      printf '%s\\n' "$output" | sed 's/^/DNS example.com: /'
+      printf '%s\n' "$output" | sed 's/^/DNS example.com: /'
     else
-      printf 'DNS lookup example.com: FAILED (%s)\\n' "$output" >&2
+      printf 'DNS lookup example.com: FAILED (%s)\n' "$output" >&2
       failures=$((failures+1))
     fi
   fi
