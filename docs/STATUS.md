@@ -18,7 +18,7 @@
 | Project scope and operating principles | Written | README |
 | Tuning arithmetic contract | Implemented and CI-tested | `lib/tune.sh` and T1–T28 tests are on `main`; CI run 43251330070 passed lint and tests on Ubuntu 24.04 and AlmaLinux 9. No worked sizing table is published. |
 | Workload registry | Implemented; measurements pending | Registry and role-aware service-cost resolution are implemented in the M2a tuner. Numeric workload/service costs remain assumptions pending M2b measurement. |
-| Configuration schema | Written; schema validation pending | A generic INI parser exists on main; the proposed schema and its validation are not implemented. |
+| Configuration schema | Version 1 validator implemented on feature branch | `sa_config_validate` and `stackalign config validate [file]` enforce the documented allowlist, value constraints, and tenant cross-field rules. Validation is opt-in and does not apply configuration. |
 | Slave-web role | Implemented as tuner input behavior | `slave_web` defaults to zero local MariaDB base cost unless explicitly overridden. Host discovery/measurement remains out of scope. |
 | Tenant isolation contract | Written; implementation and live tests pending | Two-live-tenant M2b verification required. |
 
@@ -27,7 +27,7 @@
 | Area | State | Next action |
 |---|---|---|
 | CLI/runtime | Bootstrap present; incomplete | Wire only commands whose milestone contracts are implemented; other commands remain stubs. |
-| lib/config.sh | Generic INI parser present | Implement and test the approved schema, validation, and compatibility rules. |
+| lib/config.sh | Generic parser plus opt-in schema v1 validator on feature branch | PR #72 adds strict allowlist/value/cross-field validation and CLI validation; compatibility migration and host application remain separate work. |
 | lib/tune.sh | M2a implementation merged | Lean and standard arithmetic, reserve decomposition, strict numeric validation, worker-aware connection budgeting, advisory warnings, workload/role validation, and arithmetic-floor reporting are implemented. Inputs marked `assumption=` remain unmeasured. |
 | tests/test_tune_math.py | T1–T28 contract suite merged | T1–T28 includes the pinned arithmetic floors T27 = 391 MiB and T28 = 3389 MiB. Both CI matrix jobs passed lint and test. |
 | Tenant isolation modules and templates | Not implemented | Implement only after design review. |
@@ -192,3 +192,15 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - Changed random-password hashing to pass the generated secret to `openssl passwd -6 -stdin` rather than as a process argument.
 - Extended the fake-tool regression test to verify stdin delivery and assert the generated secret is absent from the recorded OpenSSL argument vector.
 - Validation: fresh CI required for this branch. No live sshd/account operation or local test run is claimed.
+
+
+## Configuration schema v1 validation — feature branch implementation
+
+**Branch:** `feat/config-schema-validation` (stacked on PR #71; not merged to `main`).
+
+- `stackalign config validate [file]` parses and validates a file without writing it or changing host state. The default path is the normal StackAlign config path; `--config <file>` remains available before the command.
+- Generic INI parsing and schema validation are separate operations; schema validation is explicit.
+- Rejects unknown sections/keys, invalid role/workload/tenant modes, malformed hostnames and identity names, invalid Redis values, out-of-range resource settings, and multi-site `free_for_all`.
+- Every site requires a domain, Unix identity, PHP-FPM pool name, and `isolation=pool`.
+- Validation is syntax/policy validation only. It does not create users, pools, cgroups, directories, Redis instances, firewall policy, or database grants; it does not prove tenant isolation or runtime availability.
+- Automated regression tests are added. CI must pass on the latest PR head before this work is marked ready. No live host or two-tenant test is claimed.

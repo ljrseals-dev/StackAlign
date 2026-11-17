@@ -73,4 +73,109 @@ sa_config_load "$T/missing.conf" 2>/dev/null
 sa_config_load 2>/dev/null
 { [ $? -ne 0 ] && [ "${#SA_CONF[@]}" -eq 0 ]; } && ok "missing argument rejected without stale values" || bad "missing argument rejected without stale values"
 
+
+# Strict schema v1 validation is opt-in; generic INI parsing remains independent.
+cat > "$T/schema-good.conf" <<'EOF'
+[meta]
+config_version = 1
+allow_override = 0
+[server]
+role = slave_web
+tenant_mode = pool
+sites_dir = /srv/sites
+[php]
+workload = wordpress
+[redis.sessions]
+enabled = true
+maxmemory_mib = 32
+maxmemory_policy = noeviction
+port = 6379
+[site.alpha]
+domain = alpha.example.test
+user = site_alpha
+pool = site_alpha
+isolation = pool
+memory_max_mib = 256
+cpu_quota_pct = 100
+egress = loopback_db_only
+open_basedir_extra = /srv/shared
+php_version = 8.3
+EOF
+sa_config_load "$T/schema-good.conf" 2>/dev/null && sa_config_validate 2>/dev/null && ok "schema v1 accepts valid tenant config" || bad "schema v1 accepts valid tenant config"
+printf '[meta]\nconfig_version=1\n[server]\nrole=slave_web\nunknown=1\n' > "$T/schema-unknown.conf"
+sa_config_load "$T/schema-unknown.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects unknown keys" || bad "schema rejects unknown keys"
+printf '[meta]\nconfig_version=1\n[redis.sessions]\nport=70000\n' > "$T/schema-port.conf"
+sa_config_load "$T/schema-port.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects out-of-range Redis ports" || bad "schema rejects out-of-range Redis ports"
+printf '[meta]\nconfig_version=1\n[site.alpha]\ndomain=bad..example\nuser=site_alpha\npool=site_alpha\nisolation=pool\n' > "$T/schema-domain.conf"
+sa_config_load "$T/schema-domain.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects malformed tenant domains" || bad "schema rejects malformed tenant domains"
+cat > "$T/schema-multi.conf" <<'EOF'
+[meta]
+config_version = 1
+[server]
+tenant_mode = free_for_all
+[site.alpha]
+domain = alpha.example.test
+user = site_alpha
+pool = site_alpha
+isolation = free_for_all
+[site.beta]
+domain = beta.example.test
+user = site_beta
+pool = site_beta
+isolation = free_for_all
+EOF
+sa_config_load "$T/schema-multi.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects multiple sites in free_for_all mode" || bad "schema rejects multiple sites in free_for_all mode"
+
+cat > "$T/schema-mode-mismatch.conf" <<'EOF'
+[meta]
+config_version = 1
+[server]
+tenant_mode = pool
+[site.alpha]
+domain = alpha.example.test
+user = site_alpha
+pool = site_alpha
+isolation = free_for_all
+EOF
+sa_config_load "$T/schema-mode-mismatch.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects tenant isolation mode mismatch" || bad "schema rejects tenant isolation mode mismatch"
+
+sa_config_load "$T/good.conf" 2>/dev/null
+sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "generic parser does not imply schema validity" || bad "generic parser does not imply schema validity"
+
+
+# Public CLI validates without writing or mutating the source file.
+"$ROOT/bin/stackalign" config validate "$T/schema-good.conf" >/dev/null 2>&1
+[ $? -eq 0 ] && ok "CLI validates a schema v1 file" || bad "CLI validates a schema v1 file"
+"$ROOT/bin/stackalign" config validate "$T/schema-unknown.conf" >/dev/null 2>&1
+[ $? -ne 0 ] && ok "CLI rejects unknown schema keys" || bad "CLI rejects unknown schema keys"
+
+
+printf '[meta]\nconfig_version=1\n[redis.sessions]\nport=99999999999999999999\n' > "$T/schema-huge-number.conf"
+sa_config_load "$T/schema-huge-number.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects oversized numeric input" || bad "schema rejects oversized numeric input"
+cat > "$T/schema-duplicate-user.conf" <<'EOF'
+[meta]
+config_version = 1
+[server]
+tenant_mode = pool
+[site.alpha]
+domain = alpha.example.test
+user = shared_user
+pool = alpha_pool
+isolation = pool
+[site.beta]
+domain = beta.example.test
+user = shared_user
+pool = beta_pool
+isolation = pool
+EOF
+sa_config_load "$T/schema-duplicate-user.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects duplicate tenant Unix identities" || bad "schema rejects duplicate tenant Unix identities"
+
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
