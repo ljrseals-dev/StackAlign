@@ -29,6 +29,7 @@ OUT=$(PATH="$T/empty-path" /bin/bash "$CLI" help doctor 2>&1); RC=$?
 run --plan --version;   { [ $RC -eq 0 ] && [[ $OUT == "stackalign "* ]]; } && ok "--version ignores --plan" || bad "--version ignores --plan"
 run help;               { [ $RC -eq 0 ] && [[ $OUT == *"commands:"* ]] && [[ $OUT == *rollback* ]] && [[ $OUT == *repo* ]]; } && ok "help lists commands" || bad "help lists commands"
 run help doctor;        { [ $RC -eq 0 ] && [[ $OUT == *"read-only"* ]]; } && ok "help <cmd>" || bad "help <cmd>"
+run help site;          { [ $RC -eq 0 ] && [[ $OUT == *"lifecycle actions gated"* ]]; } && ok "site help discloses gated lifecycle actions" || bad "site help lifecycle boundary"
 run help bogus;         [ $RC -eq 64 ] && ok "help unknown cmd -> 64" || bad "help unknown cmd -> 64"
 run bogus;              [ $RC -eq 64 ] && ok "unknown command -> 64" || bad "unknown command -> 64"
 run;                    [ $RC -eq 64 ] && ok "no command -> 64" || bad "no command -> 64"
