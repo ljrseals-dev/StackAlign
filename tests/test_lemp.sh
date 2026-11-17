@@ -21,6 +21,7 @@ for tool in dnf systemctl php-fpm nginx; do
 printf '%s %s\n' "$(basename "$0")" "$*" >> "$LOG"
 case "$(basename "$0"):$1" in
   systemctl:is-active) exit 0 ;;
+  nginx:-t) exit "${FAKE_NGINX_TEST_RC:-0}" ;;
   *) exit 0 ;;
 esac
 SH
@@ -33,6 +34,13 @@ bad(){ fail=$((fail+1)); echo "FAIL - $1"; }
 
 plan=$(sa_lemp_plan 2>&1); rc=$?
 { [ "$rc" -eq 0 ] && [[ "$plan" == *"127.0.0.1:8080"* ]] && [[ "$plan" == *"no changes made"* ]] && [ ! -s "$LOG" ]; } && ok "plan is loopback-only and makes no calls" || bad "plan behavior"
+
+for bad_root in relative "$T/web|injected" "$T/web/../escape" "$T/web;worker_processes"; do
+  SA_LEMP_WEB_ROOT="$bad_root" sa_lemp_plan >/dev/null 2>&1
+  rc=$?
+  [ "$rc" -eq 64 ] && ok "unsafe web root rejected: $bad_root" || bad "unsafe web root accepted: $bad_root (rc=$rc)"
+done
+[ ! -s "$LOG" ] && ok "invalid web roots cause no package or service calls" || bad "invalid web root side effects"
 
 : > "$LOG"
 sa_lemp_apply >"$T/apply.out" 2>&1; rc=$?
@@ -53,6 +61,18 @@ grep -q 'systemctl enable --now mariadb' "$LOG" &&
 grep -q 'systemctl enable --now php-fpm' "$LOG" &&
 grep -q 'systemctl enable --now nginx' "$LOG" &&
 ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
+
+# A failed post-generation Nginx check must restore the prior health page.
+printf 'operator-owned health page\\n' > "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ "$(cat "$T/web/public/index.php")" = "operator-owned health page" ]; } && ok "failed config validation restores pre-existing health page" || bad "failed config validation did not restore health page"
+
+# If the health page did not exist before apply, rollback must remove the new file.
+rm -f "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure-new.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ ! -e "$T/web/public/index.php" ]; } && ok "failed config validation removes newly created health page" || bad "failed config validation left new health page"
 
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]
