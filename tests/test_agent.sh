@@ -44,7 +44,11 @@ out=$(STACKALIGN_AGENT_URL=http://example.com bash "$CLI" agent status 2>&1); rc
 out=$(env -u STACKALIGN_AGENT_API_KEY STACKALIGN_AGENT_URL=http://127.0.0.1:8000 bash "$CLI" agent ask "review backups" 2>&1); rc=$?
 { [ "$rc" -eq 2 ] && [[ "$out" == *"STACKALIGN_AGENT_API_KEY"* ]]; } && ok "agent ask fails closed without API key" || bad "missing key"
 out=$(STACKALIGN_AGENT_URL=https://agent.example.com bash "$CLI" agent ask "review backups" 2>&1); rc=$?
-{ [ "$rc" -eq 2 ] && [[ "$out" == *"ALLOW_REMOTE"* ]]; } && ok "remote HTTPS requires explicit opt-in" || bad "remote HTTPS opt-in"
+{ [ "$rc" -eq 2 ] && [[ "$out" == *"ALLOW_REMOTE"* ]]; } && ok "remote HTTPS ask requires explicit opt-in" || bad "remote HTTPS ask opt-in"
+out=$(STACKALIGN_AGENT_URL=https://agent.example.com bash "$CLI" agent status 2>&1); rc=$?
+{ [ "$rc" -eq 2 ] && [[ "$out" == *"ALLOW_REMOTE"* ]]; } && ok "remote HTTPS status requires explicit opt-in" || bad "remote HTTPS status opt-in"
+out=$(STACKALIGN_AGENT_URL=https://agent.example.com STACKALIGN_AGENT_ALLOW_REMOTE=1 bash "$CLI" agent status 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && [[ "$out" == *'"status":"ok"'* ]]; } && ok "remote HTTPS status works after opt-in" || bad "remote HTTPS status with opt-in"
 KEY=0123456789abcdef0123456789abcdef0123456789abcdef
 out=$(STACKALIGN_AGENT_URL=http://127.0.0.1:8000 STACKALIGN_AGENT_API_KEY="$KEY" bash "$CLI" agent ask "review backup gaps" 2>&1); rc=$?
 { [ "$rc" -eq 0 ] && [[ "$out" == *"Plan only; no host changes."* ]]; } && ok "agent ask returns advisory text" || bad "agent ask"

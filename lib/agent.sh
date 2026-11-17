@@ -24,6 +24,10 @@ sa_agent_status() {
   local url
   url=$(_sa_agent_url)
   _sa_agent_url_valid "$url" || { echo "agent: URL must be loopback HTTP or an HTTPS endpoint without credentials/query/fragment" >&2; return 64; }
+  if [[ $url == https://* && ${STACKALIGN_AGENT_ALLOW_REMOTE:-0} != 1 ]]; then
+    echo "agent: remote HTTPS use requires STACKALIGN_AGENT_ALLOW_REMOTE=1" >&2
+    return 2
+  fi
   command -v curl >/dev/null 2>&1 || { echo "agent: curl is required" >&2; return 2; }
   curl --silent --show-error --fail --connect-timeout 5 --max-time 10 --max-redirs 0 "$url/health"
 }
