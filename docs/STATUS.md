@@ -185,3 +185,18 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - The query does not select password hashes or authentication plugin data.
 - Account creation, grants, password rotation, and application credential handoff remain NOT IMPLEMENTED.
 - Fake-client tests validate command routing and output; no live account inventory has been run.
+
+
+## Site and virtual-host inventory — feature branch
+
+**Branch:** `feat/site-vhost-inventory` (based on `main`; PR not yet opened).
+
+| Command | State | Boundary |
+|---|---|---|
+| `stackalign site list` | Implemented; CI pending | Lists entries in standard Nginx/Apache configuration directories; does not parse arbitrary includes or claim complete effective-vhost discovery. |
+| `stackalign site doctor [nginx|apache|all]` | Implemented; CI pending | Runs native `nginx -t` / `httpd -t` when installed; read-only syntax checks. |
+| `stackalign site add` | BLOCKED | No vhost deployment, PHP-FPM pool creation, user creation or rollback. |
+| `stackalign site remove` | BLOCKED | No dependency checks, verified backup or rollback. |
+| `stackalign site isolate` | BLOCKED | No per-site Unix identity, dedicated PHP-FPM socket/pool, filesystem/process/resource controls, or two-tenant adversarial acceptance tests. |
+
+Tests use fake server binaries. No live host configuration was read or modified.
