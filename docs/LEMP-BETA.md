@@ -1,6 +1,6 @@
 # StackAlign LEMP beta bootstrap
 
-**Status: experimental beta implementation; real-host validation is still required.**
+**Status: hardened single-host baseline in development; not yet production-ready.**
 
 ## Supported apply target
 
@@ -22,29 +22,29 @@ The plan is read-only. Apply only in a disposable VM:
 
     sudo stackalign install --apply
 
-Apply requires root. The installer installs nginx, mariadb-server, php-fpm, and php-mysqlnd; configures the default PHP-FPM www pool to run as nginx with a matching Unix-socket owner/group; writes an Nginx server block; validates with php-fpm -t and nginx -t; then enables and starts MariaDB, PHP-FPM, and Nginx.
+Apply requires root. The installer installs nginx, mariadb-server, php-fpm, and php-mysqlnd from already-enabled DNF repositories; configures the default PHP-FPM www pool to run as nginx with matching Unix-socket ownership; writes a loopback-only Nginx server block; and validates PHP-FPM, MariaDB configuration, and Nginx before service activation. It explicitly binds MariaDB TCP to 127.0.0.1, disables local infile and symbolic links, and leaves local Unix-socket access available.
 
 ## Network and application boundary
 
-The generated Nginx server listens only on 127.0.0.1:8080. This is deliberate: the beta does not open a public listener or change firewall policy. The default document root is /var/www/stackalign/public and contains a small PHP response page.
+The generated Nginx server listens only on 127.0.0.1:8080. This is deliberate: this baseline does not open a public listener or change firewall policy. It disables Nginx version disclosure, sets a bounded request body size, and denies dotfiles while leaving the ACME well-known path available for a future separately reviewed TLS workflow. The default document root is /var/www/stackalign/public and contains a small PHP health response. Configured etc/web-root paths must be canonical safe absolute paths; traversal, symlinked roots, symlinked managed files, and non-regular managed targets are refused before package installation.
 
 MariaDB is started but no application database, application user, password, or remote listener is configured. The installer does not run mysql_secure_installation or claim that database hardening is complete.
 
 ## Failure and recovery behavior
 
-Before changing the PHP-FPM pool and StackAlign Nginx site file, the installer copies existing versions to a private temporary directory. If configuration validation or service activation fails, it attempts to restore those two files and restart PHP-FPM and Nginx.
+Before changing the PHP-FPM pool, StackAlign Nginx site, MariaDB drop-in, and health page, the installer copies existing versions to a private temporary directory. If configuration validation or service activation fails, it attempts to restore all four managed paths and restart PHP-FPM and Nginx.
 
 **Important limitation:** DNF package installation is not reversed on failure. The installer does not snapshot or restore prior service enablement/running state, and it does not roll back a MariaDB data-directory initialization. Inspect the host and remove packages manually if needed. This is not a transactional host rollback guarantee.
 
 ## Not included
 
-TLS issuance/renewal, public DNS, public ingress, firewall changes, application database provisioning, database credential management, tenant isolation, backups, PHP application deployment, production hardening, monitoring, and unattended updates are not implemented by this bootstrap.
+TLS issuance/renewal, public DNS, public ingress, firewall changes, application database/user provisioning, database credential management, independent-user isolation, verified restore, encryption/off-host backups, PHP application deployment, monitoring/alerting, and unattended updates are not implemented by this bootstrap. Loopback binding and a passing syntax check do not make a public production server.
 
 The repository's install.sh release bootstrap remains intentionally disabled until a versioned artifact and trusted SHA-256 are published. This guide describes invoking the checked-out StackAlign CLI, not a signed release installer.
 
 ## Validation
 
-tests/test_lemp.sh uses fake DNF, systemd, PHP-FPM, and Nginx commands. It checks planning, package selection, PHP-FPM pool edits, loopback binding, document-root handling, syntax-test invocation, and service activation commands. These are mock tests only.
+tests/test_lemp.sh uses fake DNF, systemd, PHP-FPM, and Nginx commands. It checks planning, path refusal before DNF, package selection, PHP-FPM pool edits, MariaDB loopback policy and config validation, Nginx loopback binding and document-root handling, service activation, and restoration after a MariaDB config-validation failure. These tests use fake DNF, systemd, MariaDB, PHP-FPM, and Nginx commands; they do not establish real-host behavior.
 
 Required before calling this beta deployable on supported hosts:
 
