@@ -15,12 +15,13 @@ listen = /run/php-fpm/www.sock
 ;listen.group = nobody
 ;listen.mode = 0660
 EOF
-for tool in dnf systemctl php-fpm nginx; do
+for tool in dnf systemctl php-fpm nginx mariadbd; do
   cat > "$T/bin/$tool" <<'SH'
 #!/usr/bin/env bash
 printf '%s %s\n' "$(basename "$0")" "$*" >> "$LOG"
 case "$(basename "$0"):$1" in
   systemctl:is-active) exit 0 ;;
+  mariadbd:--validate-config) exit "${FAKE_MARIADBD_RC:-0}" ;;
   *) exit 0 ;;
 esac
 SH
@@ -42,6 +43,62 @@ grep -q '^group = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^listen.owner = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^listen.group = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 ok "PHP-FPM pool runs as nginx with matching socket ownership" || bad "PHP-FPM pool configuration"
+grep -q '^bind-address=127.0.0.1grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
+ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
+[ -f "$T/web/public/index.php" ] &&
+grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
+ok "PHP health page created" || bad "PHP health page"
+grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
+grep -q 'systemctl enable --now mariadb' "$LOG" &&
+grep -q 'systemctl enable --now php-fpm' "$LOG" &&
+grep -q 'systemctl enable --now nginx' "$LOG" &&
+ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
+
+
+# Unsafe paths must be rejected before DNF is invoked.
+: > "$LOG"
+SA_LEMP_WEB_ROOT="$T/../outside" sa_lemp_apply >/dev/null 2>&1; rc=$?
+{ [ "$rc" -ne 0 ] && [ ! -s "$LOG" ]; } && ok "unsafe web-root traversal rejected before package install" || bad "unsafe web-root accepted"
+
+# Existing managed symlinks must be rejected without following them.
+ln -s "$T/web" "$T/web-link"
+SA_LEMP_WEB_ROOT="$T/web-link" sa_lemp_apply >/dev/null 2>&1; rc=$?
+{ [ "$rc" -ne 0 ] && [ ! -s "$LOG" ]; } && ok "symlinked web root rejected before package install" || bad "symlinked web root accepted"
+rm -f "$T/web-link"
+
+echo "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
+ "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+grep -q '^local-infile=0grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
+ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
+[ -f "$T/web/public/index.php" ] &&
+grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
+ok "PHP health page created" || bad "PHP health page"
+grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
+grep -q 'systemctl enable --now mariadb' "$LOG" &&
+grep -q 'systemctl enable --now php-fpm' "$LOG" &&
+grep -q 'systemctl enable --now nginx' "$LOG" &&
+ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
+
+echo "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
+ "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+grep -q '^symbolic-links=0grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
+ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
+[ -f "$T/web/public/index.php" ] &&
+grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
+ok "PHP health page created" || bad "PHP health page"
+grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
+grep -q 'systemctl enable --now mariadb' "$LOG" &&
+grep -q 'systemctl enable --now php-fpm' "$LOG" &&
+grep -q 'systemctl enable --now nginx' "$LOG" &&
+ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
+
+echo "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
+ "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+grep -q 'mariadbd --validate-config' "$LOG" &&
+ok "MariaDB is loopback-bound and config validation runs" || bad "MariaDB local-only policy"
 grep -q 'listen 127.0.0.1:8080' "$T/etc/nginx/conf.d/stackalign.conf" &&
 grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
 ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
