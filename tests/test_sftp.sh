@@ -57,14 +57,14 @@ grep -q "groupadd" "$CALLS"; check "group not recreated" "$?" 1
 
 echo "bob" >> "$USERS"
 : > "$CALLS"; sa_sftp_add_user bob "$T/good.pub" >/dev/null 2>&1; check "existing normal account refused" "$?" 1
-[ -e "$T/keys/bob" ]; check "no key written for refused account" "$?" 1
+if [ -e "$T/keys/bob" ]; then rc=0; else rc=1; fi; check "no key written for refused account" "$rc" 1
 
 sa_sftp_remove_user bob >/dev/null 2>&1; check "remove non-SFTP account refused" "$?" 1
 grep -q userdel "$CALLS"; check "no userdel for bob" "$?" 1
 sa_sftp_remove_user alice >/dev/null 2>&1; check "remove sftp user ok" "$?" 0
 grep -q "userdel -- alice" "$CALLS" && ! grep -q -- "userdel -r" "$CALLS"; check "userdel without -r" "$?" 0
-[ -e "$T/keys/alice" ]; check "key removed" "$?" 1
-[ -d "$T/sftp/alice/files" ]; check "data kept" "$?" 0
+if [ -e "$T/keys/alice" ]; then rc=0; else rc=1; fi; check "key removed" "$rc" 1
+if [ -d "$T/sftp/alice/files" ]; then rc=0; else rc=1; fi; check "data kept" "$rc" 0
 
 r="$(sa_sftp_render)"
 for want in "Match Group sftponly" "ChrootDirectory $T/sftp/%u" "ForceCommand internal-sftp -d /files" "AuthorizedKeysFile $T/keys/%u" "PasswordAuthentication no" "AuthenticationMethods publickey" "PermitTTY no" "AllowTcpForwarding no" "Match all"; do
@@ -88,7 +88,7 @@ check "previous drop-in restored" "$(cat "$SA_SFTP_DROPIN")" OLD
 grep -q "reload" "$CALLS"; check "no reload after failed check" "$?" 1
 
 rm -f "$SA_SFTP_DROPIN"; FAKE_SSHD_RC=1 sa_sftp_enable >/dev/null 2>&1
-[ -e "$SA_SFTP_DROPIN" ]; check "first-time failure removes drop-in" "$?" 1
+if [ -e "$SA_SFTP_DROPIN" ]; then rc=0; else rc=1; fi; check "first-time failure removes drop-in" "$rc" 1
 
 printf 'OLD\n' > "$SA_SFTP_DROPIN"; FAKE_RELOAD_RC=1 sa_sftp_enable >/dev/null 2>&1; check "reload failure => rc 1" "$?" 1
 check "reload failure restores previous" "$(cat "$SA_SFTP_DROPIN")" OLD
