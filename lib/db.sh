@@ -63,7 +63,7 @@ sa_db_create() {
         echo "db: create failed for $name" >&2
         return 1
     }
-    printf 'created database: %s\n' "$name"
+    printf 'database created or already present: %s\n' "$name"
 }
 
 # Drop remains blocked until pre-drop backup and recovery are verified.
