@@ -21,10 +21,10 @@ _sa_tls_ca_url() {
 # Reports upstream schedulers; returns 2 if one is active.
 sa_tls_preflight() {
     local found=0 t
-    for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer; do
+    for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer acme.sh.timer lego-renew.timer stackalign-renew.timer; do
         if systemctl is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
     done
-    if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -q 'acme\.sh'; then
+    if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -Eq 'acme\.sh|(^|[[:space:]/])lego([[:space:]]|$)'; then
         echo "scheduler: acme.sh cron entry present"; found=1
     fi
     [ "$found" -eq 0 ] || return 2
@@ -73,7 +73,7 @@ _sa_tls_status_one() {
         return 1
     }
     if openssl x509 -in "$crt" -noout -checkend 0 >/dev/null 2>&1; then
-        cert_state=VALID
+        cert_state=NOT_EXPIRED
     else
         cert_state=EXPIRED
         rc=1
@@ -143,7 +143,7 @@ sa_tls_status() {
         [ -d "$entry" ] || continue
         found=1
         lineage=${entry##*/}
-        if [[ $lineage == _wildcard_.* ]]; then domain="*.${lineage#_wildcard_}"; else domain=$lineage; fi
+        if [[ $lineage == _wildcard_.* ]]; then domain="*${lineage#_wildcard_}"; else domain=$lineage; fi
         _sa_tls_status_one "$entry" "$domain" || rc=1
     done < <(find "$root" -mindepth 1 -maxdepth 1 -print0)
     [ "$found" -eq 1 ] || echo "tls: no managed certificate lineages found"
