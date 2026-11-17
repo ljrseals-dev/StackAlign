@@ -46,6 +46,7 @@ repo|M2a|read-only package repository inventory
 optimize|M3|read-only performance plan; apply is gated
 xcart|M3|guarded X-Cart profile: plan|preflight|build|deploy
 routine|M3|routine subsystem: plan|install|doctor|run|run-builtin
+internet|M2b|interactive internet access preferences and read-only planning
 hosting|M2b|hosting scope prompt, plans, and read-only inspection
 sftp|M3|chrooted key-only SFTP account management
 egress|M4|outbound firewall and passive LAN audit
@@ -369,6 +370,28 @@ cmd_hosting() {
   esac
 }
 
+
+cmd_internet() {
+  _sa_parse "" "$@"
+  local sub=${POS[0]:-}
+  source "$SA_ROOT/lib/internet.sh"
+  case "$sub" in
+    setup)
+      [ "${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign internet setup"
+      sa_internet_setup ;;
+    plan)
+      [ "${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign internet plan"
+      sa_internet_show_saved_plan ;;
+    doctor)
+      [ "${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign internet doctor"
+      sa_internet_doctor ;;
+    apply)
+      echo "stackalign internet apply: BLOCKED — provider auth, DNS ownership, firewall and tunnel acceptance are not implemented; no changes made" >&2
+      return 2 ;;
+    *) _sa_die "usage: stackalign internet <setup|plan|doctor|apply>" ;;
+  esac
+}
+
 cmd_sftp() {
   _sa_parse "--plan --apply" "$@"
   local sub=${POS[0]:-}
@@ -447,6 +470,7 @@ _sa_dispatch() {  # <cmd> args...
     optimize) cmd_optimize "$@" ;;
     update)   cmd_update "$@" ;;
     hosting)  cmd_hosting "$@" ;;
+    internet) cmd_internet "$@" ;;
     sftp)     cmd_sftp "$@" ;;
     egress)   cmd_egress "$@" ;;
     *)        _sa_stub "$c" "$@" ;;
