@@ -74,7 +74,7 @@ out="$(sa_egress_render "$T/half" 9.9.9.9 none 2>/dev/null)"; check "invalid fil
 SA_EGRESS_TABLE='bad;name' sa_egress_render "$T/allow" 9.9.9.9 none >/dev/null 2>&1; check "unsafe table identifier refused" "$?" 64
 
 : > "$CALLS"; sa_egress_apply "$T/allow" 9.9.9.9 none >/dev/null 2>&1; check "apply without timer" "$?" 0
-[ "$(line_of '^nft -c -f')" -lt "$(line_of '^nft -f')" ]; check "nft check precedes load" "$?" 0
+if [ "$(line_of '^nft -c -f')" -lt "$(line_of '^nft -f')" ]; then rc=0; else rc=1; fi; check "nft check precedes load" "$rc" 0
 calls_has systemd-run; check "no timer by default" "$?" 1
 calls_has "logger -t stackalign-egress -- loaded table=stackalign_egress revert_seconds=0"; check "apply audited to syslog" "$?" 0
 
@@ -86,7 +86,7 @@ unset FAKE_NFT_CHECK_RC
 
 : > "$CALLS"; sa_egress_apply "$T/allow" 9.9.9.9 none 120 >/dev/null 2>&1; check "apply with timer" "$?" 0
 calls_has 'systemd-run --quiet --replace --unit=stackalign-egress-revert --on-active=120s'; check "revert timer uses replace" "$?" 0
-[ "$(line_of '^systemd-run')" -lt "$(line_of '^nft -f')" ]; check "timer scheduled before load" "$?" 0
+if [ "$(line_of '^systemd-run')" -lt "$(line_of '^nft -f')" ]; then rc=0; else rc=1; fi; check "timer scheduled before load" "$rc" 0
 : > "$CALLS"; export FAKE_SDRUN_RC=1
 sa_egress_apply "$T/allow" 9.9.9.9 none 120 >/dev/null 2>"$T/err"; check "timer scheduling failure returns 1" "$?" 1
 calls_has '^nft -f'; check "timer failure never loads rules" "$?" 1
@@ -96,7 +96,7 @@ unset FAKE_SDRUN_RC
 : > "$CALLS"; export FAKE_TIMER_ACTIVE=1
 sa_egress_apply "$T/allow" 9.9.9.9 none >/dev/null 2>&1; check "apply without new timer" "$?" 0
 calls_has "systemctl stop stackalign-egress-revert.timer"; check "stale timer cancelled even when secs=0" "$?" 0
-[ "$(line_of 'systemctl stop stackalign-egress-revert.timer')" -lt "$(line_of '^nft -f')" ]; check "stale timer cancelled before new load" "$?" 0
+if [ "$(line_of 'systemctl stop stackalign-egress-revert.timer')" -lt "$(line_of '^nft -f')" ]; then rc=0; else rc=1; fi; check "stale timer cancelled before new load" "$rc" 0
 : > "$CALLS"; export FAKE_STOP_RC=1
 sa_egress_apply "$T/allow" 9.9.9.9 none >/dev/null 2>&1; check "stale timer cancel failure refuses apply" "$?" 1
 calls_has '^nft -f'; check "cancel failure prevents load" "$?" 1
