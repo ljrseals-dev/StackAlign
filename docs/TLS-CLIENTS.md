@@ -5,7 +5,7 @@ Author: Lewis James Seals Jr.
 
 ## Status
 
-Design proposal only. No TLS runtime behavior is implemented by this document. No ACME client is installed, no repository is enabled, no certificate is issued, and no production host is changed by this documentation update.
+Design proposal for the full three-client lifecycle. The current feature branch adds read-only `stackalign tls status` and `stackalign tls preflight` diagnostics only. Issuance, renewal, migration, client installation, scheduler enablement, and production host changes remain blocked. No ACME client is installed and no certificate is issued by these diagnostics.
 
 StackAlign targets AlmaLinux and Rocky Linux 9/10. This design integrates three separately installed ACME clients. They are not interchangeable global defaults: selection and ownership are explicit for each certificate lineage.
 
@@ -188,3 +188,10 @@ The precise installation mechanism for each client is intentionally unresolved u
 ## Scope boundary
 
 This PR is documentation/design only. It does not add `lib/tls.sh`, `lib/tls_migrate.sh`, client installers, scheduler changes, renewal hooks, or executable TLS behavior. Those implementation files remain blocked on design review and host-based acceptance evidence.
+
+
+## Current read-only implementation boundary — 2026-11-17
+
+The feature branch adds `sa_tls_status` and wires `stackalign tls status [domain]` plus `stackalign tls preflight`. Status checks the local certificate expiry, hostname coverage, private-key match, client marker, and private-key permissions. It does not validate the public trust chain, revocation, live HTTPS reachability, or all possible scheduler configurations.
+
+The previous `sa_tls_issue` adapter is now fail-closed. It passed ZeroSSL EAB credentials as command-line arguments and activated the certificate and key using separate renames, which are not a crash-safe atomic pair. Issuance, renewal, migration, and renewal timer enablement must remain blocked until the secret channel, versioned release activation, scheduler ownership, and crash recovery contract are implemented and tested. This is a deliberate safety gate, not a claim that TLS issuance is complete.
