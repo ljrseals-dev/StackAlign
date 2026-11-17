@@ -120,15 +120,30 @@ tenant_mode = free_for_all
 domain = alpha.example.test
 user = site_alpha
 pool = site_alpha
-isolation = pool
+isolation = free_for_all
 [site.beta]
 domain = beta.example.test
 user = site_beta
 pool = site_beta
-isolation = pool
+isolation = free_for_all
 EOF
 sa_config_load "$T/schema-multi.conf" 2>/dev/null && sa_config_validate 2>/dev/null
 [ $? -ne 0 ] && ok "schema rejects multiple sites in free_for_all mode" || bad "schema rejects multiple sites in free_for_all mode"
+
+cat > "$T/schema-mode-mismatch.conf" <<'EOF'
+[meta]
+config_version = 1
+[server]
+tenant_mode = pool
+[site.alpha]
+domain = alpha.example.test
+user = site_alpha
+pool = site_alpha
+isolation = free_for_all
+EOF
+sa_config_load "$T/schema-mode-mismatch.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects tenant isolation mode mismatch" || bad "schema rejects tenant isolation mode mismatch"
+
 sa_config_load "$T/good.conf" 2>/dev/null
 sa_config_validate 2>/dev/null
 [ $? -ne 0 ] && ok "generic parser does not imply schema validity" || bad "generic parser does not imply schema validity"
