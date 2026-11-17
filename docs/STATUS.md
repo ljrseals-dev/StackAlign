@@ -66,3 +66,21 @@ This PR updates documentation only; the M2a implementation and tests were merged
 **Manual alignment — 2026-11-13T13:09:34-06:00:** `docs/Technical Manual.md` on `main` was fetched and its Section 3.3 exclusion was confirmed. The original statement that StackAlign does not install or configure FTP servers is retained. The added clarification permits only an independently installed/managed FTP service, preserves ordinary client/server transfers, and specifies software-level rejection of FTP-to-FTP/FXP. This remains **SPECIFIED / UNVERIFIED**; no daemon configuration or runtime transfer test has been performed.
 
 <!-- Manual-alignment review comment: 2026-11-13T13:09:34-06:00; additive note only. Existing status entries retained. -->
+
+
+## Apache hosting modes — feature branch implementation
+
+**Branch:** `feat/apache-upstream-hosting`
+
+| Area | State | Evidence / boundary |
+|---|---|---|
+| Hosting mode contract | Implemented | `nginx`, `apache`, and `hybrid` read-only plans in `lib/hosting.sh`. |
+| CLI planner | Implemented | `stackalign hosting plan <mode>`; no host mutation. |
+| Apache capability inspection | Implemented; host result NOT RUN | `stackalign hosting doctor` checks server binaries and proxy modules when Apache is installed. |
+| Apache package install/configuration | BLOCKED | No DNF install or service/config mutation is exposed pending isolation and EL9 acceptance gates. |
+| Nginx-to-Apache runtime routing | SPECIFIED | Hybrid plan reserves loopback `127.0.0.1:8081`; no listener or proxy configuration is installed. |
+| PHP-FPM tenant separation | NOT IMPLEMENTED | Dedicated pool/socket and tenant process ownership remain required. |
+| Automated tests | Added; execution NOT RUN in this GitHub-only edit session | `tests/test_hosting.sh` and `tests/test_hosting_cli.sh`; CI must execute them on the PR head. |
+| Real-host validation | NOT RUN | AlmaLinux 9 and Rocky Linux 9 disposable VM tests remain required. |
+
+The existing `install` command and LEMP beta behavior are unchanged. No claim of Apache installation, live upstream routing, tenant isolation, or production readiness is made.
