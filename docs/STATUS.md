@@ -140,3 +140,18 @@ The CLI explicitly refuses `internet apply`. It must not claim that saving prefe
 | Encryption, retention, off-host copy | NOT IMPLEMENTED in CLI | Existing rclone helper is not exposed; no encryption or remote recovery guarantee is claimed. |
 
 Automated tests use fake `mysqldump` and `mariabackup` commands; they do not contact a live database. GitHub Actions run #757 on head `0e91413446b9984604a72ffda92045ada46d53d1` passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9. Real MariaDB/MariaBackup backup and restore testing remains NOT RUN.
+
+
+## TLS read-only diagnostics — feature branch implementation
+
+**Branch:** `feat/tls-readonly-status` (stacked on PR #54; not merged to `main`).
+
+| Area | State | Evidence / boundary |
+|---|---|---|
+| Certificate lineage status | Implemented; CI pending | `stackalign tls status [domain]` reports client marker, expiry state, hostname match, private-key match, key-file mode, and whether expiry is within 30 days. It does not validate the public trust chain, revocation, or live HTTPS reachability. |
+| Scheduler preflight | Implemented; CI pending | Read-only scan for known active Certbot/acme.sh/Lego/StackAlign timers and matching cron entries. This is not an exhaustive inventory of every external scheduler. |
+| Issuance / renewal / migration | BLOCKED | Previous adapter exposed ZeroSSL EAB secrets in process arguments and activated cert/key with separate non-atomic renames. Both the helper and CLI fail closed. |
+| Renewal timer enablement | BLOCKED | No complete lineage ownership, scheduler isolation, or renewal execution contract exists. |
+| Client installation and DNS credentials | NOT IMPLEMENTED | No ACME client installation, provider login, DNS mutation, or credential handling is performed. |
+
+The TLS status tests generate disposable self-signed certificates and verify expiry, hostname matching, key matching, wildcard lineage mapping, symlink refusal, and blocked issuance/renewal. They do not contact a CA or change host services. Real certificate issuance, public-chain validation, scheduler discovery on a live host, Nginx reload, and rollback remain NOT RUN.
