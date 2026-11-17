@@ -40,7 +40,7 @@ sa_repo_doctor() {
   [ "$section" = repo ] || { echo "doctor: only --section repo is supported by this entry point" >&2; return 64; }
 
   local os_id=unknown os_version=unknown os_name=unknown arch backend=none backend_version=unknown os_release_file=${SA_OS_RELEASE_FILE:-/etc/os-release}
-  local vault=false dir=${SA_YUM_REPOS_DIR:-/etc/yum.repos.d}
+  local eol=false vault=false dir=${SA_YUM_REPOS_DIR:-/etc/yum.repos.d}
   local -a files=()
   local pass=0 warn=0 fail=0 skip=0 status
   local family version
@@ -71,7 +71,7 @@ sa_repo_doctor() {
   done < "$os_release_file"
   family=$os_id; version=$os_version
   case "$os_id" in
-    centos) case "$os_version" in 7|7.*) family=centos-7 ;; 8|8.*) family=centos-8 ;; *) case "$os_name" in *"CentOS Stream"*) family=centos-stream ;; *) family=unknown ;; esac ;; esac ;;
+    centos) case "$os_version" in 7|7.*) family=centos-7; eol=true ;; 8|8.*) family=centos-8; eol=true ;; *) case "$os_name" in *"CentOS Stream"*) family=centos-stream ;; *) family=unknown ;; esac ;; esac ;;
     rhel|rocky|almalinux|ol|fedora) [ "$os_id" != ol ] || family=oraclelinux ;;
     *) family=unknown ;;
   esac
