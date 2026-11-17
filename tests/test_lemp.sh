@@ -106,7 +106,7 @@ rc=$?
 sa_lemp_restore() { return 1; }
 FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/restore-failure.out" 2>&1
 rc=$?
-backup=$(sed -n 's/.*backup preserved at //p' "$T/restore-failure.out" | tail -n 1)
+backup=$(sed -n 's/.*backup preserved at \(.*\) for manual recovery/\1/p' "$T/restore-failure.out" | tail -n 1)
 { [ "$rc" -ne 0 ] && [ -n "$backup" ] && [ -d "$backup" ] && [ -f "$backup$T/etc/php-fpm.d/www.conf" ]; } && ok "incomplete rollback preserves recovery snapshot" || bad "incomplete rollback deleted recovery snapshot"
 [ -z "$backup" ] || rm -rf -- "$backup"
 
