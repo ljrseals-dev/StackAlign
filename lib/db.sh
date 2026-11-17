@@ -20,7 +20,9 @@ sa_db_validate_name() {
 
 _sa_db_defaults_ok() {
     local file=${SA_MYSQL_DEFAULTS_FILE:-} mode owner resolved
-    [[ $file == /* && $file != *..* ]] && [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
+    # realpath equality rejects traversal components and symlinked parents without
+    # rejecting harmless '..' characters inside an otherwise valid filename.
+    [[ $file == /* ]] && [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
     resolved=$(realpath -e -- "$file" 2>/dev/null) || return 1
     [[ $resolved == "$file" ]] || return 1
     read -r mode owner < <(stat -c '%a %u' -- "$file" 2>/dev/null) || return 1
