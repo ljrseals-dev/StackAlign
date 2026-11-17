@@ -198,7 +198,7 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 
 - `stackalign site list` inventories top-level files and symlink targets in standard Nginx and Apache vhost directories.
 - `stackalign site doctor [nginx|apache|all]` invokes native syntax checks without changing configuration.
-- Site add/remove/isolate remain fail-closed; per-site identities, dedicated PHP-FPM pools/sockets, filesystem/process/resource controls, and transactional deployment are not implemented.
+- At the PR #67 inventory baseline, site add/remove/isolate were fail-closed. The stacked `feat/admin-managed-nginx-sites` branch now implements administrator-managed static Nginx add/remove; `site isolate` and independent-user tenant isolation remain gated.
 - Tests use fake web-server binaries. PR #67 CI run #44115352476 passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9 at head `437ede7ee661b6a9fd50198b4fb6f9af78aec081`; no live host configuration was inspected or modified.
 
 
