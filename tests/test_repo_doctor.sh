@@ -63,13 +63,39 @@ try:
     import jsonschema
 except ImportError as exc:
     raise SystemExit("jsonschema is required for doctor contract validation") from exc
-jsonschema.Draft202012Validator.check_schema(schema)
-jsonschema.validate(data, schema, format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER)
+validator_cls = jsonschema.validators.validator_for(schema)
+validator_cls.check_schema(schema)
+format_checker = getattr(validator_cls, "FORMAT_CHECKER", jsonschema.FormatChecker())
+validator_cls(schema, format_checker=format_checker).validate(data)
 assert data["summary"]["overall"] == "PASS"
 assert [c["id"] for c in data["checks"]] == [f"REPO-{i:03d}" for i in range(1, 10)]
 assert all({"id", "status", "details"} <= set(c) for c in data["checks"])
 PY
 
+
+# OS-release input is data, not shell code; quoted fields remain supported.
+printf 'ID=almalinux\nVERSION_ID="9.4"\nNAME="AlmaLinux"\ntouch %q\n' "$T/os-release-executed" > "$T/malicious-os-release"
+SA_OS_RELEASE_FILE="$T/malicious-os-release" sa_repo_doctor --section repo >/dev/null
+[[ ! -e "$T/os-release-executed" ]] || { echo "OS-release parser executed file content" >&2; exit 1; }
+
+# CentOS 8 must not be mislabeled as CentOS 7 or CentOS Stream.
+cat > "$T/centos8-release" <<'EOF'
+ID=centos
+VERSION_ID="8"
+NAME="CentOS Linux"
+EOF
+out=$(SA_OS_RELEASE_FILE="$T/centos8-release" sa_repo_doctor --section repo 2>&1)
+[[ "$out" == *"CentOS Linux 8 is EOL"* ]]
+[[ "$out" != *"CentOS 7 is EOL"* ]]
+
+# CentOS 7 Vault eligibility is not asserted without a validated Vault source.
+cat > "$T/centos7-release" <<'EOF'
+ID=centos
+VERSION_ID=7
+NAME="CentOS Linux"
+EOF
+json=$(SA_OS_RELEASE_FILE="$T/centos7-release" sa_repo_doctor --section repo --json)
+[[ "$json" == *'"vault_eligible":false'* ]]
 # A WARN is non-fatal normally and becomes exit 2 under --strict.
 cat >"$T/repos/sample.repo" <<'EOF'
 [disabled]
@@ -98,6 +124,17 @@ sa_repo_doctor --section repo >/dev/null 2>&1; malformed_rc=$?
 set -e
 [[ "$malformed_rc" -eq 2 ]]
 
+
+# Invalid enabled values must fail syntax inspection and must not count as enabled.
+cat > "$T/repos/sample.repo" <<'EOF'
+[baseos]
+enabled=maybe
+EOF
+set +e
+sa_repo_doctor --section repo >"$T/invalid-enabled.out" 2>&1; invalid_enabled_rc=$?
+set -e
+[[ "$invalid_enabled_rc" -eq 2 ]]
+grep -q '\[FAIL\] REPO-003' "$T/invalid-enabled.out"
 # Backend discovery may ask for the version only; it must never refresh metadata.
 [[ -f "$SA_DNF_CALL_LOG" ]]
 grep -q . "$SA_DNF_CALL_LOG"
