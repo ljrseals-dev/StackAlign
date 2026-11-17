@@ -176,12 +176,12 @@ cmd_rollback() {
 
 cmd_backup() {
   _sa_parse "--plan --apply" "$@"
-  local sub=\${POS[0]:-} kind dest
+  local sub=${POS[0]:-} kind dest
   source "$SA_ROOT/lib/backup.sh"
   case "$sub" in
     run)
-      [ "\${#POS[@]}" -eq 3 ] || _sa_die "usage: stackalign backup run <logical|physical> <absolute-destination> [--apply]"
-      kind=\${POS[1]}; dest=\${POS[2]}
+      [ "${#POS[@]}" -eq 3 ] || _sa_die "usage: stackalign backup run <logical|physical> <absolute-destination> [--apply]"
+      kind=${POS[1]}; dest=${POS[2]}
       case "$kind" in logical|physical) ;; *) _sa_die "backup type must be logical or physical" ;; esac
       if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then
         if [ "$kind" = logical ]; then sa_backup_dump "$dest"; else sa_backup_physical "$dest"; fi
@@ -196,11 +196,11 @@ cmd_backup() {
       fi
       ;;
     list)
-      [ "\${#POS[@]}" -eq 2 ] && [ "$APPLY" = 0 ] && [ "$PLAN_FLAG" = 0 ] || _sa_die "usage: stackalign backup list <absolute-directory>"
-      sa_backup_list "\${POS[1]}" ;;
+      [ "${#POS[@]}" -eq 2 ] && [ "$APPLY" = 0 ] && [ "$PLAN_FLAG" = 0 ] || _sa_die "usage: stackalign backup list <absolute-directory>"
+      sa_backup_list "${POS[1]}" ;;
     verify)
-      [ "\${#POS[@]}" -eq 2 ] && [ "$APPLY" = 0 ] && [ "$PLAN_FLAG" = 0 ] || _sa_die "usage: stackalign backup verify <absolute-artifact>"
-      sa_backup_verify "\${POS[1]}" ;;
+      [ "${#POS[@]}" -eq 2 ] && [ "$APPLY" = 0 ] && [ "$PLAN_FLAG" = 0 ] || _sa_die "usage: stackalign backup verify <absolute-artifact>"
+      sa_backup_verify "${POS[1]}" ;;
     *) _sa_die "usage: stackalign backup <run <logical|physical> <destination> [--apply]|list <directory>|verify <artifact>>" ;;
   esac
 }
