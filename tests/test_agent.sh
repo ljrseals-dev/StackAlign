@@ -9,7 +9,7 @@ mkdir -p "$T/bin"
 cat > "$T/bin/curl" <<'CURL'
 #!/usr/bin/env bash
 printf '%s' "$*" > "$CAPTURE_ARGS"
-if [[ " $* " == *" /health "* ]]; then
+if [[ $* == *"/health"* ]]; then
   printf '{"status":"ok"}\n'
   exit 0
 fi
