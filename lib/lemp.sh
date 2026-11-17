@@ -14,7 +14,7 @@ sa_lemp_die() { echo "stackalign install: $*" >&2; return 1; }
 
 # Reject unsafe path syntax before any package or filesystem mutation.
 _sa_lemp_path_ok() {
-  local path=\${1:-} resolved
+  local path=${1:-} resolved
   [[ $path == /* && $path != / && $path != */ && $path != *..* && $path =~ ^/[A-Za-z0-9._/-]+$ ]] || return 1
   resolved=$(realpath -m -- "$path" 2>/dev/null) || return 1
   [[ $resolved == "$path" ]]
@@ -25,7 +25,7 @@ _sa_lemp_existing_file_ok() {
   [ ! -e "$path" ] || [ -f "$path" ]
 }
 sa_lemp_paths_check() {
-  local etc=\${SA_LEMP_ETC_ROOT:-/etc} web=\${SA_LEMP_WEB_ROOT:-/var/www/stackalign} f
+  local etc=${SA_LEMP_ETC_ROOT:-/etc} web=${SA_LEMP_WEB_ROOT:-/var/www/stackalign} f
   _sa_lemp_path_ok "$etc" && _sa_lemp_path_ok "$web" || {
     sa_lemp_die "ETC_ROOT and WEB_ROOT must be canonical safe absolute paths"; return 1;
   }
@@ -166,7 +166,7 @@ NGINX
     cat > "$health" <<'PHP'
 <?php
 header('Content-Type: text/plain; charset=utf-8');
-echo "StackAlign LEMP beta: PHP-FPM is responding\n";
+echo "StackAlign server health: PHP-FPM is responding\n";
 PHP
     chmod 0644 "$site" "$health" || failed=1
   fi
