@@ -17,7 +17,15 @@
 set -u
 
 SA_VERSION="0.0.0-dev"
-SA_SOURCE=$(readlink -f -- "${BASH_SOURCE[0]}")
+SA_SOURCE=${BASH_SOURCE[0]}
+# Resolve symlinks only when present; the normal fast path uses Bash builtins.
+while [ -L "$SA_SOURCE" ]; do
+  SA_LINK_DIR=${SA_SOURCE%/*}
+  [ "$SA_LINK_DIR" != "$SA_SOURCE" ] || SA_LINK_DIR=.
+  SA_LINK_DIR=$(cd -P -- "$SA_LINK_DIR" && pwd -P) || exit 1
+  SA_LINK=$(readlink -- "$SA_SOURCE") || exit 1
+  case "$SA_LINK" in /*) SA_SOURCE=$SA_LINK ;; *) SA_SOURCE=$SA_LINK_DIR/$SA_LINK ;; esac
+done
 SA_DIR=${SA_SOURCE%/*}
 [ "$SA_DIR" != "$SA_SOURCE" ] || SA_DIR=.
 SA_ROOT=$(cd -- "$SA_DIR/.." && pwd -P)
