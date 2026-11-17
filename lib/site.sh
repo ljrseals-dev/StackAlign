@@ -102,7 +102,7 @@ sa_site_add() {
     case "$apply" in 0|1) ;; *) return 64 ;; esac
     dir=$(_sa_site_nginx_dir) || return 1
     target=$dir/stackalign-site-$domain.conf
-    content=$(printf '%s\nserver {\n    listen 127.0.0.1:8080;\n    server_name %s;\n    root %s;\n    index index.html;\n    autoindex off;\n    location / { try_files \$uri \$uri/ =404; }\n    location ~ /\\. { deny all; }\n}\n' "$marker" "$domain" "$docroot")
+    content=$(printf '%s\nserver {\n    listen 127.0.0.1:8080;\n    server_name %s;\n    root %s;\n    index index.html;\n    autoindex off;\n    location / { try_files $uri $uri/ =404; }\n    location ~ /\\. { deny all; }\n}\n' "$marker" "$domain" "$docroot")
     if [ -e "$target" ] || [ -L "$target" ]; then
         if [ -f "$target" ] && [ ! -L "$target" ] && [ "$(cat -- "$target")" = "$content" ]; then echo "site add: unchanged ($domain)"; return 0; fi
         echo "site add: target already exists and is not identical StackAlign-managed content: $target" >&2; return 1
