@@ -61,7 +61,22 @@ From a checkout:
 bash bin/stackalign version
 bash bin/stackalign help
 bash bin/stackalign doctor
+bash bin/stackalign doctor --section repo
+bash bin/stackalign doctor --section repo --json
 ```
+
+
+### Repository diagnostics
+
+The repository doctor is a read-only diagnostic entry point:
+
+```bash
+bash bin/stackalign doctor --section repo
+bash bin/stackalign doctor --section repo --json
+bash bin/stackalign doctor --section repo --strict
+```
+
+It inspects the host OS-release metadata, package-manager version, and local `.repo` stanza syntax without refreshing metadata or changing repository files. The DNF/YUM fixture parser normalizes captured `repolist -v` text; absent fields remain unknown rather than being guessed. Metadata reachability, GPG verification, audit-journal health, and repository-backup integrity remain SKIP until their runtime interfaces and tests exist. This is not a live repository validation or a package operation.
 
 ### Inspect hosting modes
 
