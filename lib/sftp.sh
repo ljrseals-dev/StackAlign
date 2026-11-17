@@ -135,7 +135,7 @@ sa_sftp_add_user() {
     install -d -m 0700 -o "$user" -g "$SA_SFTP_GROUP" -- "$chroot/files" || return 1
     tmp="$(mktemp "$SA_SFTP_KEYDIR/.k.XXXXXX")" || return 1
     printf '%s\n' "$key" > "$tmp" && chmod 0644 -- "$tmp" && chown root:root -- "$tmp" &&
-        mv -f -- "$tmp" "$SA_SFTP_KEYDIR/$user" || { rm -f -- "$tmp"; return 1; }
+        mv -fT -- "$tmp" "$keytarget" || { rm -f -- "$tmp"; return 1; }
     log "sftp: $user ready (chroot $chroot, upload dir /files)"
 }
 
