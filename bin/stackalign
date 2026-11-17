@@ -174,6 +174,33 @@ cmd_rollback() {
   fi
 }
 
+cmd_tls() {
+  local sub=${1:-} rc=0
+  [ $# -gt 0 ] && shift
+  source "$SA_ROOT/lib/tls.sh"
+  case "$sub" in
+    status)
+      [ $# -le 1 ] || _sa_die "usage: stackalign tls status [domain]"
+      sa_tls_status "$@" ;;
+    preflight)
+      [ $# -eq 0 ] || _sa_die "usage: stackalign tls preflight"
+      sa_tls_preflight || rc=$?
+      if [ "$rc" -eq 0 ]; then
+        echo "tls preflight: no active upstream renewal schedulers detected"
+        return 0
+      fi
+      if [ "$rc" -eq 2 ]; then
+        echo "tls preflight: upstream renewal scheduler conflict; no changes made" >&2
+        return 2
+      fi
+      return "$rc" ;;
+    issue|renew|migrate|enable-renewal)
+      echo "tls: $sub BLOCKED — issuance, renewal and client migration require protected secret transport, atomic certificate/key activation, and crash-safe rollback" >&2
+      return 2 ;;
+    *) _sa_die "usage: stackalign tls <status [domain]|preflight|issue|renew|migrate|enable-renewal>" ;;
+  esac
+}
+
 cmd_backup() {
   _sa_parse "--plan --apply" "$@"
   local sub=${POS[0]:-} kind dest
@@ -536,6 +563,7 @@ _sa_dispatch() {  # <cmd> args...
     update)   cmd_update "$@" ;;
     hosting)  cmd_hosting "$@" ;;
     internet) cmd_internet "$@" ;;
+    tls)      cmd_tls "$@" ;;
     agent)    cmd_agent "$@" ;;
     backup)   cmd_backup "$@" ;;
     restore)  cmd_restore "$@" ;;
