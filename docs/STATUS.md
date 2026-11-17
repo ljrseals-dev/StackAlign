@@ -106,9 +106,9 @@ The shared PHP-FPM `www` pool is explicitly not treated as tenant isolation. Thi
 |---|---|---|
 | Access-purpose questions | Implemented in CLI source | Public website, private administration, or both. Interactive execution NOT RUN. |
 | Separate access choices | Implemented in CLI source | DNS provider, public ingress (Cloudflare Tunnel/direct origin), and private administration (Tailscale/WireGuard/existing VPN) are independent fields. |
-| Input/config validation | Implemented; CI pending for latest head | Domain and IPv4 validation; versioned config rejects symlinks, wrong ownership, broad permissions, duplicate/unknown keys, and incomplete records. |
+| Input/config validation | Implemented; CI PASS | Domain and public IPv4 validation; versioned config rejects symlinks, wrong ownership, broad permissions, duplicate/unknown keys, and incomplete records. CI run 702 passed `make lint` and `make test` on Ubuntu and AlmaLinux 9 at head `517aca32bd6f02f42df2c8475cf034904fdb85ba`. |
 | Preference persistence | Implemented in CLI source | Non-secret versioned preferences only; atomic write and owner-only permissions; interactive TTY persistence test NOT RUN. |
-| Read-only doctor | Implemented in CLI source | Reports interface/default-route failures and checks DNS resolution of `example.com`; mock failure-path tests added; real-host inspection NOT RUN. |
+| Read-only doctor | Implemented; mock tests CI PASS | Reports interface/default-route/DNS failures and checks resolution of `example.com`; real-host inspection NOT RUN. |
 | Provider authentication, DNS mutation, TLS, firewall, tunnel installation | NOT IMPLEMENTED / BLOCKED | No provider credentials are collected; no host/network changes are made. |
 | End-to-end reachability and recovery | NOT RUN | Requires disposable EL9 host and provider integration tests. |
 
