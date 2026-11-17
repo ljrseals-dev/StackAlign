@@ -1,0 +1,11 @@
+{
+  "schema":"stackalign.repo.mirrors.test/v1",
+  "repo":"epel",
+  "probed_at":"2026-11-16T12:00:00Z",
+  "results":[
+    {"url":"https://mirror.example-de.de/epel/9/repodata/repomd.xml","location":"DE","connectivity_ok":true,"metadata_present":true,"metadata_age_seconds":3600,"latency_ms_median":42,"metalink_preference":98,"signature_verified":true,"checks":["tcp","http","metadata","signature","latency"],"verdict":"PASS"},
+    {"url":"https://mirror.example-us.edu/epel/9/repodata/repomd.xml","location":"US","connectivity_ok":true,"metadata_present":true,"metadata_age_seconds":7200,"latency_ms_median":88,"metalink_preference":99,"signature_verified":true,"checks":["tcp","http","metadata","signature","latency"],"verdict":"PASS"},
+    {"url":"https://mirror.example-jp.jp/epel/9/repodata/repomd.xml","location":"JP","connectivity_ok":true,"metadata_present":false,"metadata_age_seconds":null,"latency_ms_median":210,"metalink_preference":97,"signature_verified":false,"checks":["tcp","http"],"verdict":"FAIL","reason":"metadata missing"}
+  ],
+  "ranking":["https://mirror.example-de.de/epel/9/repodata/repomd.xml","https://mirror.example-us.edu/epel/9/repodata/repomd.xml"]
+}

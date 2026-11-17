@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stackalign.dev/schemas/repo-plan.v1.schema.json",
+  "title": "StackAlign repository plan",
+  "description": "Draft v1 plan document. plan_sha256 is computed over canonical JSON with that property omitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","created_at","host","preconditions","actions","expected_post_sha256","risk_notes","warnings","plan_sha256"],
+  "properties": {
+    "schema": {"const":"stackalign.repo.plan/v1"},
+    "created_at": {"type":"string","format":"date-time"},
+    "generator": {"$ref":"#/$defs/generator"},
+    "host": {"$ref":"#/$defs/host"},
+    "preconditions": {"$ref":"#/$defs/preconditions"},
+    "actions": {"type":"array","minItems":1,"items":{"oneOf":[{"$ref":"#/$defs/enable"},{"$ref":"#/$defs/disable"},{"$ref":"#/$defs/priority"},{"$ref":"#/$defs/mirror"},{"$ref":"#/$defs/keyInstall"},{"$ref":"#/$defs/vaultEnable"},{"$ref":"#/$defs/noop"}]}},
+    "expected_post_sha256": {"type":"object","additionalProperties":{"$ref":"#/$defs/sha256"}},
+    "risk_notes": {"type":"array","items":{"type":"string"}},
+    "warnings": {"type":"array","items":{"$ref":"#/$defs/warning"}},
+    "plan_sha256": {"$ref":"#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "repoId":{"type":"string","pattern":"^[A-Za-z0-9._:-]+$"},
+    "repoFile":{"type":"string","pattern":"^/etc/(yum\\.repos\\.d|dnf)/[^/]+\\.repo$"},
+    "generator":{"type":"object","additionalProperties":false,"required":["version"],"properties":{"version":{"type":"string","minLength":1},"git_commit":{"type":"string","pattern":"^[0-9a-f]{7,40}$"},"schema_sha256":{"$ref":"#/$defs/sha256"}}},
+    "host":{"type":"object","additionalProperties":false,"required":["family","version","backend"],"properties":{"family":{"enum":["rhel","rocky","almalinux","centos-stream","centos-7","oraclelinux","fedora","unknown"]},"version":{"type":"string","minLength":1},"arch":{"enum":["x86_64","aarch64","ppc64le","s390x"]},"backend":{"enum":["dnf","yum","none"]},"backend_version":{"type":"string"},"eol":{"type":"boolean","default":false},"vault_eligible":{"type":"boolean","default":false}}},
+    "preconditions":{"type":"object","additionalProperties":false,"required":["repo_files_sha256","backend_present","eol_mode"],"properties":{"repo_files_sha256":{"type":"object","minProperties":1,"additionalProperties":{"$ref":"#/$defs/sha256"}},"repo_scan_paths":{"type":"array","items":{"type":"string","pattern":"^/"},"default":["/etc/yum.repos.d/","/etc/yum.conf","/etc/dnf/dnf.conf"]},"backend_present":{"type":"boolean"},"eol_mode":{"type":"boolean","default":false},"metadata_age_threshold_seconds":{"type":"integer","minimum":60,"default":86400},"require_verified_keys":{"type":"boolean","default":true}}},
+    "warning":{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","pattern":"^[A-Z][A-Z0-9_]+$"},"message":{"type":"string"},"repo":{"$ref":"#/$defs/repoId"}}},
+    "enable":{"type":"object","additionalProperties":false,"required":["op","repo","file"],"properties":{"op":{"const":"enable"},"repo":{"$ref":"#/$defs/repoId"},"file":{"$ref":"#/$defs/repoFile"},"third_party":{"type":"boolean","default":false}}},
+    "disable":{"type":"object","additionalProperties":false,"required":["op","repo","file"],"properties":{"op":{"const":"disable"},"repo":{"$ref":"#/$defs/repoId"},"file":{"$ref":"#/$defs/repoFile"}}},
+    "priority":{"type":"object","additionalProperties":false,"required":["op","repo","file","value"],"properties":{"op":{"const":"priority"},"repo":{"$ref":"#/$defs/repoId"},"file":{"$ref":"#/$defs/repoFile"},"value":{"type":"integer","minimum":1,"maximum":99},"key_name":{"enum":["priority","cost"],"default":"priority"}}},
+    "mirror":{"type":"object","additionalProperties":false,"required":["op","repo","file","from","to"],"properties":{"op":{"const":"mirror"},"repo":{"$ref":"#/$defs/repoId"},"file":{"$ref":"#/$defs/repoFile"},"from":{"enum":["mirrorlist","metalink","baseurl"]},"to":{"enum":["mirrorlist","metalink","baseurl"]},"url":{"type":"string","format":"uri"},"evidence":{"type":"object","additionalProperties":false,"required":["probe_id","probed_at","latency_ms_median","metadata_age_seconds","signature_verified"],"properties":{"probe_id":{"type":"string","minLength":1},"probed_at":{"type":"string","format":"date-time"},"latency_ms_median":{"type":"integer","minimum":0},"metadata_age_seconds":{"type":"integer","minimum":0},"signature_verified":{"const":true}}}}},
+    "keyInstall":{"type":"object","additionalProperties":false,"required":["op","repo","source","fingerprint_expected"],"properties":{"op":{"const":"key-install"},"repo":{"$ref":"#/$defs/repoId"},"source":{"type":"string","minLength":1},"fingerprint_expected":{"type":"string","pattern":"^[0-9A-F]{40,64}$"}}},
+    "vaultEnable":{"type":"object","additionalProperties":false,"required":["op","repo","file","vault_baseurl","acknowledge_eol"],"properties":{"op":{"const":"vault-enable"},"repo":{"$ref":"#/$defs/repoId"},"file":{"$ref":"#/$defs/repoFile"},"vault_baseurl":{"type":"string","format":"uri","pattern":"^https?://vault\\.centos\\.org/"},"acknowledge_eol":{"const":true}}},
+    "noop":{"type":"object","additionalProperties":false,"required":["op","reason"],"properties":{"op":{"const":"noop"},"reason":{"type":"string","minLength":1}}}
+  }
+}
