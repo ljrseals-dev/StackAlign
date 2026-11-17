@@ -16,7 +16,7 @@ mkfake getent 'if [ "$1" = group ]; then [ -f "$GROUPF" ] || exit 2; echo "sftpo
 mkfake groupadd 'echo "groupadd $*" >> "$CALLS"; touch "$GROUPF"'
 mkfake useradd 'echo "useradd $*" >> "$CALLS"; echo "${@: -1}:sftp" >> "$USERS"'
 mkfake userdel 'echo "userdel $*" >> "$CALLS"; grep -v "^${@: -1}:" "$USERS" > "$USERS.n"; mv "$USERS.n" "$USERS"'
-mkfake openssl 'echo "openssl $*" >> "$CALLS"; case "$1" in rand) echo randomsecret ;; passwd) echo fakehash ;; *) exit 1 ;; esac'
+mkfake openssl 'echo "openssl $*" >> "$CALLS"; case "$1" in rand) echo randomsecret ;; passwd) [ "$2" = -6 ] && [ "$3" = -stdin ] || exit 1; input=$(cat); [ "$input" = randomsecret ] || exit 1; echo fakehash ;; *) exit 1 ;; esac'
 mkfake chpasswd 'data=$(cat); echo "chpasswd $* $data" >> "$CALLS"'
 mkfake install 'echo "install $*" >> "$CALLS"; for a in "$@"; do :; done; for a in "$@"; do case "$a" in -*|root|sftponly) ;; *) [ "$a" = "--" ] || mkdir -p "$a" ;; esac; done'
 mkfake chown 'echo "chown $*" >> "$CALLS"'
@@ -44,7 +44,7 @@ grep -q useradd "$CALLS"; check "no useradd on bad input" "$?" 1
 sa_sftp_add_user alice "$T/good.pub" >/dev/null 2>&1; check "add alice ok" "$?" 0
 grep -q "groupadd -- sftponly" "$CALLS"; check "group created when missing" "$?" 0
 grep -q "useradd -g sftponly -M -d $T/sftp/alice -s /sbin/nologin -- alice" "$CALLS"; check "useradd flags (nologin, no home skeleton)" "$?" 0
-grep -q "openssl rand -hex 32" "$CALLS" && grep -q "openssl passwd -6" "$CALLS" && grep -q "chpasswd -e alice:fakehash" "$CALLS"; check "new key-only account receives a random non-locked shadow hash" "$?" 0
+grep -q "openssl rand -hex 32" "$CALLS" && grep -q "openssl passwd -6 -stdin" "$CALLS" && ! grep -q "openssl passwd -6 randomsecret" "$CALLS" && grep -q "chpasswd -e alice:fakehash" "$CALLS"; check "password hash uses stdin and secret is absent from argv" "$?" 0
 grep -q "install -d -m 0755 -o root -g root -- $T/sftp $T/keys $T/sftp/alice" "$CALLS"; check "chroot root-owned 0755" "$?" 0
 grep -q "install -d -m 0700 -o alice -g sftponly -- $T/sftp/alice/files" "$CALLS"; check "upload dir owned by user 0700" "$?" 0
 check "key file content" "$(cat "$T/keys/alice")" "$KEY"
