@@ -30,7 +30,8 @@ _sa_sftp_set_random_password() {
     command -v openssl >/dev/null 2>&1 || { echo "sftp: openssl is required to initialize key-only account state" >&2; return 1; }
     command -v chpasswd >/dev/null 2>&1 || { echo "sftp: chpasswd is required to initialize key-only account state" >&2; return 1; }
     secret="$(openssl rand -hex 32)" || return 1
-    hash="$(openssl passwd -6 "$secret")" || { unset secret; return 1; }
+    # Feed the secret on stdin: never expose it in the process argument vector.
+    hash="$(printf '%s' "$secret" | openssl passwd -6 -stdin)" || { unset secret; return 1; }
     unset secret
     printf '%s:%s\n' "$user" "$hash" | chpasswd -e || { unset hash; return 1; }
     unset hash
