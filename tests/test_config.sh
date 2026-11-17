@@ -133,4 +133,11 @@ sa_config_load "$T/good.conf" 2>/dev/null
 sa_config_validate 2>/dev/null
 [ $? -ne 0 ] && ok "generic parser does not imply schema validity" || bad "generic parser does not imply schema validity"
 
+
+# Public CLI validates without writing or mutating the source file.
+"$ROOT/bin/stackalign" config validate "$T/schema-good.conf" >/dev/null 2>&1
+[ $? -eq 0 ] && ok "CLI validates a schema v1 file" || bad "CLI validates a schema v1 file"
+"$ROOT/bin/stackalign" config validate "$T/schema-unknown.conf" >/dev/null 2>&1
+[ $? -ne 0 ] && ok "CLI rejects unknown schema keys" || bad "CLI rejects unknown schema keys"
+
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
