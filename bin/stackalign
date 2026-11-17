@@ -392,6 +392,22 @@ cmd_internet() {
   esac
 }
 
+
+cmd_agent() {
+  local sub=${1:-}; shift || true
+  source "$SA_ROOT/lib/agent.sh"
+  case "$sub" in
+    status)
+      [ $# -eq 0 ] || _sa_die "usage: stackalign agent status"
+      sa_agent_status ;;
+    ask)
+      [ $# -ge 1 ] || _sa_die "usage: stackalign agent ask <question>"
+      sa_agent_ask "$@" ;;
+    *)
+      _sa_die "usage: stackalign agent <status|ask <question>>" ;;
+  esac
+}
+
 cmd_sftp() {
   _sa_parse "--plan --apply" "$@"
   local sub=${POS[0]:-}
@@ -471,6 +487,7 @@ _sa_dispatch() {  # <cmd> args...
     update)   cmd_update "$@" ;;
     hosting)  cmd_hosting "$@" ;;
     internet) cmd_internet "$@" ;;
+    agent)    cmd_agent "$@" ;;
     sftp)     cmd_sftp "$@" ;;
     egress)   cmd_egress "$@" ;;
     *)        _sa_stub "$c" "$@" ;;
