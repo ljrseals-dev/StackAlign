@@ -199,7 +199,7 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - `stackalign site list` inventories top-level files and symlink targets in standard Nginx and Apache vhost directories.
 - `stackalign site doctor [nginx|apache|all]` invokes native syntax checks without changing configuration.
 - Site add/remove/isolate remain fail-closed; per-site identities, dedicated PHP-FPM pools/sockets, filesystem/process/resource controls, and transactional deployment are not implemented.
-- Tests use fake web-server binaries. PR #67 current-main CI must pass on its latest head after help-text clarification; no live host configuration was inspected or modified.
+- Tests use fake web-server binaries. PR #67 CI run #44115352476 passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9 at head `437ede7ee661b6a9fd50198b4fb6f9af78aec081`; no live host configuration was inspected or modified.
 
 
 ## Database credential-boundary regression tests — 2026-11-17
