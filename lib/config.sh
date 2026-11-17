@@ -126,7 +126,7 @@ sa_config_validate() {
         case "${key#site.$slug.}" in
           domain) _sa_cfg_domain "$value" || { _sa_cfg_bad "$key must be a valid DNS hostname"; return 1; } ;;
           user|pool) [[ $value =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { _sa_cfg_bad "$key has an invalid Unix identity name"; return 1; } ;;
-          isolation) [[ $value == pool ]] || { _sa_cfg_bad "$key must be pool; shared identity is not tenant isolation"; return 1; } ;;
+          isolation) [[ $value == pool || $value == free_for_all ]] || { _sa_cfg_bad "$key must be pool or free_for_all"; return 1; } ;;
           memory_max_mib) _sa_cfg_uint "$value" 16 1048576 || { _sa_cfg_bad "$key must be between 16 and 1048576 MiB"; return 1; } ;;
           cpu_quota_pct) _sa_cfg_uint "$value" 1 10000 || { _sa_cfg_bad "$key must be between 1 and 10000 percent"; return 1; } ;;
           egress) [[ $value == loopback_db_only ]] || { _sa_cfg_bad "$key must be loopback_db_only"; return 1; } ;;
@@ -148,8 +148,17 @@ sa_config_validate() {
       [ -n "${SA_CONF[site.$slug.$required]-}" ] || { _sa_cfg_bad "site.$slug.$required is required"; return 1; }
     done
   done
+  local tenant_mode=${SA_CONF[server.tenant_mode]-pool}
+  for slug in "${!site_seen[@]}"; do
+    if [ "$tenant_mode" = pool ] && [ "${SA_CONF[site.$slug.isolation]}" != pool ]; then
+      _sa_cfg_bad "site.$slug.isolation must be pool when server.tenant_mode=pool"; return 1
+    fi
+    if [ "$tenant_mode" = free_for_all ] && [ "${SA_CONF[site.$slug.isolation]}" != free_for_all ]; then
+      _sa_cfg_bad "site.$slug.isolation must be free_for_all when server.tenant_mode=free_for_all"; return 1
+    fi
+  done
   site_count=${#site_seen[@]}
-  if [ "${SA_CONF[server.tenant_mode]-pool}" = free_for_all ] && (( site_count > 1 )); then
+  if [ "$tenant_mode" = free_for_all ] && (( site_count > 1 )); then
     _sa_cfg_bad "free_for_all permits one site only"; return 1
   fi
   return 0
