@@ -20,6 +20,12 @@ bad() { fail=$((fail+1)); echo "FAIL - $1"; }
 run() { OUT=$("$CLI" "$@" 2>&1); RC=$?; }
 
 run version;            { [ $RC -eq 0 ] && [[ $OUT == "stackalign "* ]]; } && ok "version" || bad "version"
+# Fast-path commands must not need rpm, awk, cat, date, or other host utilities.
+mkdir -p "$T/empty-path"
+OUT=$(PATH="$T/empty-path" /bin/bash "$CLI" version 2>&1); RC=$?
+{ [ "$RC" -eq 0 ] && [[ "$OUT" == "stackalign "* ]]; } && ok "version fast path needs no external utilities" || bad "version fast path needs no external utilities"
+OUT=$(PATH="$T/empty-path" /bin/bash "$CLI" help doctor 2>&1); RC=$?
+{ [ "$RC" -eq 0 ] && [[ "$OUT" == *"read-only"* ]]; } && ok "subcommand help fast path needs no external utilities" || bad "subcommand help fast path needs no external utilities"
 run --plan --version;   { [ $RC -eq 0 ] && [[ $OUT == "stackalign "* ]]; } && ok "--version ignores --plan" || bad "--version ignores --plan"
 run help;               { [ $RC -eq 0 ] && [[ $OUT == *"commands:"* ]] && [[ $OUT == *rollback* ]] && [[ $OUT == *repo* ]]; } && ok "help lists commands" || bad "help lists commands"
 run help doctor;        { [ $RC -eq 0 ] && [[ $OUT == *"read-only"* ]]; } && ok "help <cmd>" || bad "help <cmd>"
