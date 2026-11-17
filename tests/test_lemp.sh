@@ -60,7 +60,7 @@ rm -f "$T/web/public/index.php"
 # A symlinked public directory redirects writes even when index.php is not a
 # symlink. Refuse it before DNF and leave the external sentinel untouched.
 mkdir -p "$T/external"
-printf '%s\\n' 'external directory sentinel' > "$T/external/index.php"
+printf '%s\n' 'external directory sentinel' > "$T/external/index.php"
 rmdir "$T/web/public"
 ln -s "$T/external" "$T/web/public"
 sa_lemp_apply >"$T/public-dir-symlink.out" 2>&1
