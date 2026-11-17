@@ -97,19 +97,19 @@ EOF
 sa_internet_setup() {
   local purpose dns_provider public_ingress admin_access domain="" ip="" answer config dir tmp
   [[ -t 0 && -r /dev/tty ]] || { echo "internet setup requires an interactive terminal; no changes made" >&2; return 2; }
-  printf '%s\\n' "What should be reachable?" "  1) Public website" "  2) Private account/server administration" "  3) Both (recommended: separate public and private paths)" >&2
+  printf '%s\n' "What should be reachable?" "  1) Public website" "  2) Private account/server administration" "  3) Both (recommended: separate public and private paths)" >&2
   printf 'Select 1-3: ' >&2
   IFS= read -r answer </dev/tty || return 2
   case "$answer" in 1) purpose=public ;; 2) purpose=private ;; 3) purpose=both ;; *) sa_internet_die "choose 1, 2, or 3"; return 64 ;; esac
 
   dns_provider=none; public_ingress=none; admin_access=none
   if [[ $purpose == public || $purpose == both ]]; then
-    printf '%s\\n' "Who manages DNS for your domain?" "  1) Cloudflare" "  2) Another DNS provider" "  3) I don't know" "  4) No domain yet" >&2
+    printf '%s\n' "Who manages DNS for your domain?" "  1) Cloudflare" "  2) Another DNS provider" "  3) I don't know" "  4) No domain yet" >&2
     printf 'Select 1-4: ' >&2
     IFS= read -r answer </dev/tty || return 2
     case "$answer" in 1) dns_provider=cloudflare ;; 2) dns_provider=other ;; 3) dns_provider=unknown ;; 4) dns_provider=none ;; *) sa_internet_die "choose 1 through 4"; return 64 ;; esac
 
-    printf '%s\\n' "How should the public website be reached?" "  1) Cloudflare Tunnel (recommended when using Cloudflare DNS)" "  2) Direct public IP with DNS A/AAAA records" "  3) I don't know (manual guidance)" >&2
+    printf '%s\n' "How should the public website be reached?" "  1) Cloudflare Tunnel (recommended when using Cloudflare DNS)" "  2) Direct public IP with DNS A/AAAA records" "  3) I don't know (manual guidance)" >&2
     printf 'Select 1-3: ' >&2
     IFS= read -r answer </dev/tty || return 2
     case "$answer" in 1) public_ingress=cloudflare_tunnel ;; 2) public_ingress=direct ;; 3) public_ingress=unknown ;; *) sa_internet_die "choose 1, 2, or 3"; return 64 ;; esac
@@ -121,7 +121,7 @@ sa_internet_setup() {
   fi
 
   if [[ $purpose == private || $purpose == both ]]; then
-    printf '%s\\n' "How should administrators privately access the server?" "  1) Tailscale" "  2) WireGuard" "  3) Existing private VPN" "  4) I don't know (manual guidance)" >&2
+    printf '%s\n' "How should administrators privately access the server?" "  1) Tailscale" "  2) WireGuard" "  3) Existing private VPN" "  4) I don't know (manual guidance)" >&2
     printf 'Select 1-4: ' >&2
     IFS= read -r answer </dev/tty || return 2
     case "$answer" in 1) admin_access=tailscale ;; 2) admin_access=wireguard ;; 3) admin_access=existing_vpn ;; 4) admin_access=unknown ;; *) sa_internet_die "choose 1 through 4"; return 64 ;; esac
@@ -144,8 +144,8 @@ sa_internet_setup() {
   umask 077
   tmp=$(mktemp "$dir/.internet.conf.XXXXXX") || return 1
   {
-    printf 'version=2\\n'
-    printf 'purpose=%s\\ndns_provider=%s\\npublic_ingress=%s\\nadmin_access=%s\\ndomain=%s\\nserver_ipv4=%s\\n' "$purpose" "$dns_provider" "$public_ingress" "$admin_access" "$domain" "$ip"
+    printf 'version=2\n'
+    printf 'purpose=%s\ndns_provider=%s\npublic_ingress=%s\nadmin_access=%s\ndomain=%s\nserver_ipv4=%s\n' "$purpose" "$dns_provider" "$public_ingress" "$admin_access" "$domain" "$ip"
   } > "$tmp" || { rm -f "$tmp"; return 1; }
   chmod 600 "$tmp" || { rm -f "$tmp"; return 1; }
   mv -f "$tmp" "$config" || { rm -f "$tmp"; return 1; }
