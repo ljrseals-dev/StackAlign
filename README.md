@@ -78,6 +78,20 @@ bash bin/stackalign hosting doctor hybrid
 
 Run `hosting setup` from an interactive terminal to inspect the intended operator model. Administrator-managed hosting of multiple websites/vhosts is distinct from hosting mutually untrusted independent end users. The latter requires additional isolation and remains separately gated; that limitation must not be read as a restriction on ordinary web hosting or vhost use. The default PHP-FPM `www` pool is shared; additional pools may be selected through the CLI and are not enabled automatically. A separate pool alone is not a complete tenant-isolation guarantee. Apache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; Apache/hybrid runtime apply remains separately gated pending its implementation and host validation. See [hosting modes](docs/HOSTING-MODES.md), [beta hosting scope](docs/BETA-SCOPE-AND-HOSTING.md), and [Apache upstream integration](docs/APACHE-UPSTREAM.md).
 
+### Manage administrator-owned static Nginx sites
+
+StackAlign can create and archive loopback-only static Nginx vhosts for an administrator managing multiple websites. It does not provision independent-user isolation, PHP handlers, TLS, public ingress, DNS, or firewall rules.
+
+```bash
+bash bin/stackalign site add example.com /var/www/example.com/public
+sudo bash bin/stackalign site add example.com /var/www/example.com/public --apply
+bash bin/stackalign site list
+bash bin/stackalign site doctor nginx
+sudo bash bin/stackalign site remove example.com --apply
+```
+
+The add/remove commands are plan-only unless `--apply` is explicit. Removal archives only the StackAlign-managed vhost file; it preserves the document root and its contents. See [site lifecycle](docs/SITE-LIFECYCLE.md) for exact behavior and limits. Independent-user isolation remains gated.
+
 ### Configure internet access
 
 The interactive wizard captures non-secret access preferences and produces a read-only plan:

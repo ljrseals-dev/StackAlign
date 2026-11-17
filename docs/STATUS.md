@@ -198,7 +198,7 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 
 - `stackalign site list` inventories top-level files and symlink targets in standard Nginx and Apache vhost directories.
 - `stackalign site doctor [nginx|apache|all]` invokes native syntax checks without changing configuration.
-- Site add/remove/isolate remain fail-closed; per-site identities, dedicated PHP-FPM pools/sockets, filesystem/process/resource controls, and transactional deployment are not implemented.
+- At the PR #67 inventory baseline, site add/remove/isolate were fail-closed. The stacked `feat/admin-managed-nginx-sites` branch now implements administrator-managed static Nginx add/remove; `site isolate` and independent-user tenant isolation remain gated.
 - Tests use fake web-server binaries. PR #67 CI run #44115352476 passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9 at head `437ede7ee661b6a9fd50198b4fb6f9af78aec081`; no live host configuration was inspected or modified.
 
 
@@ -207,3 +207,18 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - PR #68 ports the defaults-file and MySQL argument-boundary regression tests to current main.
 - Ubuntu and AlmaLinux 9 CI passed on head `fe17284ad504cc69fb1c918d7660ff94f44b9a9b` (runs #44113804056 / #44113746387).
 - Tests use a fake MySQL client only; live database behavior remains NOT RUN.
+
+
+## Administrator-managed static Nginx site lifecycle — follow-on branch
+
+**PR:** #70 — `feat/admin-managed-nginx-sites` (stacked on current-main site inventory PR #67; CI PASS).
+
+| Area | State | Boundary |
+|---|---|---|
+| Site creation | Implemented; CI PASS | Plan/apply static vhost with strict hostname and canonical document-root validation; loopback-only listener; no PHP handler. |
+| Site removal | Implemented; CI PASS | Removes only a marked StackAlign config after private backup; preserves document root and site data. |
+| Recovery | Implemented; CI PASS | Nginx syntax/reload failure attempts restore; retained backup allows manual recovery. |
+| Independent-user isolation | NOT IMPLEMENTED | No per-user identity, PHP-FPM isolation, process/resource isolation, or adversarial tenant guarantee. |
+| Live-host acceptance | NOT RUN | CI run #44132375470 passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9 at head `866439903994f2de9241d0f5a306422c410bb1c0`; tests use fake Nginx/systemd commands only. |
+
+See `docs/SITE-LIFECYCLE.md` for exact commands and constraints.
