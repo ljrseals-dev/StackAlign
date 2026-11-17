@@ -57,6 +57,18 @@ rc=$?
 { [ "$rc" -eq 64 ] && [ "$(cat "$T/outside.php")" = "outside sentinel" ] && [ ! -s "$LOG" ]; } && ok "symlinked health page rejected without following or installing packages" || bad "symlinked health page was followed"
 rm -f "$T/web/public/index.php"
 
+# A symlinked public directory redirects writes even when index.php is not a
+# symlink. Refuse it before DNF and leave the external sentinel untouched.
+mkdir -p "$T/external"
+printf '%s\\n' 'external directory sentinel' > "$T/external/index.php"
+rmdir "$T/web/public"
+ln -s "$T/external" "$T/web/public"
+sa_lemp_apply >"$T/public-dir-symlink.out" 2>&1
+rc=$?
+{ [ "$rc" -eq 64 ] && [ "$(cat "$T/external/index.php")" = "external directory sentinel" ] && [ ! -s "$LOG" ]; } && ok "symlinked public directory rejected before package installation" || bad "symlinked public directory was followed"
+rm -f "$T/web/public"
+mkdir -p "$T/web/public"
+
 : > "$LOG"
 sa_lemp_apply >"$T/apply.out" 2>&1; rc=$?
 { [ "$rc" -eq 0 ] && grep -q 'dnf -y install nginx mariadb-server php-fpm php-mysqlnd' "$LOG"; } && ok "uses only EL repository package names" || bad "package installation"
