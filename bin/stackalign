@@ -17,46 +17,104 @@
 set -u
 
 SA_VERSION="0.0.0-dev"
-SA_ROOT=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
-# Shared update dependencies.
-source "$SA_ROOT/lib/common.sh"
-source "$SA_ROOT/lib/repo_cache.sh"
-source "$SA_ROOT/lib/update.sh"
+SA_SOURCE=${BASH_SOURCE[0]}
+SA_DIR=${SA_SOURCE%/*}
+[ "$SA_DIR" != "$SA_SOURCE" ] || SA_DIR=.
+SA_ROOT=$(cd -- "$SA_DIR/.." && pwd -P)
 SA_CONF_PATH=/etc/stackalign/stackalign.conf
 GPLAN=0; YES=0
 
-# cmd|milestone|purpose
-_sa_cmds() { cat <<'EOF'
-version|M1|print version
-help|M1|per-subcommand help
-plan|M1|dry-run alias: plan <command> [args]
-install|M2a|plan then apply the full stack
-doctor|M1|read-only host and drift inspection
-tune|M2a|sizing planner
-rollback|M2a|snapshot restore: rollback [--list] [--to <id>]
-update|M5|update engine: check|plan|apply|pin|status
-site|M3|tenant lifecycle: add|list|remove|isolate|doctor
-db|M3|database status/list/user inventory/create; destructive drop blocked
-tls|M3|read-only certificate status and scheduler preflight; issuance blocked
-backup|M4|backup driver: run|list|verify
-restore|M4|restore driver: --from <id>
-bench|M6|reproducible benchmark
-secret|M2a|password and token generation: gen|list
-repo|M2a|read-only package repository inventory
-optimize|M3|read-only performance plan; apply is gated
-xcart|M3|guarded X-Cart profile: plan|preflight|build|deploy
-routine|M3|routine subsystem: plan|install|doctor|run|run-builtin
-internet|M2b|interactive internet access preferences and read-only planning
-hosting|M2b|hosting scope prompt, plans, and read-only inspection
-agent|M2b|Pinecone Neural planning sidecar: status or ask (read-only)
-sftp|M3|chrooted key-only SFTP account management
-egress|M4|outbound firewall and passive LAN audit
-contain|M4|evidence preservation before rebuild
-EOF
+# Keep command metadata in Bash: no cat/awk subprocesses during dispatch.
+_sa_known() {
+  case "$1" in
+    version|help|plan|install|doctor|tune|rollback|update|site|db|tls|backup|restore|bench|secret|repo|optimize|xcart|routine|internet|hosting|agent|sftp|egress|contain) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
-_sa_known() { _sa_cmds | awk -F'|' -v c="$1" '$1==c{f=1} END{exit !f}'; }
-_sa_ms()    { _sa_cmds | awk -F'|' -v c="$1" '$1==c{print $2}'; }
+_sa_ms() {
+  case "$1" in
+    version|help|plan|doctor) printf '%s\\n' M1 ;;
+    install|tune|rollback|secret|repo|optimize) printf '%s\\n' M2a ;;
+    internet|hosting|agent) printf '%s\\n' M2b ;;
+    site|db|tls|xcart|routine|sftp) printf '%s\\n' M3 ;;
+    backup|restore|egress|contain) printf '%s\\n' M4 ;;
+    update) printf '%s\\n' M5 ;;
+    bench) printf '%s\\n' M6 ;;
+    *) return 1 ;;
+  esac
+}
+
+_sa_cmd_help() {
+  case "$1" in
+    version) printf 'stackalign version  [M1]\\n  print version\\n' ;;
+    help) printf 'stackalign help  [M1]\\n  per-subcommand help\\n' ;;
+    plan) printf 'stackalign plan  [M1]\\n  dry-run alias: plan <command> [args]\\n' ;;
+    install) printf 'stackalign install  [M2a]\\n  plan then apply the full stack\\n' ;;
+    doctor) printf 'stackalign doctor  [M1]\\n  read-only host and drift inspection\\n' ;;
+    tune) printf 'stackalign tune  [M2a]\\n  sizing planner\\n' ;;
+    rollback) printf 'stackalign rollback  [M2a]\\n  snapshot restore: rollback [--list] [--to <id>]\\n' ;;
+    update) printf 'stackalign update  [M5]\\n  update engine: check|plan|apply|pin|status\\n' ;;
+    site) printf 'stackalign site  [M3]\\n  tenant lifecycle: add|list|remove|isolate|doctor\\n' ;;
+    db) printf 'stackalign db  [M3]\\n  database status/list/user inventory/create; destructive drop blocked\\n' ;;
+    tls) printf 'stackalign tls  [M3]\\n  read-only certificate status and scheduler preflight; issuance blocked\\n' ;;
+    backup) printf 'stackalign backup  [M4]\\n  backup driver: run|list|verify\\n' ;;
+    restore) printf 'stackalign restore  [M4]\\n  restore driver: --from <id>\\n' ;;
+    bench) printf 'stackalign bench  [M6]\\n  reproducible benchmark\\n' ;;
+    secret) printf 'stackalign secret  [M2a]\\n  password and token generation: gen|list\\n' ;;
+    repo) printf 'stackalign repo  [M2a]\\n  read-only package repository inventory\\n' ;;
+    optimize) printf 'stackalign optimize  [M3]\\n  read-only performance plan; apply is gated\\n' ;;
+    xcart) printf 'stackalign xcart  [M3]\\n  guarded X-Cart profile: plan|preflight|build|deploy\\n' ;;
+    routine) printf 'stackalign routine  [M3]\\n  routine subsystem: plan|install|doctor|run|run-builtin\\n' ;;
+    internet) printf 'stackalign internet  [M2b]\\n  interactive internet access preferences and read-only planning\\n' ;;
+    hosting) printf 'stackalign hosting  [M2b]\\n  hosting scope prompt, plans, and read-only inspection\\n' ;;
+    agent) printf 'stackalign agent  [M2b]\\n  Pinecone Neural planning sidecar: status or ask (read-only)\\n' ;;
+    sftp) printf 'stackalign sftp  [M3]\\n  chrooted key-only SFTP account management\\n' ;;
+    egress) printf 'stackalign egress  [M4]\\n  outbound firewall and passive LAN audit\\n' ;;
+    contain) printf 'stackalign contain  [M4]\\n  evidence preservation before rebuild\\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+cmd_help() {
+  if [ $# -ge 1 ]; then
+    _sa_known "$1" || _sa_die "unknown command: $1"
+    _sa_cmd_help "$1"
+    return 0
+  fi
+  printf '%s\\n' \
+    'usage: stackalign [--plan] [--yes] [--config <file>] <command> [args]' \
+    '       stackalign --version' \
+    '' \
+    'Global flags go BEFORE the command. Mutating commands only plan unless --apply.' \
+    '' \
+    'commands:'
+  _sa_cmd_help version
+  _sa_cmd_help help
+  _sa_cmd_help plan
+  _sa_cmd_help install
+  _sa_cmd_help doctor
+  _sa_cmd_help tune
+  _sa_cmd_help rollback
+  _sa_cmd_help update
+  _sa_cmd_help site
+  _sa_cmd_help db
+  _sa_cmd_help tls
+  _sa_cmd_help backup
+  _sa_cmd_help restore
+  _sa_cmd_help bench
+  _sa_cmd_help secret
+  _sa_cmd_help repo
+  _sa_cmd_help optimize
+  _sa_cmd_help xcart
+  _sa_cmd_help routine
+  _sa_cmd_help internet
+  _sa_cmd_help hosting
+  _sa_cmd_help agent
+  _sa_cmd_help sftp
+  _sa_cmd_help egress
+  _sa_cmd_help contain
+}
 
 _sa_die() { echo "stackalign: $*" >&2; exit 64; }
 
@@ -442,6 +500,10 @@ cmd_update() {
         echo "usage: stackalign update apply <package> <target_nevra> <service> [snapshot_path]" >&2
         return 64
       }
+      # Load update-only dependencies only for the mutating update path.
+      source "$SA_ROOT/lib/common.sh"
+      source "$SA_ROOT/lib/repo_cache.sh"
+      source "$SA_ROOT/lib/update.sh"
       source "$SA_ROOT/lib/history.sh"
       source "$SA_ROOT/lib/service.sh"
       sa_update_apply "$@"
@@ -572,9 +634,11 @@ cmd_egress() {
 }
 
 _sa_stub() {  # <cmd> args...
-  local c=$1; shift
+  local c=$1 ms
+  shift
   _sa_parse "--plan --apply" "$@"
-  echo "stackalign: '$c' is not implemented yet (milestone $(_sa_ms "$c"))" >&2
+  ms=$(_sa_ms "$c") || ms=unknown
+  echo "stackalign: '$c' is not implemented yet (milestone $ms)" >&2
   return 2
 }
 
