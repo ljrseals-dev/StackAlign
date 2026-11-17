@@ -105,7 +105,7 @@ For a physical MariaBackup, use a new absolute directory whose final component s
 sudo SA_MYSQL_DEFAULTS_FILE=/root/stackalign-mysql.cnf bash bin/stackalign backup run physical /var/backups/stackalign/mariadb-<timestamp> --apply
 ```
 
-Logical verification runs `gzip -t`; it does not parse SQL or prove a successful restore. Physical verification checks the MariaBackup `full-prepared` checkpoint marker; it does not restore the data. `stackalign restore --from ... --apply` remains blocked until pre-restore snapshotting, engine-specific recovery, and failure rollback are implemented and tested. Backups are not encrypted or automatically transferred off-host by this CLI.
+Logical dumps include routines, triggers, events, and binary blobs. `--single-transaction` provides a consistent snapshot for transactional tables such as InnoDB; non-transactional tables and concurrent DDL are not covered by that guarantee. Logical verification runs `gzip -t`; it does not parse SQL or prove a successful restore. Physical verification checks the MariaBackup `full-prepared` checkpoint marker; it does not restore the data. `stackalign restore --from ... --apply` remains blocked until pre-restore snapshotting, engine-specific recovery, and failure rollback are implemented and tested. Backups are not encrypted or automatically transferred off-host by this CLI.
 
 ### Plan the LEMP bootstrap
 
