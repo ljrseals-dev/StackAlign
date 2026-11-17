@@ -32,7 +32,9 @@ sa_agent_status() {
 # The model's response is displayed only; it is never executed by StackAlign.
 sa_agent_ask() {
   [ "$#" -ge 1 ] || { echo "usage: stackalign agent ask <question>" >&2; return 64; }
-  local url key tmp body headers response message doctor inventory rc
+  local url key tmp body headers response message doctor inventory rc question
+  question=$*
+  [ ${#question} -le 8000 ] || { echo "agent: question exceeds 8000 characters" >&2; return 64; }
   url=$(_sa_agent_url)
   _sa_agent_url_valid "$url" || { echo "agent: URL must be loopback HTTP or an HTTPS endpoint without credentials/query/fragment" >&2; return 64; }
   if [[ $url == https://* && ${STACKALIGN_AGENT_ALLOW_REMOTE:-0} != 1 ]]; then
