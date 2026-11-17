@@ -36,9 +36,9 @@ Do not recreate work already present in merged PRs. Treat CI evidence as belongi
 
 - PR #62: merged site-inventory fixture and symlink coverage; CI run #44089435209 passed.
 - PR #64: merged SFTP password-argument exposure fix; CI run #44090800679 passed.
-- PR #66: LEMP web-root validation, managed-target symlink refusal, and health-page rollback; current-main PR, CI pending on its latest head.
-- PR #67: current-main read-only site/vhost inventory; supersedes the closed stale-base PR #61 and duplicate PR #60. Latest-head CI status is pending after help-text clarification.
-- PR #68: current-main database credential-boundary tests; supersedes closed stale-base PR #63. Latest-head CI passed on Ubuntu and AlmaLinux 9.
+- PR #66: LEMP web-root validation, managed-target symlink refusal, and health-page rollback; CI run #44114574906 passed on head `8c5dd8849e580c95754a33c3cab75161fef28ec9`.
+- PR #67: current-main read-only site/vhost inventory; supersedes the closed stale-base PR #61 and duplicate PR #60. Latest-head CI run #44115352476 passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9 at head `437ede7ee661b6a9fd50198b4fb6f9af78aec081`.
+- PR #68: current-main database credential-boundary tests; supersedes closed stale-base PR #63. CI run #44113804056 passed on Ubuntu and AlmaLinux 9 at head `fe17284ad504cc69fb1c918d7660ff94f44b9a9b`.
 - PR #50: repository-doctor foundation remains draft and explicitly incomplete; its branch is substantially behind current main and must not be merged until fixture parsing and the documented review gates are satisfied.
 
 PR #60 was closed without merging as a duplicate. PRs #61 and #63 were closed after their changes were ported to current-main PRs #67 and #68. A closed PR is not evidence that its work was merged; use the replacement PRs above for current review.
