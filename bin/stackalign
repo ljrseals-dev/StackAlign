@@ -248,7 +248,7 @@ cmd_site() {
     isolate)
       [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site isolate <domain> [--apply]"
       sa_site_isolate "${POS[1]}" ;;
-    *) _sa_die "usage: stackalign site <list|doctor [nginx|apache|all]|add|remove|isolate <domain>>" ;;
+    *) _sa_die "usage: stackalign site <list|doctor [nginx|apache|all]|add <domain> <document-root>|remove <domain>|isolate <domain>>" ;;
   esac
 }
 
