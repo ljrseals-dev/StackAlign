@@ -207,3 +207,18 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - PR #68 ports the defaults-file and MySQL argument-boundary regression tests to current main.
 - Ubuntu and AlmaLinux 9 CI passed on head `fe17284ad504cc69fb1c918d7660ff94f44b9a9b` (runs #44113804056 / #44113746387).
 - Tests use a fake MySQL client only; live database behavior remains NOT RUN.
+
+
+## Administrator-managed static Nginx site lifecycle — follow-on branch
+
+**Branch:** `feat/admin-managed-nginx-sites` (stacked on current-main site inventory PR #67; CI pending).
+
+| Area | State | Boundary |
+|---|---|---|
+| Site creation | Implemented in branch | Plan/apply static vhost with strict hostname and canonical document-root validation; loopback-only listener; no PHP handler. |
+| Site removal | Implemented in branch | Removes only a marked StackAlign config after private backup; preserves document root and site data. |
+| Recovery | Implemented in branch; CI pending | Nginx syntax/reload failure attempts restore; retained backup allows manual recovery. |
+| Independent-user isolation | NOT IMPLEMENTED | No per-user identity, PHP-FPM isolation, process/resource isolation, or adversarial tenant guarantee. |
+| Live-host acceptance | NOT RUN | Fake Nginx/systemd tests only until disposable EL9 validation. |
+
+See `docs/SITE-LIFECYCLE.md` for exact commands and constraints.
