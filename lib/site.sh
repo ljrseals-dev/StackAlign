@@ -78,10 +78,15 @@ _sa_site_require_root() {
     [ "${EUID:-$(id -u)}" -eq 0 ] || { echo 'site: apply requires root' >&2; return 1; }
 }
 _sa_site_nginx_dir() {
-    local dir=${SA_SITE_NGINX_DIR:-/etc/nginx/conf.d} resolved
+    local dir=${SA_SITE_NGINX_DIR:-/etc/nginx/conf.d} resolved mode
     [ -d "$dir" ] && [ ! -L "$dir" ] || { echo "site: Nginx config directory is missing or symlinked: $dir" >&2; return 1; }
     resolved=$(realpath -e -- "$dir") || return 1
     [ "$resolved" = "$dir" ] || { echo 'site: Nginx config directory resolves through a symlink; refusing' >&2; return 1; }
+    if [ "${SA_SITE_TESTING:-0}" != 1 ]; then
+        [ "$(stat -c %u -- "$dir")" = 0 ] || { echo 'site: Nginx config directory must be root-owned' >&2; return 1; }
+        mode=$(stat -c %a -- "$dir") || return 1
+        (( (8#$mode & 0022) == 0 )) || { echo 'site: Nginx config directory must not be group/world writable' >&2; return 1; }
+    fi
     printf '%s\n' "$dir"
 }
 _sa_site_reload_if_active() {
