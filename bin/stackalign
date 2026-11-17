@@ -35,14 +35,14 @@ GPLAN=0; YES=0
 # Keep command metadata in Bash: no cat/awk subprocesses during dispatch.
 _sa_known() {
   case "$1" in
-    version|help|plan|install|doctor|tune|rollback|update|site|db|tls|backup|restore|bench|secret|repo|optimize|xcart|routine|internet|hosting|agent|sftp|egress|contain) return 0 ;;
+    version|help|plan|install|doctor|config|tune|rollback|update|site|db|tls|backup|restore|bench|secret|repo|optimize|xcart|routine|internet|hosting|agent|sftp|egress|contain) return 0 ;;
     *) return 1 ;;
   esac
 }
 
 _sa_ms() {
   case "$1" in
-    version|help|plan|doctor) printf '%s\n' M1 ;;
+    version|help|plan|doctor|config) printf '%s\n' M1 ;;
     install|tune|rollback|secret|repo|optimize) printf '%s\n' M2a ;;
     internet|hosting|agent) printf '%s\n' M2b ;;
     site|db|tls|xcart|routine|sftp) printf '%s\n' M3 ;;
@@ -60,6 +60,7 @@ _sa_cmd_list() {
     plan M1 'dry-run alias: plan <command> [args]' \
     install M2a 'plan then apply the full stack' \
     doctor M1 'read-only host and drift inspection' \
+    config M1 'validate a versioned StackAlign configuration file' \
     tune M2a 'sizing planner' \
     rollback M2a 'snapshot restore: rollback [--list] [--to <id>]' \
     update M5 'update engine: check|plan|apply|pin|status' \
@@ -89,6 +90,7 @@ _sa_cmd_help() {
     plan) printf 'stackalign plan  [M1]\n  dry-run alias: plan <command> [args]\n' ;;
     install) printf 'stackalign install  [M2a]\n  plan then apply the full stack\n' ;;
     doctor) printf 'stackalign doctor  [M1]\n  read-only host and drift inspection\n' ;;
+    config) printf 'stackalign config  [M1]\n  validate a version 1 configuration file\n' ;;
     tune) printf 'stackalign tune  [M2a]\n  sizing planner\n' ;;
     rollback) printf 'stackalign rollback  [M2a]\n  snapshot restore: rollback [--list] [--to <id>]\n' ;;
     update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
@@ -191,6 +193,22 @@ cmd_install() {
     echo "(re-run with --apply to make changes)"
   fi
 }
+cmd_config() {
+  local sub=${1:-} file
+  [ $# -gt 0 ] && shift || true
+  [ "$sub" = validate ] || _sa_die "usage: stackalign config validate [file]"
+  [ $# -le 1 ] || _sa_die "usage: stackalign config validate [file]"
+  file=${1:-$SA_CONF_PATH}
+  [ -f "$file" ] && [ -r "$file" ] && [ ! -L "$file" ] || {
+    echo "config: expected a readable regular non-symlink file: $file" >&2
+    return 64
+  }
+  source "$SA_ROOT/lib/config.sh"
+  sa_config_load "$file" || return $?
+  sa_config_validate || return $?
+  printf 'configuration schema v1: PASS (%s)\n' "$file"
+}
+
 cmd_repo() {
   _sa_parse "" "$@"
   [ ${#POS[@]} -eq 1 ] && [ "${POS[0]}" = inventory ] || _sa_die "usage: stackalign repo inventory"
@@ -584,6 +602,7 @@ _sa_dispatch() {  # <cmd> args...
     plan)     [ $# -ge 1 ] || _sa_die "plan needs a command"; GPLAN=1; _sa_dispatch "$@" ;;
     install)  cmd_install "$@" ;;
     doctor)   cmd_doctor "$@" ;;
+    config)   cmd_config "$@" ;;
     rollback) cmd_rollback "$@" ;;
     secret)   cmd_secret "$@" ;;
     repo)     cmd_repo "$@" ;;
