@@ -37,7 +37,7 @@ rollback|M2a|snapshot restore: rollback [--list] [--to <id>]
 update|M5|update engine: check|plan|apply|pin|status
 site|M3|tenant lifecycle: add|list|remove|isolate|doctor
 db|M3|database lifecycle: create|drop|list
-tls|M3|certificate management: issue|renew|status
+tls|M3|read-only certificate status and scheduler preflight; issuance blocked
 backup|M4|backup driver: run|list|verify
 restore|M4|restore driver: --from <id>
 bench|M6|reproducible benchmark
