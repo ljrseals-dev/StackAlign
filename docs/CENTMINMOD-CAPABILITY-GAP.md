@@ -159,7 +159,7 @@ A separate hardening PR has been opened:
 - [pinecone-neural PR #1 — Harden agent tools and session isolation](https://github.com/ljrseals-dev/pinecone-neural/pull/1)
 - Branch: fix/structured-tool-execution
 - Push CI run: PASS for the new tests and compile check.
-- PR CI: check status pending at the time this document was written.
+- PR CI: passed on Ubuntu and AlmaLinux 9 (run #44035274780).
 - Changes replace model-generated Python with registered JSON tools, validate tool schemas/timeouts, bound calculator arithmetic, scope sessions per API-key user, remove demo keys, and run the container as a non-root UID.
 
 **Integration rule:** Pinecone is a planning/recommendation sidecar, not a privileged host-control plane. StackAlign must never give it root, a Docker socket, host filesystem mounts, or arbitrary shell/SQL tools. Initial integration is read-only: the harness may receive a sanitized doctor and repository inventory snapshot and return an operator-reviewed plan. Host changes remain in StackAlign's own explicit --apply workflows. Do not install/use the vulnerable upstream main revision as a host automation agent.
