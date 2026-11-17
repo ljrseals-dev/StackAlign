@@ -116,6 +116,15 @@ The upstream source tree also contains standalone data-management scripts for ba
 
 Centmin Mod's 141.00beta01 documentation lists AlmaLinux/Rocky Linux 8, 9, and 10 support (plus a legacy CentOS 7 path on the stable branch). StackAlign's current LEMP apply gate is EL9 x86_64 only. Do not expand StackAlign's OS matrix until each distribution/version has package, SELinux, systemd, Nginx, PHP-FPM, MariaDB, rollback, and CI acceptance coverage.
 
+## Existing-module hazards to resolve before CLI wiring
+
+- **TLS EAB secrets:** lib/tls.sh passes ZeroSSL EAB key material as command-line flags; the process arguments may be visible to other local users. Do not wire ZeroSSL DNS issuance until secrets are passed through a protected file descriptor or equivalent private channel. The module also needs integration tests for scheduler conflicts, certificate/key staging, snapshot rollback, and service reload.
+- **Firewall lockout:** lib/firewall.sh renders an input chain with a default-drop policy. The apply helper validates with nft -c and atomically loads the table, but it does not itself provide a timed rollback. Do not expose an apply command without a tested revert timer, console recovery instructions, and remote lockout tests.
+- **Backup confidentiality/recovery:** lib/backup.sh uses a MySQL defaults file and supports logical dump, physical MariaBackup, and rclone copy. It does not yet provide a complete encrypted backup format, integrity manifest, retention, restore verification, or tested disaster-recovery flow. Never put database passwords in command arguments.
+- **Extension package drift:** lib/extensions.sh explicitly labels package names as assumptions. Resolve the package against the enabled repo and PHP ABI before install; do not claim an extension loaded merely because DNF installed a similarly named package.
+- **Malware findings:** lib/security.sh queues ClamAV findings as advisory JSONL only. It intentionally does not quarantine/delete; preserve that boundary until a human-reviewed remediation workflow exists.
+- **Tenant boundary:** a virtual host, separate document root, or Apache upstream is not a tenant security boundary. Do not expose shared hosting apply until the Unix identity, PHP-FPM pool/socket, filesystem, process, resource, and service controls are adversarially tested.
+
 ## Priority order
 
 ### P0 — close safety and lifecycle foundations
