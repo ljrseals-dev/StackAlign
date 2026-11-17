@@ -83,7 +83,7 @@ _sa_site_nginx_dir() {
     [ -d "$dir" ] && [ ! -L "$dir" ] || { echo "site: Nginx config directory is missing or symlinked: $dir" >&2; return 1; }
     resolved=$(realpath -e -- "$dir") || return 1
     [ "$resolved" = "$dir" ] || { echo 'site: Nginx config directory resolves through a symlink; refusing' >&2; return 1; }
-    if [ "${SA_SITE_TESTING:-0}" != 1 ]; then
+    if [ "${SA_SITE_TESTING:-0}" != 1 ] && [ "${EUID:-$(id -u)}" -eq 0 ]; then
         [ "$(stat -c %u -- "$dir")" = 0 ] || { echo 'site: Nginx config directory must be root-owned' >&2; return 1; }
         mode=$(stat -c %a -- "$dir") || return 1
         (( (8#$mode & 0022) == 0 )) || { echo 'site: Nginx config directory must not be group/world writable' >&2; return 1; }
