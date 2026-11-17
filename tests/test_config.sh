@@ -156,7 +156,7 @@ sa_config_validate 2>/dev/null
 [ $? -ne 0 ] && ok "CLI rejects unknown schema keys" || bad "CLI rejects unknown schema keys"
 
 
-printf '[meta]\\nconfig_version=1\\n[redis.sessions]\\nport=99999999999999999999\\n' > "$T/schema-huge-number.conf"
+printf '[meta]\nconfig_version=1\n[redis.sessions]\nport=99999999999999999999\n' > "$T/schema-huge-number.conf"
 sa_config_load "$T/schema-huge-number.conf" 2>/dev/null && sa_config_validate 2>/dev/null
 [ $? -ne 0 ] && ok "schema rejects oversized numeric input" || bad "schema rejects oversized numeric input"
 cat > "$T/schema-duplicate-user.conf" <<'EOF'
