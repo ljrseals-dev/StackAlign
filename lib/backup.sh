@@ -13,10 +13,12 @@ _sa_bk_dir_ok() {
 }
 
 _sa_bk_defaults_ok() {
-    local file=${SA_MYSQL_DEFAULTS_FILE:-} mode owner
-    [ -n "$file" ] && [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
+    local file=${SA_MYSQL_DEFAULTS_FILE:-} mode owner resolved
+    [[ $file == /* && $file != *..* ]] && [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
+    resolved=$(realpath -e -- "$file" 2>/dev/null) || return 1
+    [[ $resolved == "$file" ]] || return 1
     read -r mode owner < <(stat -c '%a %u' -- "$file" 2>/dev/null) || return 1
-    [[ $mode == 400 || $mode == 600 ]] && [[ $owner == "$(id -u)" ]]
+    [[ ( $mode == 400 || $mode == 600 ) && $owner == "$(id -u)" ]]
 }
 
 _sa_bk_artifact_ok() {
