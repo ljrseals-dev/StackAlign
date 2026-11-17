@@ -40,7 +40,7 @@ listing=$(sa_db_list)
 printf '%s\n' "$listing" | grep -q 'app_db'
 
 sa_db_create app_db
-grep -q 'CREATE DATABASE \`app_db\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;' "$TMP/sql.log"
+grep -q 'CREATE DATABASE IF NOT EXISTS \`app_db\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;' "$TMP/sql.log"
 before=$(wc -l < "$TMP/sql.log")
 FAKE_DB_EXISTS=1 sa_db_create app_db | grep -q 'already exists'
 after=$(wc -l < "$TMP/sql.log")
