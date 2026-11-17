@@ -36,7 +36,7 @@ tune|M2a|sizing planner
 rollback|M2a|snapshot restore: rollback [--list] [--to <id>]
 update|M5|update engine: check|plan|apply|pin|status
 site|M3|tenant lifecycle: add|list|remove|isolate|doctor
-db|M3|database lifecycle: create|drop|list
+db|M3|database list/create; destructive drop blocked
 tls|M3|read-only certificate status and scheduler preflight; issuance blocked
 backup|M4|backup driver: run|list|verify
 restore|M4|restore driver: --from <id>
@@ -172,6 +172,31 @@ cmd_rollback() {
     echo "plan: would restore snapshot $TO; paths:"; cut -f2 "$dir/manifest" | sed 's/^/  /'
     echo "(re-run with --apply to make changes)"
   fi
+}
+
+cmd_db() {
+  _sa_parse "--plan --apply" "$@"
+  local sub=${POS[0]:-}
+  source "$SA_ROOT/lib/db.sh"
+  case "$sub" in
+    list)
+      [ "${#POS[@]}" -eq 1 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign db list"
+      sa_db_list ;;
+    create)
+      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign db create <database-name> [--apply]"
+      sa_db_validate_name "${POS[1]}" || return $?
+      if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then
+        sa_db_create "${POS[1]}"
+      else
+        echo "plan: would create database ${POS[1]} with utf8mb4_unicode_ci if it does not exist"
+        echo "no database state changed"
+        echo "(re-run with --apply to create the database)"
+      fi ;;
+    drop)
+      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign db drop <database-name> [--apply]"
+      sa_db_drop "${POS[1]}" ;;
+    *) _sa_die "usage: stackalign db <list|create <name> [--apply]|drop <name>>" ;;
+  esac
 }
 
 cmd_tls() {
@@ -563,6 +588,7 @@ _sa_dispatch() {  # <cmd> args...
     update)   cmd_update "$@" ;;
     hosting)  cmd_hosting "$@" ;;
     internet) cmd_internet "$@" ;;
+    db)       cmd_db "$@" ;;
     tls)      cmd_tls "$@" ;;
     agent)    cmd_agent "$@" ;;
     backup)   cmd_backup "$@" ;;

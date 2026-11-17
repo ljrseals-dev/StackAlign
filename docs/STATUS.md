@@ -155,3 +155,18 @@ Automated tests use fake `mysqldump` and `mariabackup` commands; they do not con
 | Client installation and DNS credentials | NOT IMPLEMENTED | No ACME client installation, provider login, DNS mutation, or credential handling is performed. |
 
 The TLS status tests generate disposable self-signed certificates and verify expiry, hostname matching, key matching, wildcard lineage mapping, symlink refusal, and blocked issuance/renewal. They do not contact a CA or change host services. Real certificate issuance, public-chain validation, scheduler discovery on a live host, Nginx reload, and rollback remain NOT RUN.
+
+
+## Database list/create CLI — feature branch implementation
+
+**Branch:** `feat/db-list-create` (stacked on PR #55; not merged to `main`).
+
+| Area | State | Evidence / boundary |
+|---|---|---|
+| Database inventory | Implemented; CI pending | `stackalign db list` uses the owner-only MySQL defaults file and returns schema names. |
+| Database creation | Implemented; CI pending | `stackalign db create <name> [--apply]` is plan-only by default; explicit apply creates an idempotent utf8mb4 database after an existence check. |
+| Identifier validation | Implemented; CI pending | Strict 64-character identifier allowlist; system schema names are reserved; SQL identifiers are backtick-quoted only after validation. |
+| Database users and grants | NOT IMPLEMENTED | No account creation, privilege grants, password rotation, or app credential handoff. |
+| Database drop | BLOCKED | Requires dependency checks, pre-drop backup, explicit destructive approval, and verified rollback/restore. |
+
+Tests use a fake mysql executable and do not contact or mutate a live database. Real MariaDB permission behavior, concurrent create behavior, schema lifecycle, and restore remain NOT RUN.

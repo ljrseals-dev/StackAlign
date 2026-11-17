@@ -34,6 +34,7 @@ The repository contains the following implemented areas. Each item is subject to
 | Release verification | Detached GPG signature, pinned primary-key fingerprint, signed metadata expiry, and artifact SHA-256 verification foundation | Not yet integrated into the release installer or update workflow. |
 | Oracle Linux migration wrapper | Guarded CentOS 7/8 conversion wrapper and Oracle Linux 7/8 update wrapper | Fake-tool tests only; live conversion and package updates have not been run. |
 | SFTP module/tests | Chrooted key-only SFTP policy and a real-sshd integration test path | CI coverage is not a substitute for disposable-host validation. |
+| Database management | Read-only database listing and plan/apply `utf8mb4` database creation | Requires an owner-only MySQL defaults file; database-user grants and destructive drop remain blocked. |
 | Database backup | Explicit logical `mysqldump` and physical MariaBackup workflows; list and integrity verification | Requires an owner-only MySQL defaults file; logical verification checks gzip integrity, not SQL restoreability; restore, encryption, retention, and off-host verification remain gated. |
 | TLS diagnostics | Read-only certificate-lineage status and active renewal-scheduler preflight | Issuance, renewal, migration, and scheduler enablement remain blocked until protected secret transport and atomic certificate/key deployment are implemented and tested. |
 
@@ -87,6 +88,19 @@ bash bin/stackalign internet doctor
 ```
 
 The wizard separately asks who manages DNS, how public websites should be reached (Cloudflare Tunnel or direct public IP), and how administrators should connect privately (Tailscale, WireGuard, or an existing VPN). This prevents treating a tunnel as a direct-origin A record or confusing private VPN access with public DNS. It stores only non-secret preferences with restrictive local permissions and validates saved configuration before reuse. It does **not** install clients, authenticate providers, change DNS, issue certificates, open firewall ports, or alter services. `internet apply` remains blocked. See [internet access setup](docs/INTERNET-ACCESS.md).
+
+### Manage application databases
+
+The database CLI supports read-only listing and explicit plan/apply creation. Configure `SA_MYSQL_DEFAULTS_FILE` to an absolute, regular, non-symlink MySQL client defaults file owned by the invoking user with mode `400` or `600`:
+
+```bash
+export SA_MYSQL_DEFAULTS_FILE=/etc/stackalign/mysql-admin.cnf
+bash bin/stackalign db list
+bash bin/stackalign db create webapp
+sudo SA_MYSQL_DEFAULTS_FILE=/root/stackalign-mysql-admin.cnf bash bin/stackalign db create webapp --apply
+```
+
+Names must start with a letter and contain only letters, digits, and underscores (maximum 64 characters); system database names are reserved. Creation uses `utf8mb4_unicode_ci` and is plan-only unless `--apply` is explicit. This does not create a database user or grant privileges. `db drop` remains blocked until pre-drop backup, dependency checks, and verified recovery are implemented.
 
 ### Inspect TLS certificates
 
@@ -180,7 +194,7 @@ The repository's CI workflows exercise Ubuntu and AlmaLinux 9. Treat a CI result
 The following are not established as complete production workflows:
 
 - Public web ingress, TLS issuance/renewal, DNS, and production firewall configuration; the internet wizard captures preferences and plans only, while TLS commands currently provide read-only diagnostics.
-- Application database/user provisioning and tenant management/isolation.
+- Database-user provisioning/grants, destructive database drop, and tenant management/isolation.
 - Automated database restore, encrypted backup storage, retention scheduling, off-host replication, and disaster-recovery validation; current backup commands only create/list/check artifacts.
 - Unattended updates or self-update.
 - A release installer integrated with the release-signature verifier.
