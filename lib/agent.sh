@@ -61,7 +61,7 @@ sa_agent_ask() {
     rm -rf -- "$tmp"; echo "agent: failed to encode request" >&2; return 1
   fi
   printf 'X-API-Key: %s\n' "$key" > "$headers" || { rm -rf -- "$tmp"; return 1; }
-  if curl --silent --show-error --fail --connect-timeout 5 --max-time 90 --max-redirs 0 \
+  if curl --silent --show-error --fail --connect-timeout 5 --max-time 90 --max-filesize 1048576 --max-redirs 0 \
       --header "@$headers" --header "Content-Type: application/json" \
       --data-binary "@$body" --output "$response" "$url/chat"; then
     :
