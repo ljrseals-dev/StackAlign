@@ -48,6 +48,7 @@ xcart|M3|guarded X-Cart profile: plan|preflight|build|deploy
 routine|M3|routine subsystem: plan|install|doctor|run|run-builtin
 internet|M2b|interactive internet access preferences and read-only planning
 hosting|M2b|hosting scope prompt, plans, and read-only inspection
+agent|M2b|Pinecone Neural planning sidecar: status or ask (read-only)
 sftp|M3|chrooted key-only SFTP account management
 egress|M4|outbound firewall and passive LAN audit
 contain|M4|evidence preservation before rebuild
