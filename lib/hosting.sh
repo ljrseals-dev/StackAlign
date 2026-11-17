@@ -59,19 +59,19 @@ sa_hosting_doctor() {
   local missing=0 tool modules=""
   for tool in nginx httpd php-fpm; do
     if command -v "$tool" >/dev/null 2>&1; then
-      printf 'available: %s\\n' "$tool"
+      printf 'available: %s\n' "$tool"
     else
-      printf 'missing: %s\\n' "$tool"
+      printf 'missing: %s\n' "$tool"
       missing=1
     fi
   done
   if command -v httpd >/dev/null 2>&1; then
     modules=$(httpd -M 2>&1) || { echo "apache module inspection: FAILED"; missing=1; }
     for tool in proxy_module proxy_fcgi_module mpm_event_module; do
-      if printf '%s\\n' "$modules" | grep -Eq "$tool"; then
-        printf 'apache module: %s present\\n' "$tool"
+      if printf '%s\n' "$modules" | grep -Eq "$tool"; then
+        printf 'apache module: %s present\n' "$tool"
       else
-        printf 'apache module: %s missing\\n' "$tool"
+        printf 'apache module: %s missing\n' "$tool"
         missing=1
       fi
     done
