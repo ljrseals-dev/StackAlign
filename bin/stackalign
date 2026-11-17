@@ -92,7 +92,7 @@ _sa_cmd_help() {
     tune) printf 'stackalign tune  [M2a]\n  sizing planner\n' ;;
     rollback) printf 'stackalign rollback  [M2a]\n  snapshot restore: rollback [--list] [--to <id>]\n' ;;
     update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
-    site) printf 'stackalign site  [M3]\n  tenant lifecycle: add|list|remove|isolate|doctor\n' ;;
+    site) printf 'stackalign site  [M3]\n  read-only vhost inventory/doctor; lifecycle actions gated\n' ;;
     db) printf 'stackalign db  [M3]\n  database status/list/user inventory/create; destructive drop blocked\n' ;;
     tls) printf 'stackalign tls  [M3]\n  read-only certificate status and scheduler preflight; issuance blocked\n' ;;
     backup) printf 'stackalign backup  [M4]\n  backup driver: run|list|verify\n' ;;
