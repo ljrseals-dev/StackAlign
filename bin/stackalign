@@ -442,7 +442,8 @@ _sa_dispatch() {  # <cmd> args...
     repo)     cmd_repo "$@" ;;
     optimize) cmd_optimize "$@" ;;
     update)   cmd_update "$@" ;;
-    hosting)  cmd_hosting "$@" ;;\n    sftp)     cmd_sftp "$@" ;;
+    hosting)  cmd_hosting "$@" ;;
+    sftp)     cmd_sftp "$@" ;;
     egress)   cmd_egress "$@" ;;
     *)        _sa_stub "$c" "$@" ;;
   esac
