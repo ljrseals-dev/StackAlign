@@ -17,7 +17,7 @@ sa_internet_config_path() {
   else
     return 64
   fi
-  printf '%s/stackalign/internet.conf\\n' "$base"
+  printf '%s/stackalign/internet.conf\n' "$base"
 }
 
 sa_internet_valid_domain() {
