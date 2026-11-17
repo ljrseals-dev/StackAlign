@@ -22,7 +22,7 @@ DNS hosting, public website ingress, and private administrator access are delibe
 
 ## Saved preferences and validation
 
-The wizard stores only non-secret preferences in `$XDG_CONFIG_HOME/stackalign/internet.conf`, or `~/.config/stackalign/internet.conf` when `XDG_CONFIG_HOME` is unset. The config is versioned, written atomically, and restricted to owner-only directory/file permissions. The reader rejects symlinks, wrong ownership, broad permissions, duplicate/unknown keys, incomplete records, unsupported versions, and invalid domain/IP values. Relative `XDG_CONFIG_HOME` paths are rejected.
+The wizard stores only non-secret preferences in `$XDG_CONFIG_HOME/stackalign/internet.conf`, or `~/.config/stackalign/internet.conf` when `XDG_CONFIG_HOME` is unset. The config is versioned, written atomically, and restricted to owner-only directory/file permissions. The reader rejects symlinks, wrong ownership, broad permissions, duplicate/unknown keys, incomplete records, unsupported versions, and invalid domain/public-IPv4 values, including private, loopback, link-local, special-use, and ambiguous leading-zero IPv4 addresses. Relative `XDG_CONFIG_HOME` paths are rejected.
 
 No API tokens, passwords, tunnel credentials, or private keys are requested or stored. The wizard does not prove domain ownership, public address ownership, DNS propagation, or reachability.
 
@@ -41,7 +41,7 @@ No API tokens, passwords, tunnel credentials, or private keys are requested or s
 ## Manual setup when StackAlign cannot automate
 
 1. Confirm the domain registration and authoritative DNS provider.
-2. For direct-origin mode, set A/AAAA records to the verified public IP; configure only the intended public web ports and HTTPS after reachability checks.
+2. For direct-origin mode, set an A record to the verified public IPv4; add an AAAA record only after separately verifying public IPv6 connectivity. Configure only the intended public web ports and HTTPS after reachability checks.
 3. For Cloudflare Tunnel, authenticate through Cloudflare's supported login flow, create/authorize the tunnel, configure the hostname route to the intended local web service, and verify zone compatibility. Do not substitute an origin A record for the tunnel route.
 4. For Tailscale, install/enroll the node through the official provider workflow and enforce restrictive ACLs.
 5. For WireGuard, create keys on the respective endpoints, exchange public keys only, configure allowed IPs/routes and endpoint reachability, and validate firewall policy.
