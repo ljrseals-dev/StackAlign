@@ -61,7 +61,7 @@ sa_config_load "$T/inj.conf" 2>/dev/null
 
 # Failed loads must not leave values from the failed file or prior successful load.
 sa_config_load "$T/good.conf" 2>/dev/null
-printf '[meta]\\nconfig_version = 1\\n[broken]\\nnot-an-assignment\\n' > "$T/partial.conf"
+printf '[meta]\nconfig_version = 1\n[broken]\nnot-an-assignment\n' > "$T/partial.conf"
 sa_config_load "$T/partial.conf" 2>/dev/null
 { [ $? -ne 0 ] && [ "${#SA_CONF[@]}" -eq 0 ]; } && ok "parse failure clears partial configuration" || bad "parse failure clears partial configuration"
 sa_config_load "$T/good.conf" 2>/dev/null
