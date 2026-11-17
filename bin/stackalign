@@ -456,6 +456,30 @@ cmd_update() {
   esac
 }
 
+cmd_site() {
+  _sa_parse "--plan --apply" "$@"
+  local sub=${POS[0]:-}
+  source "$SA_ROOT/lib/site.sh"
+  case "$sub" in
+    list)
+      [ "${#POS[@]}" -eq 1 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign site list"
+      sa_site_list ;;
+    doctor)
+      [ "${#POS[@]}" -le 2 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign site doctor [nginx|apache|all]"
+      sa_site_doctor "${POS[1]:-all}" ;;
+    add)
+      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site add <domain> [--apply]"
+      sa_site_add "${POS[1]}" ;;
+    remove)
+      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site remove <domain> [--apply]"
+      sa_site_remove "${POS[1]}" ;;
+    isolate)
+      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site isolate <domain> [--apply]"
+      sa_site_isolate "${POS[1]}" ;;
+    *) _sa_die "usage: stackalign site <list|doctor [nginx|apache|all]|add|remove|isolate <domain>>" ;;
+  esac
+}
+
 cmd_hosting() {
   _sa_parse "--plan" "$@"
   local sub=${POS[0]:-}
@@ -592,7 +616,7 @@ _sa_dispatch() {  # <cmd> args...
     repo)     cmd_repo "$@" ;;
     optimize) cmd_optimize "$@" ;;
     update)   cmd_update "$@" ;;
-    hosting)  cmd_hosting "$@" ;;
+    site)     cmd_site "$@" ;;\n    hosting)  cmd_hosting "$@" ;;
     internet) cmd_internet "$@" ;;
     db)       cmd_db "$@" ;;
     tls)      cmd_tls "$@" ;;
