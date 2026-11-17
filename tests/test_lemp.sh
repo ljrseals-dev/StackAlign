@@ -6,7 +6,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin" "$T/etc/php-fpm.d" "$T/etc/nginx/conf.d" "$T/web"
 export PATH="$T/bin:$PATH" SA_LEMP_TESTING=1 SA_LEMP_ETC_ROOT="$T/etc" SA_LEMP_WEB_ROOT="$T/web"
-export LOG="$T/actions.log"
+export LOG="$T/actions.log" FAKE_MARIADBD_RC=0
 cat > "$T/etc/php-fpm.d/www.conf" <<'EOF'
 user = apache
 group = apache
@@ -21,7 +21,7 @@ for tool in dnf systemctl php-fpm nginx mariadbd; do
 printf '%s %s\n' "$(basename "$0")" "$*" >> "$LOG"
 case "$(basename "$0"):$1" in
   systemctl:is-active) exit 0 ;;
-  mariadbd:--validate-config) exit "${FAKE_MARIADBD_RC:-0}" ;;
+  mariadbd:--validate-config) exit "$FAKE_MARIADBD_RC" ;;
   *) exit 0 ;;
 esac
 SH
@@ -43,17 +43,23 @@ grep -q '^group = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^listen.owner = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^listen.group = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 ok "PHP-FPM pool runs as nginx with matching socket ownership" || bad "PHP-FPM pool configuration"
-grep -q '^bind-address=127.0.0.1grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
-ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
+grep -q '^bind-address=127.0.0.1$' "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+grep -q '^local-infile=0$' "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+grep -q '^symbolic-links=0$' "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+grep -q 'mariadbd --validate-config' "$LOG" &&
+ok "MariaDB is loopback-bound and config validation runs" || bad "MariaDB local-only policy"
+grep -q 'listen 127.0.0.1:8080' "$T/etc/nginx/conf.d/stackalign.conf" &&
+grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
+grep -q 'server_tokens off' "$T/etc/nginx/conf.d/stackalign.conf" &&
+ok "Nginx binds loopback and uses hardened configured document root" || bad "Nginx site configuration"
 [ -f "$T/web/public/index.php" ] &&
-grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
+grep -q 'StackAlign server health' "$T/web/public/index.php" &&
 ok "PHP health page created" || bad "PHP health page"
 grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
 grep -q 'systemctl enable --now mariadb' "$LOG" &&
 grep -q 'systemctl enable --now php-fpm' "$LOG" &&
 grep -q 'systemctl enable --now nginx' "$LOG" &&
 ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
-
 
 # Unsafe paths must be rejected before DNF is invoked.
 : > "$LOG"
@@ -66,50 +72,18 @@ SA_LEMP_WEB_ROOT="$T/web-link" sa_lemp_apply >/dev/null 2>&1; rc=$?
 { [ "$rc" -ne 0 ] && [ ! -s "$LOG" ]; } && ok "symlinked web root rejected before package install" || bad "symlinked web root accepted"
 rm -f "$T/web-link"
 
-echo "passed=$pass failed=$fail"
-[ "$fail" -eq 0 ]
- "$T/etc/my.cnf.d/99-stackalign.cnf" &&
-grep -q '^local-infile=0grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
-ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
-[ -f "$T/web/public/index.php" ] &&
-grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
-ok "PHP health page created" || bad "PHP health page"
-grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
-grep -q 'systemctl enable --now mariadb' "$LOG" &&
-grep -q 'systemctl enable --now php-fpm' "$LOG" &&
-grep -q 'systemctl enable --now nginx' "$LOG" &&
-ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
-
-echo "passed=$pass failed=$fail"
-[ "$fail" -eq 0 ]
- "$T/etc/my.cnf.d/99-stackalign.cnf" &&
-grep -q '^symbolic-links=0grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
-ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
-[ -f "$T/web/public/index.php" ] &&
-grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
-ok "PHP health page created" || bad "PHP health page"
-grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
-grep -q 'systemctl enable --now mariadb' "$LOG" &&
-grep -q 'systemctl enable --now php-fpm' "$LOG" &&
-grep -q 'systemctl enable --now nginx' "$LOG" &&
-ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
-
-echo "passed=$pass failed=$fail"
-[ "$fail" -eq 0 ]
- "$T/etc/my.cnf.d/99-stackalign.cnf" &&
-grep -q 'mariadbd --validate-config' "$LOG" &&
-ok "MariaDB is loopback-bound and config validation runs" || bad "MariaDB local-only policy"
-grep -q 'listen 127.0.0.1:8080' "$T/etc/nginx/conf.d/stackalign.conf" &&
-grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
-ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
-[ -f "$T/web/public/index.php" ] &&
-grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
-ok "PHP health page created" || bad "PHP health page"
-grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
-grep -q 'systemctl enable --now mariadb' "$LOG" &&
-grep -q 'systemctl enable --now php-fpm' "$LOG" &&
-grep -q 'systemctl enable --now nginx' "$LOG" &&
-ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
-
+# Database configuration validation failure must restore the managed files.
+printf 'previous database policy\n' > "$T/etc/my.cnf.d/99-stackalign.cnf"
+printf 'previous site\n' > "$T/etc/nginx/conf.d/stackalign.conf"
+printf 'previous health page\n' > "$T/web/public/index.php"
+# Use a fresh pool baseline because the first apply intentionally changed it.
+printf 'user = apache\ngroup = apache\nlisten = /run/php-fpm/www.sock\n' > "$T/etc/php-fpm.d/www.conf"
+export FAKE_MARIADBD_RC=1
+sa_lemp_apply >/dev/null 2>&1; rc=$?
+[ "$rc" -ne 0 ] &&
+grep -qx 'previous database policy' "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+grep -qx 'previous site' "$T/etc/nginx/conf.d/stackalign.conf" &&
+grep -qx 'previous health page' "$T/web/public/index.php" &&
+ok "database validation failure restores prior managed configuration" || bad "configuration rollback"
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]
