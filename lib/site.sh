@@ -135,7 +135,6 @@ sa_site_remove() {
     backup_dir=${SA_SITE_BACKUP_DIR:-/var/lib/stackalign/site-backups}
     if [ -L "$backup_dir" ] || { [ -e "$backup_dir" ] && [ ! -d "$backup_dir" ]; }; then echo 'site remove: backup directory is unsafe' >&2; return 1; fi
     mkdir -p -- "$backup_dir" || return 1
-    chmod 0700 -- "$backup_dir" || return 1
     backup_real=$(realpath -e -- "$backup_dir") || return 1
     [ "$backup_real" = "$backup_dir" ] || { echo "site remove: backup path resolves through a symlink; refusing" >&2; return 1; }
     chmod 0700 -- "$backup_dir" || return 1
