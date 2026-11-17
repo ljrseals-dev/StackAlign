@@ -59,7 +59,7 @@ _sa_cmd_list() {
     help M1 'per-subcommand help' \
     plan M1 'dry-run alias: plan <command> [args]' \
     install M2a 'plan then apply the full stack' \
-    doctor M1 'read-only host and drift inspection' \
+    doctor M1 'read-only host inspection; --section repo for repository diagnostics' \
     tune M2a 'sizing planner' \
     rollback M2a 'snapshot restore: rollback [--list] [--to <id>]' \
     update M5 'update engine: check|plan|apply|pin|status' \
@@ -88,7 +88,7 @@ _sa_cmd_help() {
     help) printf 'stackalign help  [M1]\n  per-subcommand help\n' ;;
     plan) printf 'stackalign plan  [M1]\n  dry-run alias: plan <command> [args]\n' ;;
     install) printf 'stackalign install  [M2a]\n  plan then apply the full stack\n' ;;
-    doctor) printf 'stackalign doctor  [M1]\n  read-only host and drift inspection\n' ;;
+    doctor) printf 'stackalign doctor  [M1]\n  read-only host inspection; --section repo [--json] [--strict] for repository diagnostics\n' ;;
     tune) printf 'stackalign tune  [M2a]\n  sizing planner\n' ;;
     rollback) printf 'stackalign rollback  [M2a]\n  snapshot restore: rollback [--list] [--to <id>]\n' ;;
     update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
@@ -156,7 +156,29 @@ _sa_parse() {
 }
 
 cmd_doctor() {
-  _sa_parse "" "$@"; [ ${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: ${POS[0]}"
+  local section=all json=0 strict=0 arg
+  while [ $# -gt 0 ]; do
+    arg=$1; shift
+    case "$arg" in
+      --section) [ $# -gt 0 ] || _sa_die "--section needs a value"; section=$1; shift ;;
+      --json) json=1 ;;
+      --strict) strict=1 ;;
+      *) _sa_die "unexpected argument: $arg" ;;
+    esac
+  done
+  case "$section" in
+    repo)
+      source "$SA_ROOT/lib/repo_doctor.sh"
+      local -a repo_args=(--section repo)
+      [ "$json" -eq 0 ] || repo_args+=(--json)
+      [ "$strict" -eq 0 ] || repo_args+=(--strict)
+      sa_repo_doctor "${repo_args[@]}"
+      return $? ;;
+    all) ;;
+    *) _sa_die "unsupported doctor section: $section" ;;
+  esac
+  [ "$json" -eq 0 ] || _sa_die "--json currently requires --section repo"
+  [ "$strict" -eq 0 ] || _sa_die "--strict currently requires --section repo"
   local crit=0 daemon
   echo "doctor: read-only (no changes made)"
   if [ -f "$SA_CONF_PATH" ]; then
@@ -179,7 +201,6 @@ cmd_doctor() {
   [ $crit -eq 0 ] && echo "doctor: no critical findings" || echo "doctor: critical findings present"
   return $crit
 }
-
 cmd_install() {
   _sa_parse "--plan --apply" "$@"
   [ "${#POS[@]}" -eq 0 ] || _sa_die "usage: stackalign install [--plan|--apply]"
