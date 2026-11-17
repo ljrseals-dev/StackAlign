@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 set -euo pipefail
-set -x
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin" "$T/repos"
