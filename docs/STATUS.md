@@ -84,3 +84,15 @@ This PR updates documentation only; the M2a implementation and tests were merged
 | Real-host validation | NOT RUN | AlmaLinux 9 and Rocky Linux 9 disposable VM tests remain required. |
 
 The existing `install` command and LEMP beta behavior are unchanged. No claim of Apache installation, live upstream routing, tenant isolation, or production readiness is made.
+
+
+### Hosting scope prompt — 2026-11-17
+
+| Area | State | Evidence / boundary |
+|---|---|---|
+| Interactive operator scope prompt | Implemented; runtime interaction NOT RUN | `stackalign hosting setup` distinguishes a single administrator managing multiple accounts from multiple independent end users. |
+| Scope persistence | NOT IMPLEMENTED | The command reports the selected scope but does not write configuration; no approved durable config schema exists yet. |
+| Independent-user shared hosting | BLOCKED | No multi-user isolation claim; per-user identities, dedicated PHP-FPM pools/sockets, filesystem/process/resource/service boundaries, and adversarial tests remain required. |
+| Mode-specific doctor | Implemented; live host inspection NOT RUN | `hosting doctor nginx|apache|hybrid` checks only the selected mode's binaries and Apache modules where applicable. |
+
+The shared PHP-FPM `www` pool is explicitly not treated as tenant isolation. This work does not change the existing LEMP bootstrap or enable Apache apply.
