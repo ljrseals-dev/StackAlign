@@ -616,7 +616,8 @@ _sa_dispatch() {  # <cmd> args...
     repo)     cmd_repo "$@" ;;
     optimize) cmd_optimize "$@" ;;
     update)   cmd_update "$@" ;;
-    site)     cmd_site "$@" ;;\n    hosting)  cmd_hosting "$@" ;;
+    site)     cmd_site "$@" ;;
+    hosting)  cmd_hosting "$@" ;;
     internet) cmd_internet "$@" ;;
     db)       cmd_db "$@" ;;
     tls)      cmd_tls "$@" ;;
