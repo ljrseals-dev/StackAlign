@@ -26,7 +26,7 @@ PATH="$TMP/bin:$PATH"; export PATH
 source "$ROOT/lib/site.sh"
 sa_site_doctor nginx | grep -q 'nginx_config: valid'
 sa_site_doctor apache | grep -q 'apache_config: valid'
-if PATH="$TMP/emptybin" sa_site_doctor all >/dev/null 2>&1; then echo 'FAIL: doctor succeeded without checking a server' >&2; exit 1; fi
+if ( PATH="$TMP/emptybin"; export PATH; hash -r; sa_site_doctor all >/dev/null 2>&1 ); then echo 'FAIL: doctor succeeded without checking a server' >&2; exit 1; fi
 if FAKE_NGINX_RC=1 sa_site_doctor nginx >/dev/null 2>&1; then echo 'FAIL: invalid nginx config reported valid' >&2; exit 1; fi
 inventory=$(SA_SITE_ETC_ROOT="$TMP/etc" sa_site_list)
 grep -Fq "$TMP/etc/nginx/conf.d/site.conf" <<<"$inventory"
