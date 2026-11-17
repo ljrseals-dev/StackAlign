@@ -33,7 +33,7 @@ printf '%s\n' "$plan" | grep -q 'plan: would create database webapp'
 [ ! -e "$TMP/create.log" ]
 
 bash "$ROOT/bin/stackalign" db create webapp --apply
-grep -q 'CREATE DATABASE \`webapp\`' "$TMP/create.log"
+grep -q 'CREATE DATABASE IF NOT EXISTS \`webapp\`' "$TMP/create.log"
 bash "$ROOT/bin/stackalign" db list | grep -q 'app_db'
 
 set +e
