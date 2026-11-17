@@ -356,13 +356,16 @@ cmd_hosting() {
     plan)
       [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign hosting plan <nginx|apache|hybrid>"
       sa_hosting_plan "${POS[1]}" ;;
+    setup)
+      [ "${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign hosting setup"
+      sa_hosting_setup ;;
     doctor)
-      [ "${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign hosting doctor"
-      sa_hosting_doctor ;;
+      [ "${#POS[@]}" -le 2 ] || _sa_die "usage: stackalign hosting doctor [nginx|apache|hybrid]"
+      sa_hosting_doctor "${POS[1]:-hybrid}" ;;
     apply)
-      echo "stackalign hosting apply: BLOCKED — tenant isolation and real-host acceptance gates are incomplete; no changes made" >&2
+      echo "stackalign hosting apply: BLOCKED — isolation and real-host acceptance gates are incomplete; no changes made" >&2
       return 2 ;;
-    *) _sa_die "usage: stackalign hosting <plan <nginx|apache|hybrid>|doctor|apply>" ;;
+    *) _sa_die "usage: stackalign hosting <setup|plan <nginx|apache|hybrid>|doctor [mode]|apply>" ;;
   esac
 }
 
