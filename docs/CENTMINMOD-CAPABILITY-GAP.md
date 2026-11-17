@@ -59,6 +59,14 @@ Legend:
 | Release self-update | install.sh refuses placeholder SHA; release verifier is not integrated with updater | **Partial / gated** | Signed release manifest, independent trust anchor, anti-rollback, staged update/rollback |
 | Server alerts and scheduled maintenance | No complete disk alert / update scheduler / notification subsystem | **Missing** | Explicit schedules, owner-only config, dry-run, bounded notifications, audit trail |
 
+## Upstream installation compatibility
+
+Centmin Mod is a standalone, root-run server stack installer, not a library or plugin to install inside StackAlign. Its 141.00beta01 entry point explicitly requires UID 0, creates and mounts a temporary setup filesystem in some memory profiles, installs prerequisite packages, and manages its own Nginx/PHP/MariaDB build and configuration paths. Running that installer on an existing StackAlign host would create competing ownership of packages, configuration, services, and update policy.
+
+**Do not chain Centmin's installer from StackAlign.** If the operator chooses Centmin Mod as the server platform, install it on a clean, separate host and do not also let StackAlign manage the same Nginx/PHP/MariaDB services. For StackAlign, implement the required feature behavior natively under its EL9/DNF, configuration-snapshot, and rollback contracts.
+
+The upstream source branch is useful as a feature and behavior reference, but its GPL-3.0 code is not copied into this MIT repository.
+
 ## StackAlign work already present but not complete
 
 These should be completed and wired before creating duplicate implementations:
