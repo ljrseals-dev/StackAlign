@@ -8,8 +8,16 @@
 sa_internet_die() { echo "stackalign internet: $*" >&2; return 1; }
 
 sa_internet_config_path() {
-  local base=${XDG_CONFIG_HOME:-${HOME:-}/.config}
-  printf '%s/stackalign/internet.conf\n' "$base"
+  local base
+  if [[ -n ${XDG_CONFIG_HOME:-} ]]; then
+    [[ $XDG_CONFIG_HOME == /* ]] || return 64
+    base=$XDG_CONFIG_HOME
+  elif [[ -n ${HOME:-} && $HOME == /* ]]; then
+    base=$HOME/.config
+  else
+    return 64
+  fi
+  printf '%s/stackalign/internet.conf\\n' "$base"
 }
 
 sa_internet_valid_domain() {
@@ -82,9 +90,14 @@ sa_internet_setup() {
   IFS= read -r ip </dev/tty || return 2
   [ -z "$ip" ] || sa_internet_valid_ipv4 "$ip" || { sa_internet_die "invalid IPv4; no settings saved"; return 64; }
 
-  config=$(sa_internet_config_path); dir=${config%/*}
-  mkdir -p "$dir" || return 1
-  chmod 700 "$dir" || return 1
+  config=$(sa_internet_config_path) || { sa_internet_die "XDG_CONFIG_HOME must be absolute, or HOME must be set"; return 1; }
+  dir=${config%/*}
+  mkdir -p -- "$dir" || return 1
+  [[ -d $dir && ! -L $dir ]] || { sa_internet_die "configuration directory must be a real directory, not a symlink"; return 1; }
+  local dir_owner
+  dir_owner=$(stat -c %u -- "$dir") || return 1
+  [[ $dir_owner == "$EUID" ]] || { sa_internet_die "configuration directory is not owned by the current user"; return 1; }
+  chmod 700 -- "$dir" || return 1
   umask 077
   tmp=$(mktemp "$dir/.internet.conf.XXXXXX") || return 1
   {
@@ -99,20 +112,30 @@ sa_internet_setup() {
 }
 
 sa_internet_show_saved_plan() {
-  local config; config=$(sa_internet_config_path)
-  [ -f "$config" ] || { sa_internet_die "no saved setup; run: stackalign internet setup"; return 1; }
-  local version="" purpose="" provider="" domain="" ip="" key value
+  local config dir owner perms version="" purpose="" provider="" domain="" ip="" key value
+  config=$(sa_internet_config_path) || { sa_internet_die "XDG_CONFIG_HOME must be absolute, or HOME must be set"; return 1; }
+  dir=${config%/*}
+  [[ -d $dir && ! -L $dir && -f $config && ! -L $config ]] || { sa_internet_die "saved setup is missing or is not a regular file in a real directory"; return 1; }
+  owner=$(stat -c %u -- "$config") || return 1
+  [[ $owner == "$EUID" ]] || { sa_internet_die "saved setup is not owned by the current user"; return 1; }
+  perms=$(stat -c %a -- "$config") || return 1
+  [[ $perms =~ ^[0-7]{3,4}$ ]] && (( (8#$perms & 077) == 0 )) || { sa_internet_die "saved setup permissions are too broad; expected owner-only access"; return 1; }
+  local dir_perms
+  dir_perms=$(stat -c %a -- "$dir") || return 1
+  [[ $dir_perms =~ ^[0-7]{3,4}$ ]] && (( (8#$dir_perms & 077) == 0 )) || { sa_internet_die "configuration directory permissions are too broad"; return 1; }
+  local seen_version=0 seen_purpose=0 seen_provider=0 seen_domain=0 seen_ip=0
   while IFS='=' read -r key value; do
     case "$key" in
-      version) version=$value ;;
-      purpose) purpose=$value ;;
-      provider) provider=$value ;;
-      domain) domain=$value ;;
-      server_ipv4) ip=$value ;;
+      version) (( seen_version == 0 )) || { sa_internet_die "duplicate version key"; return 1; }; seen_version=1; version=$value ;;
+      purpose) (( seen_purpose == 0 )) || { sa_internet_die "duplicate purpose key"; return 1; }; seen_purpose=1; purpose=$value ;;
+      provider) (( seen_provider == 0 )) || { sa_internet_die "duplicate provider key"; return 1; }; seen_provider=1; provider=$value ;;
+      domain) (( seen_domain == 0 )) || { sa_internet_die "duplicate domain key"; return 1; }; seen_domain=1; domain=$value ;;
+      server_ipv4) (( seen_ip == 0 )) || { sa_internet_die "duplicate server_ipv4 key"; return 1; }; seen_ip=1; ip=$value ;;
       *) sa_internet_die "unknown config key '$key'; refusing to use config"; return 1 ;;
     esac
   done < "$config"
-  [ "$version" = 1 ] || { sa_internet_die "unsupported or missing config version"; return 1; }
+  (( seen_version && seen_purpose && seen_provider )) || { sa_internet_die "saved setup is incomplete"; return 1; }
+  [[ $version == 1 ]] || { sa_internet_die "unsupported config version"; return 1; }
   sa_internet_plan "$purpose" "$provider" "$domain" "$ip"
 }
 
