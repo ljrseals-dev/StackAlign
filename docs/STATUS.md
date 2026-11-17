@@ -192,3 +192,10 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - Changed random-password hashing to pass the generated secret to `openssl passwd -6 -stdin` rather than as a process argument.
 - Extended the fake-tool regression test to verify stdin delivery and assert the generated secret is absent from the recorded OpenSSL argument vector.
 - Validation: fresh CI required for this branch. No live sshd/account operation or local test run is claimed.
+
+
+## Database credential-boundary regression tests — current-main integration
+
+- Added `tests/test_db_security.sh` to verify that MySQL receives the protected `--defaults-extra-file` first and that the password value is absent from process arguments.
+- Rejects symlinked, relative, missing, and non-owner-only defaults files before invoking the fake client.
+- The test uses a fake MySQL executable and does not contact or modify a live database. Fresh CI on this current-main branch is required.
