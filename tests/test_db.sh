@@ -24,6 +24,7 @@ done
 case "$query" in
   'SHOW DATABASES;')
     printf 'information_schema\nmysql\napp_db\n' ;;
+  'SELECT VERSION(), CURRENT_USER();') printf '10.11.6-MariaDB\tstackalign@localhost\n' ;;
   SELECT*)
     if [ "${FAKE_DB_EXISTS:-0}" = 1 ]; then printf 'app_db\n'; fi ;;
   'CREATE DATABASE '*)
@@ -38,6 +39,9 @@ chmod 700 "$TMP/bin/mysql"
 source "$ROOT/lib/db.sh"
 listing=$(sa_db_list)
 printf '%s\n' "$listing" | grep -q 'app_db'
+status=$(sa_db_status)
+printf '%s\n' "$status" | grep -q 'server_version: 10.11.6-MariaDB'
+printf '%s\n' "$status" | grep -q 'authenticated_account: stackalign@localhost'
 
 sa_db_create app_db
 grep -Fq 'CREATE DATABASE IF NOT EXISTS `app_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;' "$TMP/sql.log"
