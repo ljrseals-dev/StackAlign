@@ -105,11 +105,11 @@ The shared PHP-FPM `www` pool is explicitly not treated as tenant isolation. Thi
 | Area | State | Evidence / boundary |
 |---|---|---|
 | Access-purpose questions | Implemented in CLI source | Public website, private administration, or both. Interactive execution NOT RUN. |
-| Provider selection | Implemented in CLI source | Cloudflare Tunnel, Tailscale, WireGuard, none, or unknown. |
-| Input validation | Implemented; automated tests added | Domain and IPv4 syntax/range checks; test execution NOT RUN. |
-| Preference persistence | Implemented in CLI source | Non-secret preferences only; private directory/file permissions; runtime write test NOT RUN. |
-| Read-only doctor | Implemented in CLI source | Checks local `ip`/`getent` availability and reports interface/default-route/DNS-localhost information; live host inspection NOT RUN. |
+| Separate access choices | Implemented in CLI source | DNS provider, public ingress (Cloudflare Tunnel/direct origin), and private administration (Tailscale/WireGuard/existing VPN) are independent fields. |
+| Input/config validation | Implemented; CI pending for latest head | Domain and IPv4 validation; versioned config rejects symlinks, wrong ownership, broad permissions, duplicate/unknown keys, and incomplete records. |
+| Preference persistence | Implemented in CLI source | Non-secret versioned preferences only; atomic write and owner-only permissions; interactive TTY persistence test NOT RUN. |
+| Read-only doctor | Implemented in CLI source | Reports interface/default-route failures and checks DNS resolution of `example.com`; mock failure-path tests added; real-host inspection NOT RUN. |
 | Provider authentication, DNS mutation, TLS, firewall, tunnel installation | NOT IMPLEMENTED / BLOCKED | No provider credentials are collected; no host/network changes are made. |
 | End-to-end reachability and recovery | NOT RUN | Requires disposable EL9 host and provider integration tests. |
 
-The CLI explicitly refuses `internet apply`. It must not claim that saving preferences makes a domain or account reachable. Unknown provider, DNS, router/NAT, or cloud-firewall settings require manual instructions.
+The CLI explicitly refuses `internet apply`. It must not claim that saving preferences makes a domain or account reachable. DNS provider, public ingress, and private administration are separate choices; Cloudflare Tunnel routing is not represented as direct-origin A/AAAA DNS. Unknown provider, DNS, router/NAT, or cloud-firewall settings require manual instructions.
