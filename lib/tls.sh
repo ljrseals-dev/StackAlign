@@ -25,20 +25,15 @@ sa_tls_preflight() {
         if systemctl is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
     done
     if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -Eq 'acme\.sh|(^|[[:space:]/])(lego|certbot)([[:space:]]|$)'; then
-        echo "scheduler: acme.sh cron entry present"; found=1
+        echo "scheduler: ACME client cron entry present"; found=1
     fi
     [ "$found" -eq 0 ] || return 2
 }
 
-# Refuses while an upstream scheduler is active unless SA_TLS_ALLOW_UPSTREAM=1.
+# Renewal automation is disabled until lineage ownership and scheduler isolation exist.
 sa_tls_enable_renewal_timer() {
-    local rc=0
-    sa_tls_preflight >/dev/null || rc=$?
-    if [ "$rc" -eq 2 ] && [ "${SA_TLS_ALLOW_UPSTREAM:-0}" != 1 ]; then
-        echo "tls: upstream scheduler active; refusing (set SA_TLS_ALLOW_UPSTREAM=1 to override)" >&2
-        return 2
-    fi
-    systemctl enable --now stackalign-renew.timer
+    echo "tls: renewal timer enablement BLOCKED — scheduler ownership and renewal execution are not implemented" >&2
+    return 2
 }
 
 
