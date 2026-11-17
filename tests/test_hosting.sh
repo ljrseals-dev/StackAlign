@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr.
+set -u
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+source "$ROOT/lib/hosting.sh"
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+pass=0 fail=0
+ok(){ pass=$((pass+1)); echo "ok   - $1"; }
+bad(){ fail=$((fail+1)); echo "FAIL - $1"; }
+
+for mode in nginx apache hybrid; do
+  out=$(sa_hosting_plan "$mode" 2>&1); rc=$?
+  if [ "$rc" -eq 0 ] && [[ "$out" == *"No packages installed"* ]]; then
+    ok "$mode plan is read-only"
+  else bad "$mode plan"; fi
+done
+out=$(sa_hosting_plan apache)
+[[ "$out" == *"httpd"* && "$out" == *"proxy_fcgi_module"* && "$out" == *"loopback"* ]] && ok "Apache plan declares package, PHP-FPM integration and private backend" || bad "Apache plan contract"
+out=$(sa_hosting_plan hybrid)
+[[ "$out" == *"127.0.0.1:8081"* && "$out" == *"never public"* ]] && ok "hybrid plan keeps Apache upstream private" || bad "hybrid private upstream"
+sa_hosting_plan invalid >/dev/null 2>&1; [ $? -eq 64 ] && ok "unknown mode rejected" || bad "unknown mode rejected"
+echo "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
