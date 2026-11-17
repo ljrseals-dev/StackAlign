@@ -14,6 +14,42 @@
 : "${SA_SFTP_KEYDIR:=/etc/ssh/sftp_keys}"
 : "${SA_SFTP_DROPIN:=/etc/ssh/sshd_config.d/50-stackalign-sftp.conf}"
 
+# Values interpolated into sshd_config must be single-line, canonical absolute paths.
+# realpath -m also detects symlinked existing parent components before mkdir/install.
+_sa_sftp_safe_config_path() {
+    local path=${1:-} resolved
+    [[ $path == /* && $path != / && $path != */ && $path != *..* && $path =~ ^/[A-Za-z0-9._/-]+$ ]] || return 1
+    resolved=$(realpath -m -- "$path" 2>/dev/null) || return 1
+    [[ $resolved == "$path" ]]
+}
+
+_sa_sftp_config_ok() {
+    local dir resolved
+    [[ $SA_SFTP_GROUP =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || {
+        echo "sftp: invalid group name for sshd configuration" >&2; return 64;
+    }
+    _sa_sftp_safe_config_path "$SA_SFTP_BASE" &&
+        _sa_sftp_safe_config_path "$SA_SFTP_KEYDIR" &&
+        _sa_sftp_safe_config_path "$SA_SFTP_DROPIN" || {
+        echo "sftp: base, key directory, and drop-in must be canonical safe absolute paths" >&2
+        return 64
+    }
+    dir=${SA_SFTP_DROPIN%/*}
+    [ -d "$dir" ] && [ ! -L "$dir" ] || {
+        echo "sftp: sshd configuration directory is missing or symlinked" >&2; return 1;
+    }
+    resolved=$(realpath -e -- "$dir" 2>/dev/null) || return 1
+    [ "$resolved" = "$dir" ] || {
+        echo "sftp: sshd configuration directory resolves through a symlink" >&2; return 1;
+    }
+    [ ! -L "$SA_SFTP_DROPIN" ] || {
+        echo "sftp: refusing symlinked sshd drop-in" >&2; return 1;
+    }
+    if [ -e "$SA_SFTP_DROPIN" ] && [ ! -f "$SA_SFTP_DROPIN" ]; then
+        echo "sftp: sshd drop-in exists but is not a regular file" >&2; return 1
+    fi
+}
+
 _sa_sftp_user_ok() { [[ $1 =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] && [ "$1" != root ]; }
 _sa_sftp_key_ok() {
     [[ $1 =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com)[\ ][A-Za-z0-9+/=]+([\ ][A-Za-z0-9@._-]+)?$ ]]
@@ -38,6 +74,7 @@ _sa_sftp_set_random_password() {
 }
 
 sa_sftp_render() {
+    _sa_sftp_config_ok || return $?
     printf 'Match Group %s\n' "$SA_SFTP_GROUP"
     printf '    ChrootDirectory %s/%%u\n' "$SA_SFTP_BASE"
     printf '    ForceCommand internal-sftp -d /files\n'
@@ -51,8 +88,8 @@ sa_sftp_render() {
 
 sa_sftp_enable() {
     local dir new backup=""
+    _sa_sftp_config_ok || return $?
     dir="$(dirname "$SA_SFTP_DROPIN")"
-    [ -d "$dir" ] || { echo "sftp: $dir does not exist" >&2; return 1; }
     _sa_sftp_group || return 1
     install -d -m 0755 -o root -g root -- "$SA_SFTP_BASE" "$SA_SFTP_KEYDIR" || return 1
     new="$(mktemp "$dir/.sa-sftp.XXXXXX")" || return 1
@@ -75,6 +112,7 @@ sa_sftp_enable() {
 
 sa_sftp_add_user() {
     local user=${1:-} keyfile=${2:-} key chroot tmp
+    _sa_sftp_config_ok || return $?
     _sa_sftp_user_ok "$user" || { echo "sftp: bad username" >&2; return 64; }
     [ -f "$keyfile" ] || { echo "sftp: key file not found" >&2; return 64; }
     key="$(<"$keyfile")"
