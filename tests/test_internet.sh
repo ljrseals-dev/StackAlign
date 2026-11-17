@@ -49,7 +49,7 @@ XDG_CONFIG_HOME=relative sa_internet_config_path >/dev/null 2>&1; rc=$?
 
 
 out=$(sa_internet_plan both other cloudflare_tunnel tailscale example.com "" 2>&1); rc=$?
-{ [ "$rc" -eq 0 ] && [[ "$out" == *"DNS action: MANUAL"* ]] && [[ "$out" == *"do not point an A record"* ]]; } && ok "Cloudflare Tunnel is not confused with direct-origin A records" || bad "tunnel DNS distinction"
+{ [ "$rc" -eq 0 ] && [[ "$out" == *"DNS action: MANUAL"* ]] && [[ "$out" == *"Do not point an A record"* ]]; } && ok "Cloudflare Tunnel is not confused with direct-origin A records" || bad "tunnel DNS distinction"
 out=$(sa_internet_plan public other direct none example.com 8.8.8.8 2>&1); rc=$?
 { [ "$rc" -eq 0 ] && [[ "$out" == *"A record"* ]] && [[ "$out" == *"AAAA only after separately verifying"* ]]; } && ok "direct ingress plans A/AAAA to supplied public IP" || bad "direct DNS plan"
 sa_internet_plan private none none tailscale "" "" >/dev/null 2>&1; rc=$?
