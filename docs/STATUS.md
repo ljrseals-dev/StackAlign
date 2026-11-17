@@ -131,12 +131,12 @@ The CLI explicitly refuses `internet apply`. It must not claim that saving prefe
 
 | Area | State | Evidence / boundary |
 |---|---|---|
-| Logical backup | Implemented; CI pending | `stackalign backup run logical <absolute-dir> [--apply]` uses `mysqldump --single-transaction --routines --triggers --all-databases` and gzip. Output is private mode 0600 with a visible timestamp/random filename. |
-| Physical backup | Implemented; CI pending | `stackalign backup run physical <absolute-mariadb-dir> --apply` runs MariaBackup backup and prepare. Partial failures are retained and marked incomplete rather than silently deleted. |
-| Backup listing | Implemented; CI pending | Lists only recognized top-level logical and physical artifacts; symlink entries are ignored. |
-| Integrity checks | Implemented; CI pending | Logical checks gzip container integrity only. Physical checks the `full-prepared` checkpoint marker. Neither proves restoreability. |
+| Logical backup | Implemented; CI PASS | `stackalign backup run logical <absolute-dir> [--apply]` uses `mysqldump --single-transaction --routines --triggers --events --hex-blob --all-databases` and gzip. Output is private mode 0600 with a visible timestamp/random filename. |
+| Physical backup | Implemented; CI PASS | `stackalign backup run physical <absolute-mariadb-dir> --apply` runs MariaBackup backup and prepare under umask 077. Partial failures are retained and marked incomplete rather than silently deleted. |
+| Backup listing | Implemented; CI PASS | Lists only recognized top-level logical and physical artifacts; symlink entries are ignored. |
+| Integrity checks | Implemented; CI PASS | Logical checks gzip container integrity only. Physical checks the `full-prepared` checkpoint marker. Neither proves restoreability. |
 | Credential handling | Guarded | MySQL defaults file must be a regular, non-symlink file owned by the invoking user with mode 0400 or 0600; credentials are not passed as command-line values. |
 | Restore | BLOCKED | No pre-restore snapshot, engine-specific recovery, rollback, or verified live restore contract. CLI refuses without touching database state. |
 | Encryption, retention, off-host copy | NOT IMPLEMENTED in CLI | Existing rclone helper is not exposed; no encryption or remote recovery guarantee is claimed. |
 
-Automated tests use fake `mysqldump` and `mariabackup` commands; they do not contact a live database. CI results must be recorded against the exact PR head. Real MariaDB/MariaBackup backup and restore testing remains NOT RUN.
+Automated tests use fake `mysqldump` and `mariabackup` commands; they do not contact a live database. GitHub Actions run #757 on head `0e91413446b9984604a72ffda92045ada46d53d1` passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9. Real MariaDB/MariaBackup backup and restore testing remains NOT RUN.
