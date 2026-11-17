@@ -35,7 +35,7 @@ The repository contains the following implemented areas. Each item is subject to
 | Oracle Linux migration wrapper | Guarded CentOS 7/8 conversion wrapper and Oracle Linux 7/8 update wrapper | Fake-tool tests only; live conversion and package updates have not been run. |
 | SFTP module/tests | Chrooted key-only SFTP policy and a real-sshd integration test path | CI coverage is not a substitute for disposable-host validation. |
 
-The current LEMP bootstrap is limited to distro-provided packages and an Nginx listener on `127.0.0.1:8080`. It does not configure public ingress, TLS, DNS, firewall rules, application databases/users, tenant isolation, backups, or production hardening. See [LEMP beta guide](docs/LEMP-BETA.md).
+The current LEMP bootstrap is limited to distro-provided packages and an Nginx listener on `127.0.0.1:8080`. A read-only hosting planner now describes `nginx`, `apache`, and `hybrid` modes; Apache/hybrid apply remains blocked pending tenant isolation and real-host acceptance. It does not configure public ingress, TLS, DNS, firewall rules, application databases/users, tenant isolation, backups, or production hardening. See [LEMP beta guide](docs/LEMP-BETA.md).
 
 ## Quick start
 
@@ -60,7 +60,7 @@ bash bin/stackalign help
 bash bin/stackalign doctor
 ```
 
-### Plan the LEMP bootstrap
+### Inspect hosting modes\n\nThe hosting planner is read-only and does not install packages or alter services:\n\n```bash\nbash bin/stackalign hosting plan nginx\nbash bin/stackalign hosting plan apache\nbash bin/stackalign hosting plan hybrid\nbash bin/stackalign hosting doctor\n```\n\nApache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; runtime apply is deliberately blocked until tenant identity, PHP-FPM, service/cgroup isolation, and real-host validation are complete. See [hosting modes](docs/HOSTING-MODES.md) and [Apache upstream integration](docs/APACHE-UPSTREAM.md).\n\n### Plan the LEMP bootstrap
 
 On a disposable supported EL9 VM:
 
@@ -144,7 +144,7 @@ A source file, design note, mock test, CI result, or successful plan does not pr
 
 ## Documentation
 
-- [LEMP beta bootstrap](docs/LEMP-BETA.md) — supported scope, apply behavior, recovery limitations, and host-validation checklist.
+- [Hosting modes](docs/HOSTING-MODES.md) — Nginx, Apache, and hybrid mode contract and apply gates.\n- [Apache upstream integration](docs/APACHE-UPSTREAM.md) — reverse-proxy architecture, PHP-FPM integration requirements, and security boundaries.\n- [LEMP beta bootstrap](docs/LEMP-BETA.md) — supported scope, apply behavior, recovery limitations, and host-validation checklist.
 - [Egress firewall and passive LAN audit](docs/EGRESS.md) — opt-in nftables rules and read-only neighbour-cache audit.
 - [Oracle Linux migration and updates](docs/ORACLE-LINUX-MIGRATION.md) — guarded conversion and package-update workflow.
 - [Release Artifact Trust](docs/RELEASE-TRUST.md) — detached-signature and artifact-verification design/implementation boundary.
