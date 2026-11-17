@@ -22,6 +22,7 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck gnupg openssh-server openssh-client
       - run: make lint
+      - run: make headers
       - run: make test
 
   almalinux9:
@@ -34,4 +35,5 @@ jobs:
         run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients
       - uses: actions/checkout@v6
       - run: make lint
+      - run: make headers
       - run: make test
