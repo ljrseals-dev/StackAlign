@@ -38,6 +38,10 @@ The intended topology is:
 
 The backend address is a design default, not an active listener or a firewall guarantee.
 
+## Operator scope selection
+
+Before configuring hosting, run `stackalign hosting setup` from an interactive terminal. It asks whether the server is managed by one administrator across multiple accounts or is intended for multiple independent end users. The first choice is a single-admin scope, not a claim of per-account isolation. The second choice is explicitly blocked until independent-user isolation is implemented and adversarially tested. The current command reports the selection but does not persist it; durable scope configuration is not yet implemented.
+
 ## CLI
 
 Read-only plans:
@@ -46,12 +50,13 @@ Read-only plans:
 stackalign hosting plan nginx
 stackalign hosting plan apache
 stackalign hosting plan hybrid
+stackalign hosting setup
 ```
 
 Inspect installed server binaries and Apache proxy module availability:
 
 ```bash
-stackalign hosting doctor
+stackalign hosting doctor [nginx|apache|hybrid]
 ```
 
 No apply command is available yet. An attempted apply must fail closed rather than partially configuring a host.
