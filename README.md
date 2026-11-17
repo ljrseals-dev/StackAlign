@@ -34,6 +34,7 @@ The repository contains the following implemented areas. Each item is subject to
 | Release verification | Detached GPG signature, pinned primary-key fingerprint, signed metadata expiry, and artifact SHA-256 verification foundation | Not yet integrated into the release installer or update workflow. |
 | Oracle Linux migration wrapper | Guarded CentOS 7/8 conversion wrapper and Oracle Linux 7/8 update wrapper | Fake-tool tests only; live conversion and package updates have not been run. |
 | SFTP module/tests | Chrooted key-only SFTP policy and a real-sshd integration test path | CI coverage is not a substitute for disposable-host validation. |
+| Database backup | Explicit logical `mysqldump` and physical MariaBackup workflows; list and integrity verification | Requires an owner-only MySQL defaults file; logical verification checks gzip integrity, not SQL restoreability; restore, encryption, retention, and off-host verification remain gated. |
 
 The current LEMP bootstrap is limited to distro-provided packages and an Nginx listener on `127.0.0.1:8080`. A read-only hosting planner now describes `nginx`, `apache`, and `hybrid` modes; Apache/hybrid apply remains blocked pending tenant isolation and real-host acceptance. It does not configure public ingress, TLS, DNS, firewall rules, application databases/users, tenant isolation, backups, or production hardening. See [LEMP beta guide](docs/LEMP-BETA.md).
 
@@ -85,6 +86,26 @@ bash bin/stackalign internet doctor
 ```
 
 The wizard separately asks who manages DNS, how public websites should be reached (Cloudflare Tunnel or direct public IP), and how administrators should connect privately (Tailscale, WireGuard, or an existing VPN). This prevents treating a tunnel as a direct-origin A record or confusing private VPN access with public DNS. It stores only non-secret preferences with restrictive local permissions and validates saved configuration before reuse. It does **not** install clients, authenticate providers, change DNS, issue certificates, open firewall ports, or alter services. `internet apply` remains blocked. See [internet access setup](docs/INTERNET-ACCESS.md).
+
+### Create and inspect database backups
+
+The backup CLI is plan-only unless `--apply` is supplied. Configure `SA_MYSQL_DEFAULTS_FILE` to point to a regular MySQL client defaults file owned by the invoking user with mode `400` or `600`. Keep it outside the repository and do not put credentials on the command line.
+
+```bash
+export SA_MYSQL_DEFAULTS_FILE=/etc/stackalign/mysql-backup.cnf
+bash bin/stackalign backup run logical /var/backups/stackalign
+sudo SA_MYSQL_DEFAULTS_FILE=/root/stackalign-mysql.cnf bash bin/stackalign backup run logical /var/backups/stackalign --apply
+bash bin/stackalign backup list /var/backups/stackalign
+bash bin/stackalign backup verify /var/backups/stackalign/db-<timestamp>-<random>.sql.gz
+```
+
+For a physical MariaBackup, use a new absolute directory whose final component starts with `mariadb-`:
+
+```bash
+sudo SA_MYSQL_DEFAULTS_FILE=/root/stackalign-mysql.cnf bash bin/stackalign backup run physical /var/backups/stackalign/mariadb-<timestamp> --apply
+```
+
+Logical verification runs `gzip -t`; it does not parse SQL or prove a successful restore. Physical verification checks the MariaBackup `full-prepared` checkpoint marker; it does not restore the data. `stackalign restore --from ... --apply` remains blocked until pre-restore snapshotting, engine-specific recovery, and failure rollback are implemented and tested. Backups are not encrypted or automatically transferred off-host by this CLI.
 
 ### Plan the LEMP bootstrap
 
@@ -146,7 +167,8 @@ The repository's CI workflows exercise Ubuntu and AlmaLinux 9. Treat a CI result
 The following are not established as complete production workflows:
 
 - Public web ingress, TLS issuance/renewal, DNS, and production firewall configuration; the internet wizard currently captures preferences and plans only.
-- Application database/user provisioning, tenant management/isolation, and backups.
+- Application database/user provisioning and tenant management/isolation.
+- Automated database restore, encrypted backup storage, retention scheduling, off-host replication, and disaster-recovery validation; current backup commands only create/list/check artifacts.
 - Unattended updates or self-update.
 - A release installer integrated with the release-signature verifier.
 - Real-host package update transactions, service recovery, and rollback.
