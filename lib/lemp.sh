@@ -40,11 +40,33 @@ sa_lemp_web_root_valid() {
   esac
 }
 
-# Refuse symlink/non-regular managed targets before DNF or file writes. In
-# particular, writing the generated index.php through a symlink would let a
-# privileged install overwrite a file outside the configured document root.
+# Refuse symlinked path components, not just symlinked leaf files. A
+# symlinked public/ directory would otherwise redirect the generated health
+# page outside the configured web root even when index.php itself is regular.
+sa_lemp_path_components_safe() {
+  local candidate=$1 current=/ component
+  local -a components=()
+  IFS=/ read -r -a components <<< "$candidate"
+  for component in "${components[@]}"; do
+    [ -n "$component" ] || continue
+    current="${current%/}/$component"
+    if [ -L "$current" ]; then
+      echo "stackalign install: refusing symlinked path component: $current" >&2
+      return 64
+    fi
+  done
+}
+
+# Refuse symlink/non-regular managed targets before DNF or file writes.
 sa_lemp_targets_safe() {
   local path
+  for path in "$SA_LEMP_ETC_ROOT/php-fpm.d" "$SA_LEMP_ETC_ROOT/nginx/conf.d" "$SA_LEMP_WEB_ROOT" "$SA_LEMP_WEB_ROOT/public"; do
+    sa_lemp_path_components_safe "$path" || return $?
+    if [ -e "$path" ] && [ ! -d "$path" ]; then
+      echo "stackalign install: managed directory path is not a directory: $path" >&2
+      return 64
+    fi
+  done
   for path in "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
     if [ -L "$path" ]; then
       echo "stackalign install: refusing symlinked managed target: $path" >&2
