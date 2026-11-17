@@ -31,6 +31,8 @@ printf '%s\n' "$out" | grep -q 'certificate: NOT_EXPIRED'
 printf '%s\n' "$out" | grep -q 'hostname: MATCH (example.test)'
 printf '%s\n' "$out" | grep -q 'private_key: MATCH'
 printf '%s\n' "$out" | grep -q 'renewal: DUE_WITHIN_30_DAYS'
+cli_out=$(bash "$ROOT/bin/stackalign" tls status example.test)
+printf '%s\n' "$cli_out" | grep -q 'private_key: MATCH'
 
 # The reverse mapping for wildcard lineage names must preserve exactly one dot.
 make_lineage "_wildcard_.wild.example.test" "*.wild.example.test"
@@ -74,5 +76,19 @@ rc=$?
 set -e
 [ "$rc" -eq 2 ]
 grep -q 'BLOCKED' "$TMP/issue.out"
+
+set +e
+sa_tls_enable_renewal_timer >"$TMP/timer.out" 2>&1
+rc=$?
+set -e
+[ "$rc" -eq 2 ]
+grep -q 'BLOCKED' "$TMP/timer.out"
+
+set +e
+sa_tls_issue example.test lego letsencrypt http-01 "$TMP" test@example.test nginx >"$TMP/issue-helper.out" 2>&1
+rc=$?
+set -e
+[ "$rc" -eq 2 ]
+grep -q 'BLOCKED' "$TMP/issue-helper.out"
 
 echo "TLS status tests: PASS"
