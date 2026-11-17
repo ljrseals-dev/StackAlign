@@ -157,7 +157,9 @@ A source file, design note, mock test, CI result, or successful plan does not pr
 
 ## Documentation
 
-- [Hosting modes](docs/HOSTING-MODES.md) — Nginx, Apache, and hybrid mode contract and apply gates.\n- [Apache upstream integration](docs/APACHE-UPSTREAM.md) — reverse-proxy architecture, PHP-FPM integration requirements, and security boundaries.\n- [LEMP beta bootstrap](docs/LEMP-BETA.md) — supported scope, apply behavior, recovery limitations, and host-validation checklist.
+- [Hosting modes](docs/HOSTING-MODES.md) — Nginx, Apache, and hybrid mode contract and apply gates.
+- [Apache upstream integration](docs/APACHE-UPSTREAM.md) — reverse-proxy architecture, PHP-FPM integration requirements, and security boundaries.
+- [LEMP beta bootstrap](docs/LEMP-BETA.md) — supported scope, apply behavior, recovery limitations, and host-validation checklist.
 - [Egress firewall and passive LAN audit](docs/EGRESS.md) — opt-in nftables rules and read-only neighbour-cache audit.
 - [Oracle Linux migration and updates](docs/ORACLE-LINUX-MIGRATION.md) — guarded conversion and package-update workflow.
 - [Release Artifact Trust](docs/RELEASE-TRUST.md) — detached-signature and artifact-verification design/implementation boundary.
