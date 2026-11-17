@@ -96,3 +96,30 @@ The existing `install` command and LEMP beta behavior are unchanged. No claim of
 | Mode-specific doctor | Implemented; live host inspection NOT RUN | `hosting doctor nginx|apache|hybrid` checks only the selected mode's binaries and Apache modules where applicable. |
 
 The shared PHP-FPM `www` pool is explicitly not treated as tenant isolation. This work does not change the existing LEMP bootstrap or enable Apache apply.
+
+
+## Internet access wizard — feature branch implementation
+
+**Branch:** `feat/internet-access-wizard` (stacked on `feat/apache-upstream-hosting`; neither change is merged to `main`).
+
+| Area | State | Evidence / boundary |
+|---|---|---|
+| Access-purpose questions | Implemented in CLI source | Public website, private administration, or both. Interactive execution NOT RUN. |
+| Separate access choices | Implemented in CLI source | DNS provider, public ingress (Cloudflare Tunnel/direct origin), and private administration (Tailscale/WireGuard/existing VPN) are independent fields. |
+| Input/config validation | Implemented; CI PASS | Domain and public IPv4 validation; versioned config rejects symlinks, wrong ownership, broad permissions, duplicate/unknown keys, and incomplete records. CI run 702 passed `make lint` and `make test` on Ubuntu and AlmaLinux 9 at head `517aca32bd6f02f42df2c8475cf034904fdb85ba`. |
+| Preference persistence | Implemented in CLI source | Non-secret versioned preferences only; atomic write and owner-only permissions; interactive TTY persistence test NOT RUN. |
+| Read-only doctor | Implemented; mock tests CI PASS | Reports interface/default-route/DNS failures and checks resolution of `example.com`; real-host inspection NOT RUN. |
+| Provider authentication, DNS mutation, TLS, firewall, tunnel installation | NOT IMPLEMENTED / BLOCKED | No provider credentials are collected; no host/network changes are made. |
+| End-to-end reachability and recovery | NOT RUN | Requires disposable EL9 host and provider integration tests. |
+
+The CLI explicitly refuses `internet apply`. It must not claim that saving preferences makes a domain or account reachable. DNS provider, public ingress, and private administration are separate choices; Cloudflare Tunnel routing is not represented as direct-origin A/AAAA DNS. Unknown provider, DNS, router/NAT, or cloud-firewall settings require manual instructions.
+
+
+## Centmin Mod feature comparison and Pinecone planning client — 2026-11-17
+
+- Capability comparison: see docs/CENTMINMOD-CAPABILITY-GAP.md. It compares Centmin Mod 141.00beta01's 24 menu options and addon catalogue against the current StackAlign branch, distinguishing missing features from existing partial libraries and gated CLI stubs.
+- Pinecone client: stackalign agent status and stackalign agent ask are implemented as read-only planning operations. The client submits doctor and repository-inventory output with the operator's question; the model response is displayed only and never executed.
+- Sidecar deployment: NOT AUTOMATED. The upstream pinecone-neural main branch was found to execute model-generated Python via eval/exec. A hardening PR is open at pinecone-neural#1; do not deploy the vulnerable main branch as a privileged agent.
+- Host authority: the sidecar receives no root access, shell tool, Docker socket, or host filesystem mount. Any future provisioning remains in StackAlign's native approval-gated commands.
+- Remote API use: HTTPS only, with explicit STACKALIGN_AGENT_ALLOW_REMOTE=1; plain remote HTTP is rejected. API key is read from the environment and written only to a mode-600 temporary header file.
+- Validation: implementation code at 9f8b69a passed `make lint` and `make test` on Ubuntu and AlmaLinux 9 (runs #717 and #718). The expanded addon inventory documentation also passed PR CI on 82cfb43 (run #720, both environments). A final client-only change caps response downloads at 1 MiB; CI for the latest head is running (run #729). No live sidecar/provider or real-host deployment was run.

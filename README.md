@@ -74,6 +74,18 @@ bash bin/stackalign hosting doctor hybrid
 
 Run `hosting setup` first from an interactive terminal to identify the intended operator model. It distinguishes one administrator managing multiple accounts from multiple independent end users. The independent-user choice is blocked until isolation is implemented and tested. The prompt currently reports the choice but does not persist it. A shared PHP-FPM `www` pool is not per-account isolation. Apache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; runtime apply is deliberately blocked until tenant identity, PHP-FPM, service/cgroup isolation, and real-host validation are complete. See [hosting modes](docs/HOSTING-MODES.md) and [Apache upstream integration](docs/APACHE-UPSTREAM.md).
 
+### Configure internet access
+
+The interactive wizard captures non-secret access preferences and produces a read-only plan:
+
+```bash
+bash bin/stackalign internet setup
+bash bin/stackalign internet plan
+bash bin/stackalign internet doctor
+```
+
+The wizard separately asks who manages DNS, how public websites should be reached (Cloudflare Tunnel or direct public IP), and how administrators should connect privately (Tailscale, WireGuard, or an existing VPN). This prevents treating a tunnel as a direct-origin A record or confusing private VPN access with public DNS. It stores only non-secret preferences with restrictive local permissions and validates saved configuration before reuse. It does **not** install clients, authenticate providers, change DNS, issue certificates, open firewall ports, or alter services. `internet apply` remains blocked. See [internet access setup](docs/INTERNET-ACCESS.md).
+
 ### Plan the LEMP bootstrap
 
 On a disposable supported EL9 VM:
@@ -133,7 +145,7 @@ The repository's CI workflows exercise Ubuntu and AlmaLinux 9. Treat a CI result
 
 The following are not established as complete production workflows:
 
-- Public web ingress, TLS issuance/renewal, DNS, and production firewall configuration.
+- Public web ingress, TLS issuance/renewal, DNS, and production firewall configuration; the internet wizard currently captures preferences and plans only.
 - Application database/user provisioning, tenant management/isolation, and backups.
 - Unattended updates or self-update.
 - A release installer integrated with the release-signature verifier.
@@ -158,6 +170,7 @@ A source file, design note, mock test, CI result, or successful plan does not pr
 
 ## Documentation
 
+- [Internet access setup](docs/INTERNET-ACCESS.md) — access-purpose questions, tunnel selection, manual fallback, and security boundaries.
 - [Hosting modes](docs/HOSTING-MODES.md) — Nginx, Apache, and hybrid mode contract and apply gates.
 - [Apache upstream integration](docs/APACHE-UPSTREAM.md) — reverse-proxy architecture, PHP-FPM integration requirements, and security boundaries.
 - [LEMP beta bootstrap](docs/LEMP-BETA.md) — supported scope, apply behavior, recovery limitations, and host-validation checklist.
@@ -206,3 +219,13 @@ This wrapper has fake-tool unit coverage only. Live CentOS conversion, Oracle re
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+
+### Optional Pinecone Neural planning sidecar
+
+StackAlign can send a read-only host doctor and repository inventory snapshot to an already-running, hardened Pinecone Neural sidecar. It only displays recommendations; model output is never executed. The sidecar is optional and is not installed or started by StackAlign. See [the integration contract](docs/PINECONE-AGENT-INTEGRATION.md) and [Centmin Mod capability gap analysis](docs/CENTMINMOD-CAPABILITY-GAP.md).
+
+```bash
+stackalign agent status
+STACKALIGN_AGENT_API_KEY='<configured sidecar key>' stackalign agent ask "Review the current hosting and backup gaps"
+```
