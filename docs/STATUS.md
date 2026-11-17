@@ -177,3 +177,11 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - `stackalign db status` is read-only and reports the connected server version plus the authenticated database account.
 - Credentials continue to come from the same absolute owner-only defaults file used by `db list/create`; secrets are not passed as values in command arguments.
 - Tests use a fake `mysql` client. Live server connectivity, account privileges, and MariaDB-version compatibility remain NOT RUN.
+
+
+### Database account inventory — feature branch implementation
+
+- `stackalign db user list` reports database account names and host patterns only.
+- The query does not select password hashes or authentication plugin data.
+- Account creation, grants, password rotation, and application credential handoff remain NOT IMPLEMENTED.
+- Fake-client tests validate command routing and output; no live account inventory has been run.
