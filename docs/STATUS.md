@@ -211,14 +211,14 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 
 ## Administrator-managed static Nginx site lifecycle — follow-on branch
 
-**Branch:** `feat/admin-managed-nginx-sites` (stacked on current-main site inventory PR #67; CI pending).
+**PR:** #70 — `feat/admin-managed-nginx-sites` (stacked on current-main site inventory PR #67; CI PASS).
 
 | Area | State | Boundary |
 |---|---|---|
-| Site creation | Implemented in branch | Plan/apply static vhost with strict hostname and canonical document-root validation; loopback-only listener; no PHP handler. |
-| Site removal | Implemented in branch | Removes only a marked StackAlign config after private backup; preserves document root and site data. |
-| Recovery | Implemented in branch; CI pending | Nginx syntax/reload failure attempts restore; retained backup allows manual recovery. |
+| Site creation | Implemented; CI PASS | Plan/apply static vhost with strict hostname and canonical document-root validation; loopback-only listener; no PHP handler. |
+| Site removal | Implemented; CI PASS | Removes only a marked StackAlign config after private backup; preserves document root and site data. |
+| Recovery | Implemented; CI PASS | Nginx syntax/reload failure attempts restore; retained backup allows manual recovery. |
 | Independent-user isolation | NOT IMPLEMENTED | No per-user identity, PHP-FPM isolation, process/resource isolation, or adversarial tenant guarantee. |
-| Live-host acceptance | NOT RUN | Fake Nginx/systemd tests only until disposable EL9 validation. |
+| Live-host acceptance | NOT RUN | CI run #44132375470 passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9 at head `866439903994f2de9241d0f5a306422c410bb1c0`; tests use fake Nginx/systemd commands only. |
 
 See `docs/SITE-LIFECYCLE.md` for exact commands and constraints.
