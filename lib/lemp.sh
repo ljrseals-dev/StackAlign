@@ -21,11 +21,32 @@ sa_lemp_web_root_valid() {
     echo "stackalign install: web root must be an absolute path containing only letters, digits, dot, underscore, slash, and hyphen" >&2
     return 64
   }
+  [[ $web != *//* && $web != */ ]] || {
+    echo "stackalign install: web root must not contain duplicate or trailing slashes" >&2
+    return 64
+  }
   case "$web" in
     *"/../"*|*/..|*"/./"*|*/.)
       echo "stackalign install: web root must not contain dot or dot-dot path components" >&2
       return 64 ;;
   esac
+}
+
+# Refuse symlink/non-regular managed targets before DNF or file writes. In
+# particular, writing the generated index.php through a symlink would let a
+# privileged install overwrite a file outside the configured document root.
+sa_lemp_targets_safe() {
+  local path
+  for path in "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
+    if [ -L "$path" ]; then
+      echo "stackalign install: refusing symlinked managed target: $path" >&2
+      return 64
+    fi
+    if [ -e "$path" ] && [ ! -f "$path" ]; then
+      echo "stackalign install: managed target is not a regular file: $path" >&2
+      return 64
+    fi
+  done
 }
 
 sa_lemp_host_check() {
@@ -80,6 +101,7 @@ sa_lemp_restore() {
 sa_lemp_apply() {
   [ "${SA_LEMP_TESTING:-0}" = 1 ] || [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   sa_lemp_host_check || return $?
+  sa_lemp_targets_safe || return $?
   local etc="$SA_LEMP_ETC_ROOT" web="$SA_LEMP_WEB_ROOT"
   local pool="$etc/php-fpm.d/www.conf" site="$etc/nginx/conf.d/stackalign.conf"
   local backup failed=0
