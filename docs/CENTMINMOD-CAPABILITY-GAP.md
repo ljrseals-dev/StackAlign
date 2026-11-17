@@ -1,0 +1,125 @@
+# Centmin Mod capability gap and StackAlign adoption plan
+
+**Research snapshot:** 2026-11-17  
+**Upstream reference:** Centmin Mod 141.00beta01 menu and addon catalogue  
+**StackAlign baseline:** feat/internet-access-wizard at c221951260e38eca1eb7c9d3ab1f9d1b4b445650 (PR #52 head; stacked on PR #51)
+
+This is a capability comparison, not a claim that Centmin Mod's implementation is suitable to copy or run on a StackAlign host. Centmin Mod's repository is GPL-3.0; StackAlign is MIT. Do not copy upstream implementation code into StackAlign without a deliberate licensing decision. Implement compatible behavior independently, or use Centmin Mod itself as a separately installed product on a fresh host.
+
+## Executive summary
+
+Centmin Mod is a much broader hosting control toolkit than StackAlign's current beta. Its documented 24-option menu covers initial stack installation, virtual hosts, DNS, Nginx/PHP/MariaDB version management, database administration, persistent configuration, PostgreSQL, Memcached, OPcache, Redis/Imagick/Suhosin/FFmpeg PHP extensions, SSH port changes, compression utilities, data transfer/backup, WordPress hosting, and self-updating. Its addon catalogue adds ACME certificates, malware scanning, DKIM, WP-CLI, Redis server, Passenger, Node.js, Go, Ruby, Python runtimes, Docker, rclone, GeoIP, and system information pages.
+
+StackAlign already contains several building blocks, but many are not reachable from the CLI, are plan-only, are incomplete, or lack live-host validation. The main gap is not simply missing package names: it is complete lifecycle behavior, safe multi-tenant isolation, integration, rollback, and acceptance tests.
+
+## Capability matrix
+
+Legend:
+- **Implemented** — behavior exists and is wired, subject to the documented test limits.
+- **Partial / gated** — a library, template, plan, or narrow behavior exists, but lifecycle/apply/integration is incomplete.
+- **Missing** — no implementation found in the inspected baseline.
+- **Do not adopt** — upstream feature conflicts with StackAlign's security or packaging policy.
+
+| Centmin Mod capability | StackAlign evidence | Assessment | Work needed |
+|---|---|---|---|
+| Full Nginx + PHP-FPM + MariaDB bootstrap | lib/lemp.sh; EL9 distro packages; loopback-only 127.0.0.1:8080 | **Partial / implemented beta** | Expand only after supported-host and rollback tests; no production claim yet |
+| Nginx virtual-host create/list/remove | site command remains a stub; hosting modes are read-only | **Missing** | Safe site lifecycle, config validation, ownership, idempotence, removal/backup |
+| Apache and Nginx/Apache hybrid | lib/hosting.sh, PR #51 | **Plan only / apply blocked** | Implement tenant-aware pools, loopback upstream, service recovery, adversarial isolation tests |
+| Multi-user/shared hosting | Hosting setup detects scope but does not persist it; shared PHP-FPM pool | **Missing** | Per-tenant Unix identity, PHP-FPM pool/socket, filesystem/process/resource/service isolation |
+| Authoritative DNS / NSD | Internet planner only; no DNS zone service | **Missing** | Prefer external DNS provider integration; self-hosted authoritative DNS is optional and high operational burden |
+| Nginx source upgrade/downgrade and module rebuild | DNF update planning only; update check/pin/status stubs; no tested package matrix | **Partial / gated** | Version pinning, transaction preview, tested NEVRA matrix, rollback, service health; source-build parity is not a goal |
+| PHP version upgrade/downgrade and full extension rebuild | DNF plan path; no source build or version switch lifecycle | **Partial / gated** | Supported PHP stream policy, extension compatibility matrix, staged update and recovery |
+| MariaDB version upgrade and management | MariaDB package bootstrap; db lifecycle is a stub | **Partial** | Database/user lifecycle, safe credential channel, schema-aware backup/restore, tested major upgrades |
+| MySQL database/user administration | db CLI is a stub; no app DB/user provisioner | **Missing** | Create/list/drop/grant with least privilege, secret-file handoff, explicit destructive confirmation |
+| PostgreSQL server management | No PostgreSQL module or CLI | **Missing** | Optional backend module and versioned package/backup/health contract |
+| Persistent configuration manager | Generic INI parser; schema validation and writer not complete | **Partial** | Versioned schemas, typed validation, atomic writes, ownership/mode checks, drift and rollback |
+| Memcached server lifecycle | PHP extension allowlist does not install/manage Memcached server | **Missing** | Optional service install/config/health/resource cap; never expose unauthenticated cache ports publicly |
+| OPcache | Not explicitly provisioned or managed in LEMP bootstrap | **Missing / unverified** | Detect distro package state, configure and validate PHP runtime cache |
+| Redis server | redis PHP extension allowlist only | **Partial** | Redis server lifecycle, protected bind/auth, persistence policy, service health |
+| Redis PHP extension | lib/extensions.sh allowlists php-pecl-redis | **Partial** | Verify package names per EL/PHP stream and test loaded module |
+| ImageMagick PHP extension | lib/extensions.sh allowlists php-pecl-imagick | **Partial** | Verify package availability/ABI and runtime test |
+| FFmpeg and PHP extension | ffmpeg-php package mapping exists | **Partial / package assumption** | Verify package source and compatibility; separate media binary from PHP extension |
+| Other PHP extensions (igbinary, APCu, Memcached, MongoDB, Swoole, IMAP, mailparse, intl, compression) | No complete extension catalogue | **Missing / partial** | Add only supported packages with PHP ABI checks and per-extension tests |
+| Suhosin | No module | **Do not prioritize** | Legacy extension; use maintained PHP hardening controls instead |
+| TLS issuance and renewal | lib/tls.sh contains Lego/Certbot issuance and renewal helpers; CLI tls remains a stub | **Partial / not wired** | Wire tls commands, secure DNS credentials, renewal timer ownership, Nginx/Apache install/reload tests |
+| WordPress vhost/cache install | templates/nginx/site-wordpress.conf.tmpl exists; no full WordPress installer/cache lifecycle | **Partial / missing** | Secure application install, database/user, WP-CLI, cache integration, updates, file permissions |
+| Backup and data transfer | lib/backup.sh has logical dump, MariaBackup, rclone copy; backup and restore CLI commands remain stubs | **Partial / not wired** | CLI, manifests, encryption, retention, off-host transfer, restore verification, disaster-recovery tests |
+| SSH tunnel migration and key management | SFTP key-only account module; no host-to-host migration workflow | **Partial** | Explicit migration plans, source/destination checks, resumability, integrity verification |
+| Multi-thread compression utilities | No installer/manager for pigz, pbzip2, zstd, lbzip2 | **Missing** | Optional tools only if benchmarked and packaged by supported repositories |
+| SSH port change | SFTP module supports key-only chroot accounts; no SSH port manager | **Do not prioritize** | Port changes are not a substitute for key-only auth, firewall policy, and private admin access |
+| SELinux disable | No disable path; Apache docs explicitly say do not disable SELinux | **Do not adopt** | Keep SELinux enforcing; add policy diagnostics/labels if needed |
+| Firewall / intrusion protection | lib/firewall.sh supports nftables/firewalld detection and CrowdSec/Fail2ban package install; lib/egress.sh handles outbound policy | **Partial** | Complete inbound policy, persistence, safe recovery, service configuration, real-host lockout tests |
+| CSF integration | No CSF module | **Missing / not recommended as a default** | Prefer supported native nftables/firewalld policy; avoid competing firewall managers |
+| Malware scanning | lib/security.sh queues advisory ClamAV findings; no quarantine/delete | **Partial** | Scheduled scans, safe reporting, signature update policy, false-positive workflow; no automatic destructive quarantine |
+| DKIM / mail stack | No Postfix/OpenDKIM/DNS mail lifecycle | **Missing** | Optional mail-auth module only if email hosting is in scope; SPF/DKIM/DMARC remain DNS-owner tasks |
+| Vhost stats / Linfo / monitoring | No monitoring dashboard or per-site traffic reporting | **Missing** | Privacy-preserving metrics, protected endpoints, disk/service alerts, log retention |
+| Log rotation | No StackAlign logrotate manager found | **Missing** | Nginx/PHP-FPM/MariaDB rotation policies and safe validation |
+| Add-on runtimes: Passenger, Node.js, Go, Ruby, Python, Docker | No supported lifecycle in CLI | **Missing / optional scope** | Use per-app runtimes only when demanded; isolate services and pin versions |
+| GeoIP / CDN real-IP integration | No complete module | **Missing** | Trusted proxy CIDR management, current provider ranges, safe log IP handling |
+| Release self-update | install.sh refuses placeholder SHA; release verifier is not integrated with updater | **Partial / gated** | Signed release manifest, independent trust anchor, anti-rollback, staged update/rollback |
+| Server alerts and scheduled maintenance | No complete disk alert / update scheduler / notification subsystem | **Missing** | Explicit schedules, owner-only config, dry-run, bounded notifications, audit trail |
+
+## StackAlign work already present but not complete
+
+These should be completed and wired before creating duplicate implementations:
+
+1. **TLS:** lib/tls.sh already contains an ACME adapter. The CLI command is still a stub. Review existing secret handling and renewal scheduler before exposing it.
+2. **Backups:** lib/backup.sh already has mysqldump, mariabackup, and rclone copy helpers. The CLI backup/restore commands are stubs and there is no verified restore contract.
+3. **Security scanning:** lib/security.sh queues advisory ClamAV findings. It does not remediate or quarantine.
+4. **Firewall:** lib/firewall.sh has backend selection and an intrusion-tool package install helper; that is not equivalent to Centmin Mod's complete CSF-managed stack.
+5. **PHP extensions:** lib/extensions.sh has a four-item package allowlist (Redis, Imagick, FFmpeg PHP, libheif); package availability is an explicit assumption.
+6. **WordPress:** a configuration template exists, but the application/database/cache installer is absent.
+7. **Update engine:** package transaction code exists, but tested version matrices are empty and check, pin, and status remain stubs.
+8. **Hosting:** PR #51 adds Apache/hybrid planning and scope prompts only. Per-tenant isolation remains blocked.
+9. **Internet access:** PR #52 adds preference capture and read-only planning only. DNS, TLS, firewall, and tunnel provisioning remain blocked.
+
+## Priority order
+
+### P0 — close safety and lifecycle foundations
+- Wire the existing TLS module into a tested CLI workflow.
+- Wire backup and restore with authenticated/encrypted off-host backup, manifests, and restore verification.
+- Finish configuration schema validation and persistence.
+- Complete package update transaction preview, version pins, tested matrix, and release verifier integration.
+- Implement tenant identity and PHP-FPM isolation before any shared-hosting apply path.
+- Keep SELinux enforcing; avoid FTP daemon installation and avoid exposing database/admin services.
+
+### P1 — hosting operations
+- Site/vhost create/list/disable/remove with Nginx and optional Apache/hybrid backends.
+- Database/user create/list/drop with least-privilege grants and secret-file handoff.
+- WordPress deployment as an opt-in application profile, not a privileged root plugin installer.
+- PHP runtime/extension compatibility and OPcache/Redis/Memcached management.
+- Protected service status, logs, disk alerts, and per-site metrics.
+
+### P2 — optional integrations
+- PostgreSQL.
+- Rclone/S3 and SSH-tunnel migration.
+- FFmpeg/media tools, GeoIP, WP-CLI, Passenger, Node/Go/Ruby runtimes.
+- Compression utilities and DKIM/mail-auth support.
+
+Do not implement an upstream feature merely because Centmin Mod has a menu item. Each feature needs a supported OS/package policy, threat model, plan/apply contract, tests, recovery behavior, and a clear owner.
+
+## Pinecone Neural harness integration
+
+The ljrseals-dev/pinecone-neural main branch inspected for this comparison was v2.4. It had a critical mismatch between its security description and implementation: AgentHarness called eval/exec on model-generated Python with a restricted builtins dictionary; the separate Docker/gVisor sandbox helper was not used by that agent loop. The default .env.example also shipped demo API keys, and session IDs were not scoped to the authenticated API-key principal.
+
+A separate hardening PR has been opened:
+
+- [pinecone-neural PR #1 — Harden agent tools and session isolation](https://github.com/ljrseals-dev/pinecone-neural/pull/1)
+- Branch: fix/structured-tool-execution
+- Push CI run: PASS for the new tests and compile check.
+- PR CI: check status pending at the time this document was written.
+- Changes replace model-generated Python with registered JSON tools, validate tool schemas/timeouts, bound calculator arithmetic, scope sessions per API-key user, remove demo keys, and run the container as a non-root UID.
+
+**Integration rule:** Pinecone is a planning/recommendation sidecar, not a privileged host-control plane. StackAlign must never give it root, a Docker socket, host filesystem mounts, or arbitrary shell/SQL tools. Initial integration is read-only: the harness may receive a sanitized doctor and repository inventory snapshot and return an operator-reviewed plan. Host changes remain in StackAlign's own explicit --apply workflows. Do not install/use the vulnerable upstream main revision as a host automation agent.
+
+The StackAlign client in this branch is intentionally planning-only. A managed sidecar installer is deferred until the hardened harness PR is reviewed/merged and its runtime deployment contract is verified. Provider credentials must be supplied by the operator and never committed.
+
+## Upstream references
+
+- Centmin Mod menu: https://centminmod.com/menu
+- Centmin Mod addons: https://centminmod.com/addons
+- Centmin Mod getting started: https://centminmod.com/getstarted
+- Centmin Mod PHP-FPM features: https://centminmod.com/phpfpm
+- Centmin Mod source repository: https://github.com/centminmod/centminmod
+- Active 141.00beta01 source branch: https://github.com/centminmod/centminmod/tree/141.00beta01
+- Centmin Mod GPL-3.0 license: https://github.com/centminmod/centminmod/blob/master/license.txt
