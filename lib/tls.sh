@@ -18,7 +18,7 @@ _sa_tls_ca_url() {
     esac
 }
 
-# Reports upstream schedulers; returns 2 if one is active.
+# Reports known ACME renewal schedulers; returns 2 if one is active.
 sa_tls_preflight() {
     local found=0 t
     for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer acme.sh.timer lego-renew.timer stackalign-renew.timer; do
