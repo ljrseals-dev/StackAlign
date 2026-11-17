@@ -7,7 +7,7 @@
 _sa_repo_doc_escape() {
   local s=$1
   s=${s//\\/\\\\}; s=${s//\"/\\\"}
-  s=${s//$'\n'/\n}; s=${s//$'\r'/\\r}; s=${s//$'\t'/\\t}
+  s=${s//$'\n'/\\n}; s=${s//$'\r'/\\r}; s=${s//$'\t'/\\t}
   printf '%s' "$s"
 }
 
@@ -132,9 +132,19 @@ sa_repo_doctor() {
     *) family=unknown ;;
   esac
   if command -v dnf >/dev/null 2>&1; then
-    backend=dnf; backend_version=$(dnf --version 2>/dev/null | sed -n '1{s/[^0-9.].*$//;p;}')
+    backend=dnf
+    if backend_version=$(dnf --version 2>/dev/null) && [ -n "$backend_version" ]; then
+      backend_version=$(printf "%s\n" "$backend_version" | sed -n "1{s/[^0-9.].*$//;p;}")
+    else
+      backend=none; backend_version=unknown
+    fi
   elif command -v yum >/dev/null 2>&1; then
-    backend=yum; backend_version=$(yum --version 2>/dev/null | sed -n '1{s/[^0-9.].*$//;p;}')
+    backend=yum
+    if backend_version=$(yum --version 2>/dev/null) && [ -n "$backend_version" ]; then
+      backend_version=$(printf "%s\n" "$backend_version" | sed -n "1{s/[^0-9.].*$//;p;}")
+    else
+      backend=none; backend_version=unknown
+    fi
   fi
   [ -n "$backend_version" ] || backend_version=unknown
 
