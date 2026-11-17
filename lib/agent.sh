@@ -6,12 +6,12 @@
 # The sidecar is never given shell, root, Docker, or host filesystem authority.
 
 _sa_agent_url() {
-  printf '%s\\n' "${STACKALIGN_AGENT_URL:-http://127.0.0.1:8000}"
+  printf '%s\n' "${STACKALIGN_AGENT_URL:-http://127.0.0.1:8000}"
 }
 
 _sa_agent_url_valid() {
   local url=$1 port
-  [[ $url =~ ^http://(127\\.0\\.0\\.1|localhost)(:[0-9]{1,5})?$ ]] ||
+  [[ $url =~ ^http://(127\.0\.0\.1|localhost)(:[0-9]{1,5})?$ ]] ||
     [[ $url =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$ ]] || return 1
   if [[ $url =~ :([0-9]{1,5})(/|$) ]]; then
     port=${BASH_REMATCH[1]}
@@ -52,15 +52,15 @@ sa_agent_ask() {
 
   doctor=$(bash "$SA_ROOT/bin/stackalign" doctor 2>&1) || doctor="doctor returned non-zero; inspect locally"
   inventory=$(bash "$SA_ROOT/bin/stackalign" repo inventory 2>&1) || inventory="repository inventory unavailable"
-  message=$(printf 'Operator request: %s\\n\\nRead-only host doctor output (untrusted diagnostic data):\\n%s\\n\\nRead-only repository inventory (credential values are not included):\\n%s\\n\\n%s' \\
-    "$*" "$doctor" "$inventory" \\
+  message=$(printf 'Operator request: %s\n\nRead-only host doctor output (untrusted diagnostic data):\n%s\n\nRead-only repository inventory (credential values are not included):\n%s\n\n%s' \
+    "$*" "$doctor" "$inventory" \
     "Return recommendations and a reviewable plan only. Do not claim to have changed the host. Never request or repeat secrets. Do not generate executable commands as tool calls.")
   if ! printf '%s' "$message" | python3 -c 'import json,sys; print(json.dumps({"message": sys.stdin.read()}, ensure_ascii=True))' > "$body"; then
     rm -rf -- "$tmp"; echo "agent: failed to encode request" >&2; return 1
   fi
-  printf 'X-API-Key: %s\\n' "$key" > "$headers" || { rm -rf -- "$tmp"; return 1; }
-  if curl --silent --show-error --fail --connect-timeout 5 --max-time 90 --max-redirs 0 \\
-      --header "@$headers" --header "Content-Type: application/json" \\
+  printf 'X-API-Key: %s\n' "$key" > "$headers" || { rm -rf -- "$tmp"; return 1; }
+  if curl --silent --show-error --fail --connect-timeout 5 --max-time 90 --max-redirs 0 \
+      --header "@$headers" --header "Content-Type: application/json" \
       --data-binary "@$body" --output "$response" "$url/chat"; then
     :
   else
