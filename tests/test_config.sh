@@ -155,4 +155,27 @@ sa_config_validate 2>/dev/null
 "$ROOT/bin/stackalign" config validate "$T/schema-unknown.conf" >/dev/null 2>&1
 [ $? -ne 0 ] && ok "CLI rejects unknown schema keys" || bad "CLI rejects unknown schema keys"
 
+
+printf '[meta]\\nconfig_version=1\\n[redis.sessions]\\nport=99999999999999999999\\n' > "$T/schema-huge-number.conf"
+sa_config_load "$T/schema-huge-number.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects oversized numeric input" || bad "schema rejects oversized numeric input"
+cat > "$T/schema-duplicate-user.conf" <<'EOF'
+[meta]
+config_version = 1
+[server]
+tenant_mode = pool
+[site.alpha]
+domain = alpha.example.test
+user = shared_user
+pool = alpha_pool
+isolation = pool
+[site.beta]
+domain = beta.example.test
+user = shared_user
+pool = beta_pool
+isolation = pool
+EOF
+sa_config_load "$T/schema-duplicate-user.conf" 2>/dev/null && sa_config_validate 2>/dev/null
+[ $? -ne 0 ] && ok "schema rejects duplicate tenant Unix identities" || bad "schema rejects duplicate tenant Unix identities"
+
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
