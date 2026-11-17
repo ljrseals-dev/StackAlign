@@ -27,10 +27,26 @@ sa_internet_valid_domain() {
 }
 
 sa_internet_valid_ipv4() {
-  local ip=$1 a b c d
-  [[ $ip =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
+  local ip=$1 a b c d octet
+  [[ $ip =~ ^([0-9]{1,3}\\.){3}[0-9]{1,3}$ ]] || return 1
   IFS=. read -r a b c d <<< "$ip"
-  (( 10#$a <= 255 && 10#$b <= 255 && 10#$c <= 255 && 10#$d <= 255 ))
+  for octet in "$a" "$b" "$c" "$d"; do
+    [[ $octet =~ ^(0|[1-9][0-9]{0,2})$ ]] || return 1
+    (( 10#$octet <= 255 )) || return 1
+  done
+  # The setup prompt asks for a public IPv4, not a private or special-use address.
+  (( 10#$a >= 1 && 10#$a <= 223 )) || return 1
+  (( 10#$a != 10 && 10#$a != 127 )) || return 1
+  (( !(10#$a == 169 && 10#$b == 254) )) || return 1
+  (( !(10#$a == 172 && 10#$b >= 16 && 10#$b <= 31) )) || return 1
+  (( !(10#$a == 192 && 10#$b == 168) )) || return 1
+  (( !(10#$a == 100 && 10#$b >= 64 && 10#$b <= 127) )) || return 1
+  (( !(10#$a == 192 && 10#$b == 0 && 10#$c == 2) )) || return 1
+  (( !(10#$a == 198 && (10#$b == 18 || 10#$b == 19)) )) || return 1
+  (( !(10#$a == 198 && 10#$b == 51 && 10#$c == 100) )) || return 1
+  (( !(10#$a == 203 && 10#$b == 0 && 10#$c == 113) )) || return 1
+  (( !(10#$a == 192 && 10#$b == 0 && 10#$c == 0) )) || return 1
+  (( !(10#$a == 192 && 10#$b == 88 && 10#$c == 99) )) || return 1
 }
 
 sa_internet_plan() {
@@ -67,7 +83,7 @@ EOF
         echo "  Origin exposure: keep origin web ports private where possible; never expose SSH or database ports."
         ;;
       direct)
-        echo "  Public ingress: direct origin; configure A/AAAA records to the verified public server address and HTTPS after reachability checks."
+        echo "  Public ingress: direct origin; configure an A record to the verified public IPv4; add AAAA only after separately verifying public IPv6 connectivity and HTTPS after reachability checks."
         [[ -n $ip ]] || echo "  Public IP: NOT PROVIDED — manual discovery/confirmation required before DNS changes."
         ;;
       unknown)
@@ -155,12 +171,14 @@ sa_internet_setup() {
 }
 
 sa_internet_show_saved_plan() {
-  local config dir owner perms version="" purpose="" dns_provider="" public_ingress="" admin_access="" domain="" ip="" key value
+  local config dir owner dir_owner perms version="" purpose="" dns_provider="" public_ingress="" admin_access="" domain="" ip="" key value
   config=$(sa_internet_config_path) || { sa_internet_die "XDG_CONFIG_HOME must be absolute, or HOME must be set"; return 1; }
   dir=${config%/*}
   [[ -d $dir && ! -L $dir && -f $config && ! -L $config ]] || { sa_internet_die "saved setup is missing or is not a regular file in a real directory"; return 1; }
   owner=$(stat -c %u -- "$config") || return 1
   [[ $owner == "$EUID" ]] || { sa_internet_die "saved setup is not owned by the current user"; return 1; }
+  dir_owner=$(stat -c %u -- "$dir") || return 1
+  [[ $dir_owner == "$EUID" ]] || { sa_internet_die "configuration directory is not owned by the current user"; return 1; }
   perms=$(stat -c %a -- "$config") || return 1
   [[ $perms =~ ^[0-7]{3,4}$ ]] && (( (8#$perms & 077) == 0 )) || { sa_internet_die "saved setup permissions are too broad; expected owner-only access"; return 1; }
   local dir_perms
