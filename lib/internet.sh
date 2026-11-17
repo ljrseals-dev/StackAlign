@@ -14,6 +14,7 @@ sa_internet_config_path() {
 
 sa_internet_valid_domain() {
   local d=$1
+  [ ${#d} -le 253 ] || return 1
   [[ $d =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]]
 }
 
@@ -21,7 +22,7 @@ sa_internet_valid_ipv4() {
   local ip=$1 a b c d
   [[ $ip =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
   IFS=. read -r a b c d <<< "$ip"
-  (( a <= 255 && b <= 255 && c <= 255 && d <= 255 ))
+  (( 10#$a <= 255 && 10#$b <= 255 && 10#$c <= 255 && 10#$d <= 255 ))
 }
 
 sa_internet_plan() {
