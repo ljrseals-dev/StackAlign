@@ -102,13 +102,13 @@ open_basedir_extra = /srv/shared
 php_version = 8.3
 EOF
 sa_config_load "$T/schema-good.conf" 2>/dev/null && sa_config_validate 2>/dev/null && ok "schema v1 accepts valid tenant config" || bad "schema v1 accepts valid tenant config"
-printf '[meta]\\nconfig_version=1\\n[server]\\nrole=slave_web\\nunknown=1\\n' > "$T/schema-unknown.conf"
+printf '[meta]\nconfig_version=1\n[server]\nrole=slave_web\nunknown=1\n' > "$T/schema-unknown.conf"
 sa_config_load "$T/schema-unknown.conf" 2>/dev/null && sa_config_validate 2>/dev/null
 [ $? -ne 0 ] && ok "schema rejects unknown keys" || bad "schema rejects unknown keys"
-printf '[meta]\\nconfig_version=1\\n[redis.sessions]\\nport=70000\\n' > "$T/schema-port.conf"
+printf '[meta]\nconfig_version=1\n[redis.sessions]\nport=70000\n' > "$T/schema-port.conf"
 sa_config_load "$T/schema-port.conf" 2>/dev/null && sa_config_validate 2>/dev/null
 [ $? -ne 0 ] && ok "schema rejects out-of-range Redis ports" || bad "schema rejects out-of-range Redis ports"
-printf '[meta]\\nconfig_version=1\\n[site.alpha]\\ndomain=bad..example\\nuser=site_alpha\\npool=site_alpha\\nisolation=pool\\n' > "$T/schema-domain.conf"
+printf '[meta]\nconfig_version=1\n[site.alpha]\ndomain=bad..example\nuser=site_alpha\npool=site_alpha\nisolation=pool\n' > "$T/schema-domain.conf"
 sa_config_load "$T/schema-domain.conf" 2>/dev/null && sa_config_validate 2>/dev/null
 [ $? -ne 0 ] && ok "schema rejects malformed tenant domains" || bad "schema rejects malformed tenant domains"
 cat > "$T/schema-multi.conf" <<'EOF'
