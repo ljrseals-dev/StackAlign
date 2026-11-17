@@ -13,7 +13,22 @@ cat > "$T/bin/rpm" <<'EOF'
 [ "$1" = -q ] || exit 1
 for n in $FAKE_RPM_INSTALLED; do [ "$n" = "$2" ] && exit 0; done; exit 1
 EOF
-chmod +x "$T/bin/rpm"; export PATH="$T/bin:$PATH"
+ chmod +x "$T/bin/rpm"; export PATH="$T/bin:$PATH"
+
+# The general doctor test runs against a deterministic supported EL host.
+cat > "$T/os-release" <<'EOF'
+ID=almalinux
+VERSION_ID=9.4
+NAME="AlmaLinux"
+EOF
+cat > "$T/bin/dnf" <<'EOF'
+#!/usr/bin/env bash
+[ "${1:-}" = --version ] && { echo 4.14.0; exit 0; }
+echo "unexpected dnf invocation: $*" >&2
+exit 99
+EOF
+chmod +x "$T/bin/dnf"
+export SA_OS_RELEASE_FILE="$T/os-release"
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }
