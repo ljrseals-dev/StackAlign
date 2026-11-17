@@ -240,11 +240,11 @@ cmd_site() {
       [ "${#POS[@]}" -le 2 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign site doctor [nginx|apache|all]"
       sa_site_doctor "${POS[1]:-all}" ;;
     add)
-      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site add <domain> [--apply]"
-      sa_site_add "${POS[1]}" ;;
+      [ "${#POS[@]}" -eq 3 ] || _sa_die "usage: stackalign site add <domain> <document-root> [--apply]"
+      sa_site_add "${POS[1]}" "${POS[2]}" "$APPLY" ;;
     remove)
       [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site remove <domain> [--apply]"
-      sa_site_remove "${POS[1]}" ;;
+      sa_site_remove "${POS[1]}" "$APPLY" ;;
     isolate)
       [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site isolate <domain> [--apply]"
       sa_site_isolate "${POS[1]}" ;;
