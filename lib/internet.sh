@@ -64,7 +64,7 @@ EOF
 
 sa_internet_setup() {
   local purpose provider domain ip answer config dir tmp
-  [ -r /dev/tty ] || { echo "internet setup requires an interactive terminal; no changes made" >&2; return 2; }
+  [[ -t 0 && -r /dev/tty ]] || { echo "internet setup requires an interactive terminal; no changes made" >&2; return 2; }
   printf '%s\n' "What should be reachable?" "  1) Public website" "  2) Private account/server administration" "  3) Both (recommended: separate public and private paths)" >&2
   printf 'Select 1-3: ' >&2
   IFS= read -r answer </dev/tty || return 2
@@ -101,7 +101,7 @@ sa_internet_setup() {
 sa_internet_show_saved_plan() {
   local config; config=$(sa_internet_config_path)
   [ -f "$config" ] || { sa_internet_die "no saved setup; run: stackalign internet setup"; return 1; }
-  local version= purpose= provider= domain= ip= key value
+  local version="" purpose="" provider="" domain="" ip="" key value
   while IFS='=' read -r key value; do
     case "$key" in
       version) version=$value ;;
