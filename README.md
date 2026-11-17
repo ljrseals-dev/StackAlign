@@ -68,10 +68,11 @@ The hosting planner is read-only and does not install packages or alter services
 bash bin/stackalign hosting plan nginx
 bash bin/stackalign hosting plan apache
 bash bin/stackalign hosting plan hybrid
-bash bin/stackalign hosting doctor
+bash bin/stackalign hosting setup
+bash bin/stackalign hosting doctor hybrid
 ```
 
-Apache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; runtime apply is deliberately blocked until tenant identity, PHP-FPM, service/cgroup isolation, and real-host validation are complete. See [hosting modes](docs/HOSTING-MODES.md) and [Apache upstream integration](docs/APACHE-UPSTREAM.md).
+Run `hosting setup` first from an interactive terminal to identify the intended operator model. It distinguishes one administrator managing multiple accounts from multiple independent end users. The independent-user choice is blocked until isolation is implemented and tested. The prompt currently reports the choice but does not persist it. A shared PHP-FPM `www` pool is not per-account isolation. Apache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; runtime apply is deliberately blocked until tenant identity, PHP-FPM, service/cgroup isolation, and real-host validation are complete. See [hosting modes](docs/HOSTING-MODES.md) and [Apache upstream integration](docs/APACHE-UPSTREAM.md).
 
 ### Plan the LEMP bootstrap
 
