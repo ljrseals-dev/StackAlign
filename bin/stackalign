@@ -46,6 +46,7 @@ repo|M2a|read-only package repository inventory
 optimize|M3|read-only performance plan; apply is gated
 xcart|M3|guarded X-Cart profile: plan|preflight|build|deploy
 routine|M3|routine subsystem: plan|install|doctor|run|run-builtin
+hosting|M2b|web hosting engine plans and read-only inspection
 sftp|M3|chrooted key-only SFTP account management
 egress|M4|outbound firewall and passive LAN audit
 contain|M4|evidence preservation before rebuild
