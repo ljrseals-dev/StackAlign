@@ -16,9 +16,17 @@ sa_lemp_die() { echo "stackalign install: $*" >&2; return 1; }
 # an absolute, normalized path alphabet so delimiters, replacement operators,
 # whitespace, and Nginx syntax cannot alter the generated configuration.
 sa_lemp_web_root_valid() {
-  local web=${SA_LEMP_WEB_ROOT:-}
+  local web=${SA_LEMP_WEB_ROOT:-} resolved
   [[ $web == /* && $web =~ ^/[A-Za-z0-9._/-]+$ ]] || {
     echo "stackalign install: web root must be an absolute path containing only letters, digits, dot, underscore, slash, and hyphen" >&2
+    return 64
+  }
+  resolved=$(realpath -m -- "$web" 2>/dev/null) || {
+    echo "stackalign install: cannot resolve web root safely" >&2
+    return 64
+  }
+  [[ $resolved == "$web" ]] || {
+    echo "stackalign install: web root must not resolve through symlinks or non-normalized components" >&2
     return 64
   }
   [[ $web != *//* && $web != */ ]] || {
