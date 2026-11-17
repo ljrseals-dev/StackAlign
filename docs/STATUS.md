@@ -196,7 +196,7 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 
 ## Repository doctor fixture parser — current-main implementation
 
-**PR:** #69 — `fix/repo-doctor-fixture-parser-current-main` (draft; latest-head CI pending).
+**PR:** #69 — `fix/repo-doctor-fixture-parser-current-main` (ready for review; latest-head CI PASS).
 
 | Area | State | Evidence / boundary |
 |---|---|---|
@@ -209,4 +209,4 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 | REPO-005/006/008/009 | SKIP / not implemented | Network reachability, GPG verification, audit-journal health, and repository backup integrity need actual runtime interfaces and tests. |
 | Live-host validation | NOT RUN | No real repository metadata refresh, key verification, or host mutation is claimed. |
 
-The initial PR #69 CI run #44129706122 failed in `tests/test_repo_doctor.sh` on both Ubuntu and AlmaLinux 9. After hardening repository-directory enumeration and backend failure handling, trace-enabled run #44130005736 passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9 at head `cc70a71796b64d8fb4caf338082f29f207ef3a97`. Temporary tracing was removed and configuration error detail restored; fresh CI for the current head `e93a03bc6e36dc04e3ab221b4ee1a237f3f60e10` is pending. No live-host validation is claimed.
+The initial PR #69 CI run #44129706122 failed in `tests/test_repo_doctor.sh` on both Ubuntu and AlmaLinux 9. After hardening repository-directory enumeration and backend failure handling, trace-enabled run #44130005736 passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9 at head `cc70a71796b64d8fb4caf338082f29f207ef3a97`. Temporary tracing was removed and configuration error detail restored; latest-head CI run #44130614987 also passed all three checks on `d3c497aeefbf17e04e3be982cd8086ecbfb6206d`. No live-host validation is claimed.
