@@ -27,6 +27,13 @@ _sa_bk_artifact_ok() {
     [[ $resolved == "$path" ]]
 }
 
+_sa_bk_private_dir_ok() {
+    local dir=${1:-} mode owner
+    [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
+    read -r mode owner < <(stat -c '%a %u' -- "$dir" 2>/dev/null) || return 1
+    [[ $mode == 700 && $owner == "$(id -u)" ]]
+}
+
 # sa_backup_dump <dest_dir> -> prints the .sql.gz path.
 # This creates a logical all-databases dump; it does not prove restoreability.
 sa_backup_dump() {
@@ -39,15 +46,15 @@ sa_backup_dump() {
     command -v mysqldump >/dev/null 2>&1 || { echo "backup: mysqldump is not installed" >&2; return 69; }
     command -v gzip >/dev/null 2>&1 || { echo "backup: gzip is not installed" >&2; return 69; }
     ( umask 077; mkdir -p -- "$dest" ) || return 1
-    [ -d "$dest" ] && [ ! -L "$dest" ] && [ "$(realpath -e -- "$dest" 2>/dev/null)" = "$dest" ] || {
-        echo "backup: destination changed or resolves through a symlink" >&2; return 1;
+    [ -d "$dest" ] && [ ! -L "$dest" ] && [ "$(realpath -e -- "$dest" 2>/dev/null)" = "$dest" ] && _sa_bk_private_dir_ok "$dest" || {
+        echo "backup: destination must be a real directory owned by this user with mode 700" >&2; return 1;
     }
     stamp=$(date +%Y%m%dT%H%M%S) || return 1
     tmp=$(mktemp "$dest/.db-$stamp.XXXXXX") || return 1
     f="$dest/db-$stamp-${tmp##*.}.sql.gz"
     if ( umask 077; set -o pipefail
          mysqldump --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --single-transaction \
-                   --routines --triggers --all-databases | gzip -c > "$tmp" ) && ln -- "$tmp" "$f"; then
+                   --routines --triggers --events --hex-blob --all-databases | gzip -c > "$tmp" ) && ln -- "$tmp" "$f"; then
         rm -f -- "$tmp"
         chmod 600 -- "$f" || { rm -f -- "$f"; return 1; }
         printf '%s\n' "$f"
@@ -69,27 +76,37 @@ sa_backup_physical() {
         return 64
     }
     command -v mariabackup >/dev/null 2>&1 || { echo "backup: mariabackup is not installed" >&2; return 69; }
+    local parent=${target%/*}
+    ( umask 077; mkdir -p -- "$parent" ) || return 1
+    _sa_bk_private_dir_ok "$parent" || {
+        echo "backup: parent directory must be owned by this user with mode 700" >&2; return 1;
+    }
     [ ! -e "$target" ] && [ ! -L "$target" ] || {
         echo "backup: target exists; refusing to overwrite" >&2; return 1;
     }
-    if ! mariabackup --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --backup --target-dir="$target" >&2; then
+    if ! ( umask 077; mariabackup --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --backup --target-dir="$target" >&2 ); then
         [ -d "$target" ] && { umask 077; : > "$target/.stackalign-incomplete"; }
         echo "backup: physical backup failed; partial data retained and marked incomplete" >&2
         return 1
     fi
-    if ! mariabackup --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --prepare --target-dir="$target" >&2; then
+    if ! ( umask 077; mariabackup --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --prepare --target-dir="$target" >&2 ); then
         [ -d "$target" ] && { umask 077; : > "$target/.stackalign-incomplete"; }
         echo "backup: prepare failed; backup retained and marked incomplete" >&2
         return 1
     fi
+    _sa_bk_private_dir_ok "$target" || {
+        [ -d "$target" ] && { umask 077; : > "$target/.stackalign-incomplete"; }
+        echo "backup: physical backup directory permissions or ownership are unsafe" >&2
+        return 1
+    }
     printf 'prepared physical backup: %s\n' "$target"
 }
 
 # sa_backup_list <backup_dir> -- lists only recognized top-level backup artifacts.
 sa_backup_list() {
     local dir=${1:-} entry state found=0 size
-    _sa_bk_dir_ok "$dir" && [ -d "$dir" ] && [ ! -L "$dir" ] || {
-        echo "backup: bad or symlinked backup directory" >&2; return 64;
+    _sa_bk_dir_ok "$dir" && _sa_bk_private_dir_ok "$dir" || {
+        echo "backup: backup directory must be a real directory owned by this user with mode 700" >&2; return 64;
     }
     printf 'Backup artifacts in %s:\n' "$dir"
     while IFS= read -r -d '' entry; do
@@ -123,6 +140,9 @@ sa_backup_verify() {
         return 0
     fi
     if [ -d "$path" ] && [[ ${path##*/} == mariadb-* ]]; then
+        _sa_bk_private_dir_ok "$path" || {
+            echo "backup: physical backup directory ownership or permissions are unsafe" >&2; return 1;
+        }
         [ ! -e "$path/.stackalign-incomplete" ] || {
             echo "backup: physical backup is marked incomplete" >&2; return 1;
         }
@@ -143,7 +163,7 @@ sa_backup_verify() {
 # and is deliberately not exposed by the StackAlign CLI yet.
 sa_backup_rclone() {
     local src=${1:-} remote=${2:-}
-    _sa_bk_dir_ok "$src" && [ -d "$src" ] && [ ! -L "$src" ] || { echo "backup: bad source dir" >&2; return 64; }
+    _sa_bk_dir_ok "$src" && _sa_bk_private_dir_ok "$src" || { echo "backup: source directory must be private and owned by this user" >&2; return 64; }
     [[ $remote =~ ^[A-Za-z0-9_-]+:[A-Za-z0-9._/-]*$ && $remote != *..* ]] || {
         echo "backup: bad remote" >&2; return 64;
     }
