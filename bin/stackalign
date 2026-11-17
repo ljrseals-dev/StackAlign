@@ -17,7 +17,7 @@
 set -u
 
 SA_VERSION="0.0.0-dev"
-SA_SOURCE=${BASH_SOURCE[0]}
+SA_SOURCE=$(readlink -f -- "${BASH_SOURCE[0]}")
 SA_DIR=${SA_SOURCE%/*}
 [ "$SA_DIR" != "$SA_SOURCE" ] || SA_DIR=.
 SA_ROOT=$(cd -- "$SA_DIR/.." && pwd -P)
