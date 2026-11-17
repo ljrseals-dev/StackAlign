@@ -63,7 +63,7 @@ _sa_cmd_list() {
     tune M2a 'sizing planner' \
     rollback M2a 'snapshot restore: rollback [--list] [--to <id>]' \
     update M5 'update engine: check|plan|apply|pin|status' \
-    site M3 'tenant lifecycle: add|list|remove|isolate|doctor' \
+    site M3 'read-only vhost inventory/doctor; lifecycle actions gated' \
     db M3 'database status/list/user inventory/create; destructive drop blocked' \
     tls M3 'read-only certificate status and scheduler preflight; issuance blocked' \
     backup M4 'backup driver: run|list|verify' \
