@@ -63,7 +63,7 @@ _sa_cmd_list() {
     tune M2a 'sizing planner' \
     rollback M2a 'snapshot restore: rollback [--list] [--to <id>]' \
     update M5 'update engine: check|plan|apply|pin|status' \
-    site M3 'tenant lifecycle: add|list|remove|isolate|doctor' \
+    site M3 'read-only vhost inventory/doctor; lifecycle actions gated' \
     db M3 'database status/list/user inventory/create; destructive drop blocked' \
     tls M3 'read-only certificate status and scheduler preflight; issuance blocked' \
     backup M4 'backup driver: run|list|verify' \
@@ -92,7 +92,7 @@ _sa_cmd_help() {
     tune) printf 'stackalign tune  [M2a]\n  sizing planner\n' ;;
     rollback) printf 'stackalign rollback  [M2a]\n  snapshot restore: rollback [--list] [--to <id>]\n' ;;
     update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
-    site) printf 'stackalign site  [M3]\n  tenant lifecycle: add|list|remove|isolate|doctor\n' ;;
+    site) printf 'stackalign site  [M3]\n  read-only vhost inventory/doctor; lifecycle actions gated\n' ;;
     db) printf 'stackalign db  [M3]\n  database status/list/user inventory/create; destructive drop blocked\n' ;;
     tls) printf 'stackalign tls  [M3]\n  read-only certificate status and scheduler preflight; issuance blocked\n' ;;
     backup) printf 'stackalign backup  [M4]\n  backup driver: run|list|verify\n' ;;
@@ -226,6 +226,30 @@ cmd_rollback() {
     echo "plan: would restore snapshot $TO; paths:"; cut -f2 "$dir/manifest" | sed 's/^/  /'
     echo "(re-run with --apply to make changes)"
   fi
+}
+
+cmd_site() {
+  _sa_parse "--plan --apply" "$@"
+  local sub=${POS[0]:-}
+  source "$SA_ROOT/lib/site.sh"
+  case "$sub" in
+    list)
+      [ "${#POS[@]}" -eq 1 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign site list"
+      sa_site_list ;;
+    doctor)
+      [ "${#POS[@]}" -le 2 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign site doctor [nginx|apache|all]"
+      sa_site_doctor "${POS[1]:-all}" ;;
+    add)
+      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site add <domain> [--apply]"
+      sa_site_add "${POS[1]}" ;;
+    remove)
+      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site remove <domain> [--apply]"
+      sa_site_remove "${POS[1]}" ;;
+    isolate)
+      [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign site isolate <domain> [--apply]"
+      sa_site_isolate "${POS[1]}" ;;
+    *) _sa_die "usage: stackalign site <list|doctor [nginx|apache|all]|add|remove|isolate <domain>>" ;;
+  esac
 }
 
 cmd_db() {
@@ -591,6 +615,7 @@ _sa_dispatch() {  # <cmd> args...
     update)   cmd_update "$@" ;;
     hosting)  cmd_hosting "$@" ;;
     internet) cmd_internet "$@" ;;
+    site)     cmd_site "$@" ;;
     db)       cmd_db "$@" ;;
     tls)      cmd_tls "$@" ;;
     agent)    cmd_agent "$@" ;;

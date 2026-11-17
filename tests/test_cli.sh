@@ -29,6 +29,7 @@ OUT=$(PATH="$T/empty-path" /bin/bash "$CLI" help doctor 2>&1); RC=$?
 run --plan --version;   { [ $RC -eq 0 ] && [[ $OUT == "stackalign "* ]]; } && ok "--version ignores --plan" || bad "--version ignores --plan"
 run help;               { [ $RC -eq 0 ] && [[ $OUT == *"commands:"* ]] && [[ $OUT == *rollback* ]] && [[ $OUT == *repo* ]]; } && ok "help lists commands" || bad "help lists commands"
 run help doctor;        { [ $RC -eq 0 ] && [[ $OUT == *"read-only"* ]]; } && ok "help <cmd>" || bad "help <cmd>"
+run help site;          { [ $RC -eq 0 ] && [[ $OUT == *"lifecycle actions gated"* ]]; } && ok "site help discloses gated lifecycle actions" || bad "site help lifecycle boundary"
 run help bogus;         [ $RC -eq 64 ] && ok "help unknown cmd -> 64" || bad "help unknown cmd -> 64"
 run bogus;              [ $RC -eq 64 ] && ok "unknown command -> 64" || bad "unknown command -> 64"
 run;                    [ $RC -eq 64 ] && ok "no command -> 64" || bad "no command -> 64"
@@ -46,7 +47,7 @@ export SA_LEMP_TESTING=1
 run install --plan; { [ $RC -eq 0 ] && [[ $OUT == *"127.0.0.1:8080"* ]] && [[ $OUT == *"no changes made"* ]]; } && ok "install CLI exposes read-only LEMP plan" || bad "install CLI plan"
 run plan tune;          { [ $RC -eq 2 ] && [[ $OUT == *"not implemented"* ]]; } && ok "plan <cmd> alias reaches command" || bad "plan <cmd> alias reaches command"
 run plan;               [ $RC -eq 64 ] && ok "plan without command -> 64" || bad "plan without command -> 64"
-run --yes --config "$T/x.conf" site list; [ $RC -eq 2 ] && ok "global flags before command accepted" || bad "global flags before command accepted"
+run --yes --config "$T/x.conf" site list; { [ $RC -eq 0 ] && [[ "$OUT" == *"web_server"* ]]; } && ok "global flags before command accepted and site inventory is read-only" || bad "global flags before command accepted and site inventory is read-only"
 
 # repo inventory is read-only and available from the CLI.
 export SA_YUM_REPOS_DIR="$T/repos"

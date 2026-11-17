@@ -4,7 +4,7 @@ A Controlled, Auditable LEMP Deployment System for Enterprise Linux
 
 Technical Manual
 
-Document Status: [SPECIFIED] — This manual describes a project in active development. Sections are tagged according to verification status.
+Document Status: HISTORICAL DRAFT — This 0.1.0 manual predates the current LEMP beta and CLI integrations. Its feature descriptions are not authoritative where they conflict with current source, README.md, docs/LEMP-BETA.md, docs/STATUS.md, or the capability-gap assessment. Status tags below describe the original draft, not current verification.
 
 Version: 0.1.0-draft
 
@@ -38,7 +38,7 @@ Scope and Non-Claims
 
 StackAlign is not production-ready. This manual does not describe a system that should be deployed to serve live traffic, protect sensitive data, or support business-critical workloads. The project is in active development, and significant subsystems—including backup, TLS certificate management, multi-tenant isolation, and deployment transactions—remain in design phase only.
 
-StackAlign does not install a complete web stack end-to-end. The bootstrapper, CLI dispatcher, and configuration parser exist in partial form. The memory tuner has been verified through extensive arithmetic testing. But the modules that would actually render Nginx configurations, initialize MariaDB, and provision PHP-FPM are specified but not verified. A user who runs the current code will not obtain a functioning web server.
+Current implementation correction — 2026-11-17: StackAlign does contain an experimental EL9 x86_64 LEMP bootstrap in `lib/lemp.sh`. It installs distribution-packaged Nginx, MariaDB, PHP-FPM, and PHP MySQL support, configures the default shared PHP-FPM `www` pool, writes an Nginx site, validates configuration, and starts services. The generated HTTP endpoint is loopback-only at `127.0.0.1:8080`. Automated tests use fake DNF/systemd/PHP-FPM/Nginx commands; real-host installation and recovery acceptance remain NOT RUN. The installer does not provide a complete production deployment or transactional rollback. See `docs/LEMP-BETA.md` for the current scope and required host tests.
 
 This manual describes what StackAlign will be when complete, what it is today, and—critically—the difference between those two states.
 
@@ -69,7 +69,7 @@ The system is designed around three alignment principles that give it its name: 
 
 StackAlign is not Centmin Mod. While Centmin Mod provides a useful reference point for understanding what a comprehensive LEMP management system might include, StackAlign is a clean-room implementation that shares no code with Centmin Mod and deliberately rejects certain Centmin Mod architectural decisions—most notably its practice of compiling Nginx and PHP from source rather than installing distribution packages.
 
-StackAlign is not a hosting control panel. It does not provide a web-based interface, multi-user management, or billing integration. It is a command-line tool for system administrators who understand Linux, understand LEMP stacks, and want a system that documents its own behavior.
+StackAlign is a command-line web-hosting and host-administration toolkit, not a browser-based commercial control panel. It is intended to support administrator-managed websites and virtual hosts. The current CLI includes read-only site/vhost inventory and server syntax diagnostics; site add/remove/isolate lifecycle operations remain gated. Independent-user shared hosting, billing, and complete tenant isolation are not implemented.
 
 StackAlign is not finished. Readers seeking a production-ready deployment tool should look elsewhere. Readers seeking to understand how such a tool should be built—and how to distinguish claims from evidence—may find this manual useful.
 
@@ -158,7 +158,7 @@ Standard Profile: A memory tuning profile optimized for machines with substantia
 
 Reserve: Memory that is held back from allocation to PHP-FPM and MariaDB, intended for the operating system, kernel buffers, and other processes. The Reserve is computed as a function of total RAM.
 
-Transaction: A deployment operation that either completes fully or rolls back completely. StackAlign uses transactions for configuration changes, ensuring that a failed deployment does not leave the system in a partially-configured state.
+Transaction: A deployment operation designed to either complete fully or recover to a defined prior state. This is a design term only: StackAlign does not currently provide a universal transactional deployment guarantee. Each workflow's actual snapshot, rollback, and residual-state behavior must be taken from its current implementation documentation.
 
 5. Architecture Overview
 
