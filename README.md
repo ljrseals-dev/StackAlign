@@ -219,3 +219,13 @@ This wrapper has fake-tool unit coverage only. Live CentOS conversion, Oracle re
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+
+### Optional Pinecone Neural planning sidecar
+
+StackAlign can send a read-only host doctor and repository inventory snapshot to an already-running, hardened Pinecone Neural sidecar. It only displays recommendations; model output is never executed. The sidecar is optional and is not installed or started by StackAlign. See [the integration contract](docs/PINECONE-AGENT-INTEGRATION.md) and [Centmin Mod capability gap analysis](docs/CENTMINMOD-CAPABILITY-GAP.md).
+
+```bash
+stackalign agent status
+STACKALIGN_AGENT_API_KEY='<configured sidecar key>' stackalign agent ask "Review the current hosting and backup gaps"
+```
