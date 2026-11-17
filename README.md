@@ -84,7 +84,7 @@ bash bin/stackalign internet plan
 bash bin/stackalign internet doctor
 ```
 
-Choose public website access, private administration, or both. The wizard distinguishes Cloudflare Tunnel (public web ingress), Tailscale (private administration), and WireGuard (self-managed VPN). It stores only non-secret preferences with restrictive local permissions. It does **not** install tunnel clients, authenticate providers, change DNS, issue certificates, open firewall ports, or alter services. Those operations remain blocked until provider-specific authentication, DNS ownership, rollback, and host acceptance are implemented. See [internet access setup](docs/INTERNET-ACCESS.md).
+The wizard separately asks who manages DNS, how public websites should be reached (Cloudflare Tunnel or direct public IP), and how administrators should connect privately (Tailscale, WireGuard, or an existing VPN). This prevents treating a tunnel as a direct-origin A record or confusing private VPN access with public DNS. It stores only non-secret preferences with restrictive local permissions and validates saved configuration before reuse. It does **not** install clients, authenticate providers, change DNS, issue certificates, open firewall ports, or alter services. `internet apply` remains blocked. See [internet access setup](docs/INTERNET-ACCESS.md).
 
 ### Plan the LEMP bootstrap
 
