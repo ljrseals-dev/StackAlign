@@ -26,6 +26,20 @@ mkfake systemctl 'echo "systemctl $*" >> "$CALLS"; [ "$1" = reload ] && exit "${
 export SA_SFTP_BASE="$T/sftp" SA_SFTP_KEYDIR="$T/keys" SA_SFTP_DROPIN="$T/sshd_config.d/50-stackalign-sftp.conf"
 . "$ROOT/lib/sftp.sh"
 
+
+# sshd_config interpolation must reject directive injection and symlinked paths.
+bad_group=$(printf 'sftponly\\nMatch all')
+bad_base=$(printf '/tmp/sftp\\nMatch all')
+SA_SFTP_GROUP="$bad_group" sa_sftp_render >/dev/null 2>&1; bad_group_rc=$?
+SA_SFTP_BASE="$bad_base" sa_sftp_render >/dev/null 2>&1; bad_base_rc=$?
+SA_SFTP_KEYDIR="$T/keys/../other" sa_sftp_render >/dev/null 2>&1; dot_keydir_rc=$?
+ln -s "$T" "$T/path-link"
+SA_SFTP_BASE="$T/path-link/sftp" sa_sftp_render >/dev/null 2>&1; symlink_base_rc=$?
+check "reject sshd group directive injection" "$bad_group_rc" 64
+check "reject sshd path directive injection" "$bad_base_rc" 64
+check "reject non-canonical sshd path" "$dot_keydir_rc" 64
+check "reject symlinked sshd path component" "$symlink_base_rc" 64
+
 KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyData0123456789abcdefghijk user@host'
 printf '%s\n' "$KEY" > "$T/good.pub"
 printf '%s\n' 'command="rm -rf /" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA x' > "$T/opts.pub"
@@ -39,6 +53,13 @@ for kf in opts two dss; do
   sa_sftp_add_user eve "$T/$kf.pub" >/dev/null 2>&1; check "bad key ($kf)" "$?" 64
 done
 sa_sftp_add_user eve "$T/missing.pub" >/dev/null 2>&1; check "missing key file" "$?" 64
+mkdir -p "$T/keys/eve"
+: > "$CALLS"
+sa_sftp_add_user eve "$T/good.pub" >/dev/null 2>&1; check "reject directory at authorized-keys target" "$?" 1
+if grep -q useradd "$CALLS"; then rc=0; else rc=1; fi
+check "unsafe key target rejected before account creation" "$rc" 1
+rmdir "$T/keys/eve"
+
 grep -q useradd "$CALLS"; check "no useradd on bad input" "$?" 1
 
 sa_sftp_add_user alice "$T/good.pub" >/dev/null 2>&1; check "add alice ok" "$?" 0
@@ -61,6 +82,13 @@ if [ -e "$T/keys/bob" ]; then rc=0; else rc=1; fi; check "no key written for ref
 
 sa_sftp_remove_user bob >/dev/null 2>&1; check "remove non-SFTP account refused" "$?" 1
 grep -q userdel "$CALLS"; check "no userdel for bob" "$?" 1
+rm -f "$T/keys/alice"
+ln -s "$T/good.pub" "$T/keys/alice"
+: > "$CALLS"
+sa_sftp_remove_user alice >/dev/null 2>&1; check "refuse symlinked authorized-keys target on removal" "$?" 1
+if grep -q userdel "$CALLS"; then rc=0; else rc=1; fi
+check "unsafe key target rejected before user deletion" "$rc" 1
+rm -f "$T/keys/alice"
 sa_sftp_remove_user alice >/dev/null 2>&1; check "remove sftp user ok" "$?" 0
 grep -q "userdel -- alice" "$CALLS" && ! grep -q -- "userdel -r" "$CALLS"; check "userdel without -r" "$?" 0
 if [ -e "$T/keys/alice" ]; then rc=0; else rc=1; fi; check "key removed" "$rc" 1
