@@ -42,6 +42,13 @@ for kf in opts two dss; do
   sa_sftp_add_user eve "$T/$kf.pub" >/dev/null 2>&1; check "bad key ($kf)" "$?" 64
 done
 sa_sftp_add_user eve "$T/missing.pub" >/dev/null 2>&1; check "missing key file" "$?" 64
+mkdir -p "$T/keys/eve"
+: > "$CALLS"
+sa_sftp_add_user eve "$T/good.pub" >/dev/null 2>&1; check "reject directory at authorized-keys target" "$?" 1
+if grep -q useradd "$CALLS"; then rc=0; else rc=1; fi
+check "unsafe key target rejected before account creation" "$rc" 1
+rmdir "$T/keys/eve"
+
 grep -q useradd "$CALLS"; check "no useradd on bad input" "$?" 1
 
 sa_sftp_add_user alice "$T/good.pub" >/dev/null 2>&1; check "add alice ok" "$?" 0
