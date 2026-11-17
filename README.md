@@ -74,6 +74,18 @@ bash bin/stackalign hosting doctor hybrid
 
 Run `hosting setup` first from an interactive terminal to identify the intended operator model. It distinguishes one administrator managing multiple accounts from multiple independent end users. The independent-user choice is blocked until isolation is implemented and tested. The prompt currently reports the choice but does not persist it. A shared PHP-FPM `www` pool is not per-account isolation. Apache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; runtime apply is deliberately blocked until tenant identity, PHP-FPM, service/cgroup isolation, and real-host validation are complete. See [hosting modes](docs/HOSTING-MODES.md) and [Apache upstream integration](docs/APACHE-UPSTREAM.md).
 
+### Configure internet access
+
+The interactive wizard captures non-secret access preferences and produces a read-only plan:
+
+```bash
+bash bin/stackalign internet setup
+bash bin/stackalign internet plan
+bash bin/stackalign internet doctor
+```
+
+Choose public website access, private administration, or both. The wizard distinguishes Cloudflare Tunnel (public web ingress), Tailscale (private administration), and WireGuard (self-managed VPN). It stores only non-secret preferences with restrictive local permissions. It does **not** install tunnel clients, authenticate providers, change DNS, issue certificates, open firewall ports, or alter services. Those operations remain blocked until provider-specific authentication, DNS ownership, rollback, and host acceptance are implemented. See [internet access setup](docs/INTERNET-ACCESS.md).
+
 ### Plan the LEMP bootstrap
 
 On a disposable supported EL9 VM:
@@ -133,7 +145,7 @@ The repository's CI workflows exercise Ubuntu and AlmaLinux 9. Treat a CI result
 
 The following are not established as complete production workflows:
 
-- Public web ingress, TLS issuance/renewal, DNS, and production firewall configuration.
+- Public web ingress, TLS issuance/renewal, DNS, and production firewall configuration; the internet wizard currently captures preferences and plans only.
 - Application database/user provisioning, tenant management/isolation, and backups.
 - Unattended updates or self-update.
 - A release installer integrated with the release-signature verifier.
@@ -158,6 +170,7 @@ A source file, design note, mock test, CI result, or successful plan does not pr
 
 ## Documentation
 
+- [Internet access setup](docs/INTERNET-ACCESS.md) — access-purpose questions, tunnel selection, manual fallback, and security boundaries.
 - [Hosting modes](docs/HOSTING-MODES.md) — Nginx, Apache, and hybrid mode contract and apply gates.
 - [Apache upstream integration](docs/APACHE-UPSTREAM.md) — reverse-proxy architecture, PHP-FPM integration requirements, and security boundaries.
 - [LEMP beta bootstrap](docs/LEMP-BETA.md) — supported scope, apply behavior, recovery limitations, and host-validation checklist.
