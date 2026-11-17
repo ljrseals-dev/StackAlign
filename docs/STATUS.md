@@ -148,8 +148,8 @@ Automated tests use fake `mysqldump` and `mariabackup` commands; they do not con
 
 | Area | State | Evidence / boundary |
 |---|---|---|
-| Certificate lineage status | Implemented; CI pending | `stackalign tls status [domain]` reports client marker, expiry state, hostname match, private-key match, key-file mode, and whether expiry is within 30 days. It does not validate the public trust chain, revocation, or live HTTPS reachability. |
-| Scheduler preflight | Implemented; CI pending | Read-only scan for known active Certbot/acme.sh/Lego/StackAlign timers and matching cron entries. This is not an exhaustive inventory of every external scheduler. |
+| Certificate lineage status | Implemented; CI PASS (run #827) | `stackalign tls status [domain]` reports client marker, expiry state, hostname match, private-key match, key-file mode, and whether expiry is within 30 days. It does not validate the public trust chain, revocation, or live HTTPS reachability. |
+| Scheduler preflight | Implemented; CI PASS (run #827) | Read-only scan for known active Certbot/acme.sh/Lego/StackAlign timers and matching cron entries. This is not an exhaustive inventory of every external scheduler. |
 | Issuance / renewal / migration | BLOCKED | Previous adapter exposed ZeroSSL EAB secrets in process arguments and activated cert/key with separate non-atomic renames. Both the helper and CLI fail closed. |
 | Renewal timer enablement | BLOCKED | No complete lineage ownership, scheduler isolation, or renewal execution contract exists. |
 | Client installation and DNS credentials | NOT IMPLEMENTED | No ACME client installation, provider login, DNS mutation, or credential handling is performed. |
@@ -163,8 +163,8 @@ The TLS status tests generate disposable self-signed certificates and verify exp
 
 | Area | State | Evidence / boundary |
 |---|---|---|
-| Database inventory | Implemented; CI pending | `stackalign db list` uses the owner-only MySQL defaults file and returns schema names. |
-| Database creation | Implemented; CI pending | `stackalign db create <name> [--apply]` is plan-only by default; explicit apply creates an idempotent utf8mb4 database after an existence check. |
+| Database inventory | Implemented; CI PASS (run #827) | `stackalign db list` uses the owner-only MySQL defaults file and returns schema names. |
+| Database creation | Implemented; CI PASS (run #827) | `stackalign db create <name> [--apply]` is plan-only by default; explicit apply creates an idempotent utf8mb4 database after an existence check. |
 | Identifier validation | Implemented; CI pending | Strict 64-character identifier allowlist; system schema names are reserved; SQL identifiers are backtick-quoted only after validation. |
 | Database users and grants | NOT IMPLEMENTED | No account creation, privilege grants, password rotation, or app credential handoff. |
 | Database drop | BLOCKED | Requires dependency checks, pre-drop backup, explicit destructive approval, and verified rollback/restore. |
@@ -177,3 +177,11 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - `stackalign db status` is read-only and reports the connected server version plus the authenticated database account.
 - Credentials continue to come from the same absolute owner-only defaults file used by `db list/create`; secrets are not passed as values in command arguments.
 - Tests use a fake `mysql` client. Live server connectivity, account privileges, and MariaDB-version compatibility remain NOT RUN.
+
+
+### Database account inventory — feature branch implementation
+
+- `stackalign db user list` reports database account names and host patterns only.
+- The query does not select password hashes or authentication plugin data.
+- Account creation, grants, password rotation, and application credential handoff remain NOT IMPLEMENTED.
+- Fake-client tests validate command routing and output; no live account inventory has been run.

@@ -36,7 +36,7 @@ tune|M2a|sizing planner
 rollback|M2a|snapshot restore: rollback [--list] [--to <id>]
 update|M5|update engine: check|plan|apply|pin|status
 site|M3|tenant lifecycle: add|list|remove|isolate|doctor
-db|M3|database status/list/create; destructive drop blocked
+db|M3|database status/list/user inventory/create; destructive drop blocked
 tls|M3|read-only certificate status and scheduler preflight; issuance blocked
 backup|M4|backup driver: run|list|verify
 restore|M4|restore driver: --from <id>
@@ -185,6 +185,9 @@ cmd_db() {
     status)
       [ "${#POS[@]}" -eq 1 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign db status"
       sa_db_status ;;
+    user)
+      [ "${#POS[@]}" -eq 2 ] && [ "${POS[1]}" = list ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign db user list"
+      sa_db_user_list ;;
     create)
       [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign db create <database-name> [--apply]"
       sa_db_validate_name "${POS[1]}" || return $?
@@ -198,7 +201,7 @@ cmd_db() {
     drop)
       [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign db drop <database-name> [--apply]"
       sa_db_drop "${POS[1]}" ;;
-    *) _sa_die "usage: stackalign db <status|list|create <name> [--apply]|drop <name>>" ;;
+    *) _sa_die "usage: stackalign db <status|list|user list|create <name> [--apply]|drop <name>>" ;;
   esac
 }
 

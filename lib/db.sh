@@ -60,6 +60,12 @@ sa_db_list() {
     mysql --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SHOW DATABASES;'
 }
 
+# sa_db_user_list -- read-only database account inventory; never selects password hashes.
+sa_db_user_list() {
+    _sa_db_require_client || return $?
+    mysql --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT User, Host FROM mysql.user ORDER BY User, Host;'
+}
+
 # sa_db_create <database-name> -- idempotent utf8mb4 database creation.
 sa_db_create() {
     local name=${1:-} existing query
