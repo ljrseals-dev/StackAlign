@@ -111,12 +111,17 @@ sa_sftp_enable() {
 }
 
 sa_sftp_add_user() {
-    local user=${1:-} keyfile=${2:-} key chroot tmp
+    local user=${1:-} keyfile=${2:-} key chroot tmp keytarget
     _sa_sftp_config_ok || return $?
     _sa_sftp_user_ok "$user" || { echo "sftp: bad username" >&2; return 64; }
     [ -f "$keyfile" ] || { echo "sftp: key file not found" >&2; return 64; }
     key="$(<"$keyfile")"
     _sa_sftp_key_ok "$key" || { echo "sftp: not a plain single-line public key" >&2; return 64; }
+    keytarget="$SA_SFTP_KEYDIR/$user"
+    if [ -L "$keytarget" ] || { [ -e "$keytarget" ] && [ ! -f "$keytarget" ]; }; then
+        echo "sftp: authorized-keys target is a symlink or non-regular file; refusing" >&2
+        return 1
+    fi
     if _sa_sftp_exists "$user" && ! _sa_sftp_in_group "$user"; then
         echo "sftp: $user is an existing non-SFTP account; refusing to modify it" >&2; return 1
     fi
