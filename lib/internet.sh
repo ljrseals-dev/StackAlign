@@ -140,19 +140,39 @@ sa_internet_show_saved_plan() {
 }
 
 sa_internet_doctor() {
-  local failures=0 cmd
+  local failures=0 output
   echo "internet doctor: read-only; no network configuration changed"
-  for cmd in ip getent; do
-    if command -v "$cmd" >/dev/null 2>&1; then echo "$cmd: available"; else echo "$cmd: MISSING"; failures=$((failures+1)); fi
-  done
-  if command -v ip >/dev/null 2>&1; then
-    ip -brief address 2>&1 | sed 's/^/interface: /'
-    ip route show default 2>&1 | sed 's/^/default-route: /'
+  if ! command -v ip >/dev/null 2>&1; then
+    echo "ip: MISSING"; failures=$((failures+1))
+  else
+    echo "ip: available"
+    if output=$(ip -brief address 2>&1); then
+      printf '%s\\n' "$output" | sed 's/^/interface: /'
+    else
+      printf 'interface inspection: FAILED (%s)\\n' "$output" >&2
+      failures=$((failures+1))
+    fi
+    if output=$(ip route show default 2>&1) && [[ -n $output ]]; then
+      printf '%s\\n' "$output" | sed 's/^/default-route: /'
+    elif [[ -z $output ]]; then
+      echo "default route: MISSING" >&2
+      failures=$((failures+1))
+    else
+      printf 'default-route inspection: FAILED (%s)\\n' "$output" >&2
+      failures=$((failures+1))
+    fi
   fi
-  if command -v getent >/dev/null 2>&1; then
-    echo "DNS resolver configuration:"
-    getent ahosts localhost 2>&1 | sed 's/^/  /'
+  if ! command -v getent >/dev/null 2>&1; then
+    echo "getent: MISSING"; failures=$((failures+1))
+  else
+    echo "getent: available"
+    if output=$(getent ahosts example.com 2>&1) && [[ -n $output ]]; then
+      printf '%s\\n' "$output" | sed 's/^/DNS example.com: /'
+    else
+      printf 'DNS lookup example.com: FAILED (%s)\\n' "$output" >&2
+      failures=$((failures+1))
+    fi
   fi
-  echo "Provider authentication, authoritative DNS, external reachability, firewall/provider rules, and tunnel health require separate checks."
+  echo "This checks local interfaces, a default route, and one DNS lookup only. Provider authentication, authoritative DNS, inbound reachability, firewall/provider rules, and tunnel health require separate checks."
   return "$failures"
 }
