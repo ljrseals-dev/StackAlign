@@ -76,7 +76,7 @@ EOF
       cloudflare_tunnel)
         echo "  Public ingress: Cloudflare Tunnel; configure the hostname through the Cloudflare zone and map it to the intended local web service."
         if [[ $dns_provider != cloudflare ]]; then
-          echo "  DNS action: MANUAL — Cloudflare Tunnel hostname routing expects Cloudflare-managed DNS; verify zone/provider compatibility before proceeding."
+          echo "  DNS action: MANUAL — Cloudflare Tunnel hostname routing expects Cloudflare-managed DNS; verify zone/provider compatibility before proceeding. Do not point an A record at the origin as a tunnel substitute."
         else
           echo "  DNS action: create the tunnel hostname route in the authorized Cloudflare zone; do not point an A record at the origin as a tunnel substitute."
         fi
