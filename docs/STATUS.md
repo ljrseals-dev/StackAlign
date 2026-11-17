@@ -96,3 +96,20 @@ The existing `install` command and LEMP beta behavior are unchanged. No claim of
 | Mode-specific doctor | Implemented; live host inspection NOT RUN | `hosting doctor nginx|apache|hybrid` checks only the selected mode's binaries and Apache modules where applicable. |
 
 The shared PHP-FPM `www` pool is explicitly not treated as tenant isolation. This work does not change the existing LEMP bootstrap or enable Apache apply.
+
+
+## Internet access wizard — feature branch implementation
+
+**Branch:** `feat/internet-access-wizard` (stacked on `feat/apache-upstream-hosting`; neither change is merged to `main`).
+
+| Area | State | Evidence / boundary |
+|---|---|---|
+| Access-purpose questions | Implemented in CLI source | Public website, private administration, or both. Interactive execution NOT RUN. |
+| Provider selection | Implemented in CLI source | Cloudflare Tunnel, Tailscale, WireGuard, none, or unknown. |
+| Input validation | Implemented; automated tests added | Domain and IPv4 syntax/range checks; test execution NOT RUN. |
+| Preference persistence | Implemented in CLI source | Non-secret preferences only; private directory/file permissions; runtime write test NOT RUN. |
+| Read-only doctor | Implemented in CLI source | Checks local `ip`/`getent` availability and reports interface/default-route/DNS-localhost information; live host inspection NOT RUN. |
+| Provider authentication, DNS mutation, TLS, firewall, tunnel installation | NOT IMPLEMENTED / BLOCKED | No provider credentials are collected; no host/network changes are made. |
+| End-to-end reachability and recovery | NOT RUN | Requires disposable EL9 host and provider integration tests. |
+
+The CLI explicitly refuses `internet apply`. It must not claim that saving preferences makes a domain or account reachable. Unknown provider, DNS, router/NAT, or cloud-firewall settings require manual instructions.
