@@ -1,48 +1,69 @@
 # StackAlign hosting modes
 
-**Status: mode contract and read-only planner implemented; apply is blocked.**
+**Status:** The EL9 LEMP bootstrap is implemented as a beta. Hosting-mode planning and inspection are read-only. Apache/hybrid apply and independent-user shared-hosting isolation are separate, gated capabilities.
 
-StackAlign defines three hosting modes:
+StackAlign is a CLI web-hosting and server-administration tool. It supports the web-hosting use case: installing and operating a LEMP stack and managing websites through web-server virtual hosts. It is not a browser-based commercial control panel, but that does not mean vhosts or ordinary web hosting are outside its scope.
+
+## Hosting models
+
+Do not conflate these two models:
+
+| Model | Meaning | Scope |
+|---|---|---|
+| Administrator-managed web hosting | One administrator operates a server and manages multiple websites/vhosts | Within StackAlign's intended web-hosting use |
+| Independent-user shared hosting | Multiple mutually untrusted end users receive separate accounts and must be isolated from one another | Additional isolation capability; do not claim it is complete without the required controls and tests |
+
+A limitation on independent-user isolation is not a prohibition on administrator-managed web hosting, multiple websites, or virtual hosts.
+
+## PHP-FPM pool behavior
+
+The default LEMP configuration uses the shared PHP-FPM `www` pool. Additional PHP-FPM pools are available as an operator-selectable CLI configuration choice; they are not enabled automatically by default.
+
+Important distinctions:
+
+- The shared `www` pool is the default, not a statement that vhosts are unsupported.
+- Operators may select additional pools through the CLI where the pool configuration workflow is available.
+- A separate pool is a configuration boundary, not by itself proof of independent-user isolation.
+- Before making isolation claims, verify the pool's Unix user/group, socket owner/group/mode, filesystem permissions, process limits, and relevant service/resource boundaries.
+- Do not silently change the default pool behavior during unrelated work.
+
+## Modes
 
 | Mode | Edge | Application server | Intended use |
 |---|---|---|---|
-| `nginx` | Nginx | PHP-FPM | Existing default direction |
+| `nginx` | Nginx | PHP-FPM | Default LEMP/web-hosting path |
 | `apache` | Apache HTTP Server | Apache + PHP-FPM | Apache compatibility |
 | `hybrid` | Nginx | Apache + PHP-FPM | Nginx edge with Apache upstream |
 
-## Safety boundary
+The existing LEMP install path configures Nginx, PHP-FPM, and MariaDB on supported EL9 x86_64 systems. Its documented default listener is `127.0.0.1:8080`; it does not automatically configure public DNS, public ingress, TLS, or firewall policy.
 
-The current `hosting plan` command is read-only. It does not install packages, write configuration, enable services, open firewall ports, or create tenants.
+The `hosting plan` command is read-only. The Apache and hybrid modes describe optional architectures; their runtime apply path remains separately gated. That gate must not be used to describe the existing Nginx/PHP-FPM LEMP beta as absent or nonfunctional.
 
-Apache and hybrid apply are blocked until the per-tenant identity, PHP-FPM, service and cgroup model has been implemented and verified. Apache-only mode is limited to single-tenant evaluation until that gate passes. A collection of virtual hosts is not proof of tenant isolation.
+## Apache requirements and hybrid routing
 
-## Apache requirements
-
-The intended EL-family package is the distribution's `httpd` package. Required module capabilities are:
+The intended EL-family Apache package is `httpd`. Required module capabilities include:
 
 - `mod_proxy`
 - `mod_proxy_fcgi`
 - `mpm_event`
 
-PHP execution must use a dedicated PHP-FPM pool and socket. Do not attach Apache to the existing shared `www` pool and call that tenant isolation.
+The intended hybrid topology is:
 
-## Hybrid routing
+1. Nginx owns the public-facing edge when public ingress is configured by the operator.
+2. Nginx proxies to Apache on a private loopback backend such as `127.0.0.1:8081`.
+3. Apache is not exposed as an unintended public backend.
+4. PHP requests are forwarded to the selected PHP-FPM pool/socket.
+5. Pool ownership and filesystem permissions are validated against the intended operator model.
 
-The intended topology is:
-
-1. Nginx owns the public listener and TLS termination.
-2. Nginx proxies requests to Apache on `127.0.0.1:8081`.
-3. Apache is not reachable from public interfaces.
-4. Apache forwards PHP requests to a dedicated PHP-FPM pool.
-5. Tenant-specific process and filesystem boundaries are enforced independently of vhost routing.
-
-The backend address is a design default, not an active listener or a firewall guarantee.
+The backend address is a design default, not proof that an active listener or firewall rule exists.
 
 ## Operator scope selection
 
-Before configuring hosting, run `stackalign hosting setup` from an interactive terminal. It asks whether the server is managed by one administrator across multiple accounts or is intended for multiple independent end users. The first choice is a single-admin scope, not a claim of per-account isolation. The second choice is explicitly blocked until independent-user isolation is implemented and adversarially tested. The current command reports the selection but does not persist it; durable scope configuration is not yet implemented.
+The `hosting setup` prompt distinguishes a single administrator managing multiple accounts from multiple independent end users. The second model requires stronger isolation. Do not interpret that warning as saying a single administrator cannot host multiple websites or vhosts.
 
-## CLI
+Where the CLI reports a selection without persisting it, document that persistence limitation accurately. Do not imply that a choice was saved when it was only displayed.
+
+## CLI inspection
 
 Read-only plans:
 
@@ -53,23 +74,43 @@ stackalign hosting plan hybrid
 stackalign hosting setup
 ```
 
-Inspect installed server binaries and Apache proxy module availability:
+Inspect installed server binaries and Apache proxy-module availability:
 
 ```bash
 stackalign hosting doctor [nginx|apache|hybrid]
 ```
 
-No apply command is available yet. An attempted apply must fail closed rather than partially configuring a host.
+The LEMP install workflow is separate:
 
-## Acceptance gates before apply
+```bash
+sudo stackalign install
+sudo stackalign install --apply
+```
 
-- DNF package-source policy and package availability checked on supported EL9 hosts.
-- Apache configuration passes `httpd -t`.
-- Required modules are present and the selected MPM is verified.
-- PHP-FPM uses a dedicated pool/socket with restrictive ownership.
-- Hybrid Apache listener is verified loopback-only.
-- Nginx and Apache health checks pass.
-- Failure injection restores prior configuration and service state.
-- Two-live-tenant adversarial tests prove filesystem, socket, process, resource and egress boundaries before multi-tenant support is claimed.
+The second command is mutating and must be used only on a supported, disposable EL9 test host until the beta's real-host acceptance work is complete.
 
-Until those checks run, Apache integration remains **PLANNED / APPLY BLOCKED / REAL-HOST VALIDATION NOT RUN**.
+## Separate acceptance gates
+
+### Existing LEMP beta
+
+- Run the repository lint, header, and test checks on the exact release commit.
+- Run clean EL9 install tests on supported distributions.
+- Verify PHP execution, MariaDB local access, service activation, reboot behavior, and failure recovery.
+- Record the exact environment and output. Mock tests do not substitute for host tests.
+
+### Apache/hybrid runtime apply
+
+- Verify package availability and module selection on supported EL9 hosts.
+- Validate generated Apache configuration with `httpd -t`.
+- Verify private backend binding and Nginx-to-Apache routing.
+- Verify selected PHP-FPM pool/socket ownership and permissions.
+- Inject failures and verify configuration/service recovery.
+
+### Independent-user shared hosting
+
+- Verify distinct Unix identities and ownership.
+- Verify dedicated PHP-FPM pools/sockets with restrictive permissions.
+- Verify filesystem, process, resource, and service boundaries.
+- Run adversarial tests with two live untrusted test accounts.
+
+Until the relevant checks run, report each capability separately as implemented, tested, blocked, or not run. Do not let the independent-user gate erase the existing web-hosting and vhost scope.
