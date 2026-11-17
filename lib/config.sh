@@ -13,12 +13,20 @@
 
 declare -gA SA_CONF=()
 
-sa_config_load() {  # <file>
-  local file=$1 line n=0 section="" key val rc=0
-  local -a dups=()
-  [ -f "$file" ] || { echo "config: not found: $file" >&2; return 1; }
+_sa_config_error() {  # Clear partially parsed values on every failure.
+  echo "$*" >&2
   SA_CONF=()
-  declare -A seen=()
+  return 1
+}
+
+sa_config_load() {  # <file>
+  local file=${1-} line n=0 section="" key val
+  local -a dups=()
+  local -A seen=()
+  SA_CONF=()
+  [ "$#" -eq 1 ] && [ -n "$file" ] || { _sa_config_error "config: usage: sa_config_load <file>"; return 1; }
+  [ -f "$file" ] || { _sa_config_error "config: not found: $file"; return 1; }
+  [ -r "$file" ] || { _sa_config_error "config: not readable: $file"; return 1; }
   while IFS= read -r line || [ -n "$line" ]; do
     n=$((n+1))
     line=${line#"${line%%[![:space:]]*}"}   # ltrim
@@ -30,7 +38,7 @@ sa_config_load() {  # <file>
     if [[ $line =~ ^([A-Za-z0-9_.-]+)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
       key=${BASH_REMATCH[1]}; val=${BASH_REMATCH[2]}
       if [ -z "$section" ]; then
-        echo "config:$n: key outside any section: $key" >&2; return 1
+        _sa_config_error "config:$n: key outside any section: $key"; return 1
       fi
       if [[ $val =~ ^\"(.*)\"$ ]]; then val=${BASH_REMATCH[1]}; fi
       if [ -n "${seen[$section.$key]+x}" ]; then dups+=("$n:$section.$key"); fi
@@ -38,12 +46,12 @@ sa_config_load() {  # <file>
       SA_CONF[$section.$key]=$val       # last wins in storage
       continue
     fi
-    echo "config:$n: unparseable line" >&2; return 1
+    _sa_config_error "config:$n: unparseable line"; return 1
   done < "$file"
 
   if [ "${SA_CONF[meta.config_version]-}" != 1 ]; then
     echo "config: [meta] config_version = 1 required (got '${SA_CONF[meta.config_version]-}')" >&2
-    SA_CONF=(); return 1
+    _sa_config_error "config: invalid or missing config_version"; return 1
   fi
   if [ "${#dups[@]}" -gt 0 ]; then
     local d
@@ -51,10 +59,10 @@ sa_config_load() {  # <file>
       for d in "${dups[@]}"; do echo "config: WARNING duplicate key (last wins) at ${d}" >&2; done
     else
       for d in "${dups[@]}"; do echo "config: ERROR duplicate key at ${d}" >&2; done
-      SA_CONF=(); return 1
+      _sa_config_error "config: duplicate keys are not allowed"; return 1
     fi
   fi
-  return $rc
+  return 0
 }
 
 sa_config_get() {  # <section.key> [default]

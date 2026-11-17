@@ -58,4 +58,19 @@ printf '[meta]\nconfig_version = 1\n[a]\nk = $(touch %s/PWNED)\n' "$T" > "$T/inj
 sa_config_load "$T/inj.conf" 2>/dev/null
 { [ ! -e "$T/PWNED" ] && [ "$(sa_config_get a.k)" = "\$(touch $T/PWNED)" ]; } && ok "values are data, not evaluated" || bad "values are data, not evaluated"
 
+
+# Failed loads must not leave values from the failed file or prior successful load.
+sa_config_load "$T/good.conf" 2>/dev/null
+printf '[meta]\nconfig_version = 1\n[broken]\nnot-an-assignment\n' > "$T/partial.conf"
+sa_config_load "$T/partial.conf" 2>/dev/null
+{ [ $? -ne 0 ] && [ "${#SA_CONF[@]}" -eq 0 ]; } && ok "parse failure clears partial configuration" || bad "parse failure clears partial configuration"
+sa_config_load "$T/good.conf" 2>/dev/null
+sa_config_load "$T/dup.conf" 2>/dev/null
+{ [ $? -ne 0 ] && [ "${#SA_CONF[@]}" -eq 0 ]; } && ok "duplicate-key failure clears configuration" || bad "duplicate-key failure clears configuration"
+sa_config_load "$T/good.conf" 2>/dev/null
+sa_config_load "$T/missing.conf" 2>/dev/null
+{ [ $? -ne 0 ] && [ "${#SA_CONF[@]}" -eq 0 ]; } && ok "missing-file failure clears prior configuration" || bad "missing-file failure clears prior configuration"
+sa_config_load 2>/dev/null
+{ [ $? -ne 0 ] && [ "${#SA_CONF[@]}" -eq 0 ]; } && ok "missing argument rejected without stale values" || bad "missing argument rejected without stale values"
+
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
