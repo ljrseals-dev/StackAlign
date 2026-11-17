@@ -191,7 +191,7 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 
 - Changed random-password hashing to pass the generated secret to `openssl passwd -6 -stdin` rather than as a process argument.
 - Extended the fake-tool regression test to verify stdin delivery and assert the generated secret is absent from the recorded OpenSSL argument vector.
-- Validation: fresh CI required for this branch. No live sshd/account operation or local test run is claimed.
+- PR #64 merged; CI run #44090800679 passed. No live sshd/account operation is claimed.
 
 
 ## Site and virtual-host inventory — current-main integration
@@ -199,4 +199,11 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - `stackalign site list` inventories top-level files and symlink targets in standard Nginx and Apache vhost directories.
 - `stackalign site doctor [nginx|apache|all]` invokes native syntax checks without changing configuration.
 - Site add/remove/isolate remain fail-closed; per-site identities, dedicated PHP-FPM pools/sockets, filesystem/process/resource controls, and transactional deployment are not implemented.
-- Tests use fake web-server binaries. Full CI on this branch is required; no live host configuration was inspected or modified.
+- Tests use fake web-server binaries. PR #67 current-main CI must pass on its latest head after help-text clarification; no live host configuration was inspected or modified.
+
+
+## Database credential-boundary regression tests — 2026-11-17
+
+- PR #68 ports the defaults-file and MySQL argument-boundary regression tests to current main.
+- Ubuntu and AlmaLinux 9 CI passed on head `fe17284ad504cc69fb1c918d7660ff94f44b9a9b` (runs #44113804056 / #44113746387).
+- Tests use a fake MySQL client only; live database behavior remains NOT RUN.
