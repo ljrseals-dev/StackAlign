@@ -208,11 +208,16 @@ PHP
   fi
 
   if [ "$failed" -ne 0 ]; then
+    local recovery_failed=0
     echo "install: configuration or service activation failed; restoring prior StackAlign-managed config" >&2
-    sa_lemp_restore "$backup" || echo "CRITICAL: configuration restore failed; inspect $backup" >&2
-    systemctl restart php-fpm >/dev/null 2>&1 || true
-    systemctl restart nginx >/dev/null 2>&1 || true
-    rm -rf "$backup"
+    sa_lemp_restore "$backup" || recovery_failed=1
+    systemctl restart php-fpm >/dev/null 2>&1 || recovery_failed=1
+    systemctl restart nginx >/dev/null 2>&1 || recovery_failed=1
+    if [ "$recovery_failed" -eq 0 ]; then
+      rm -rf "$backup"
+    else
+      echo "CRITICAL: recovery was incomplete; backup preserved at $backup for manual recovery" >&2
+    fi
     sa_lemp_die "LEMP apply did not complete; installed RPMs may remain and require manual removal"
     return 1
   fi
