@@ -62,7 +62,18 @@ bash bin/stackalign doctor
 
 ### Inspect hosting modes
 
-The hosting planner is read-only and does not install packages or alter services:\n\n```bash\nbash bin/stackalign hosting plan nginx\nbash bin/stackalign hosting plan apache\nbash bin/stackalign hosting plan hybrid\nbash bin/stackalign hosting doctor\n```\n\nApache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; runtime apply is deliberately blocked until tenant identity, PHP-FPM, service/cgroup isolation, and real-host validation are complete. See [hosting modes](docs/HOSTING-MODES.md) and [Apache upstream integration](docs/APACHE-UPSTREAM.md).\n\n### Plan the LEMP bootstrap
+The hosting planner is read-only and does not install packages or alter services:
+
+```bash
+bash bin/stackalign hosting plan nginx
+bash bin/stackalign hosting plan apache
+bash bin/stackalign hosting plan hybrid
+bash bin/stackalign hosting doctor
+```
+
+Apache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; runtime apply is deliberately blocked until tenant identity, PHP-FPM, service/cgroup isolation, and real-host validation are complete. See [hosting modes](docs/HOSTING-MODES.md) and [Apache upstream integration](docs/APACHE-UPSTREAM.md).
+
+### Plan the LEMP bootstrap
 
 On a disposable supported EL9 VM:
 
