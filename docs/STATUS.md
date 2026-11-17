@@ -192,3 +192,11 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - Changed random-password hashing to pass the generated secret to `openssl passwd -6 -stdin` rather than as a process argument.
 - Extended the fake-tool regression test to verify stdin delivery and assert the generated secret is absent from the recorded OpenSSL argument vector.
 - Validation: fresh CI required for this branch. No live sshd/account operation or local test run is claimed.
+
+
+## Site and virtual-host inventory — current-main integration
+
+- `stackalign site list` inventories top-level files and symlink targets in standard Nginx and Apache vhost directories.
+- `stackalign site doctor [nginx|apache|all]` invokes native syntax checks without changing configuration.
+- Site add/remove/isolate remain fail-closed; per-site identities, dedicated PHP-FPM pools/sockets, filesystem/process/resource controls, and transactional deployment are not implemented.
+- Tests use fake web-server binaries. Full CI on this branch is required; no live host configuration was inspected or modified.
