@@ -7,13 +7,15 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 export SA_CERT_ROOT="$TMP/certs"
-mkdir -m 700 -p "$SA_CERT_ROOT"
+mkdir -p "$SA_CERT_ROOT"
+chmod 700 "$SA_CERT_ROOT"
 
 command -v openssl >/dev/null 2>&1 || { echo "FAIL: openssl is required for TLS status tests" >&2; exit 1; }
 
 make_lineage() {
   local name=$1 san=$2 dir="$SA_CERT_ROOT/$1"
-  mkdir -m 700 -p "$dir"
+  mkdir -p "$dir"
+  chmod 700 "$dir"
   openssl req -x509 -newkey rsa:2048 -nodes \
     -keyout "$dir/privkey.pem" -out "$dir/fullchain.pem" \
     -subj "/CN=$name" -addext "subjectAltName=DNS:$san" -days 2 >/dev/null 2>&1
