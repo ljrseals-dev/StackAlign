@@ -56,7 +56,7 @@ EOF
 # command output only: no config schema or durable scope storage is implemented.
 sa_hosting_setup() {
   local answer=""
-  [ -r /dev/tty ] || { echo "hosting setup requires an interactive terminal; no changes made" >&2; return 2; }
+  [[ -t 0 && -r /dev/tty ]] || { echo "hosting setup requires an interactive terminal; no changes made" >&2; return 2; }
   printf '%s\n' "Who will use this server?" \
     "  1) One administrator managing multiple accounts" \
     "  2) Multiple independent end users (shared hosting)" >&2
