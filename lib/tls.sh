@@ -24,7 +24,7 @@ sa_tls_preflight() {
     for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer acme.sh.timer lego-renew.timer stackalign-renew.timer; do
         if systemctl is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
     done
-    if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -Eq 'acme\.sh|(^|[[:space:]/])lego([[:space:]]|$)'; then
+    if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -Eq 'acme\.sh|(^|[[:space:]/])(lego|certbot)([[:space:]]|$)'; then
         echo "scheduler: acme.sh cron entry present"; found=1
     fi
     [ "$found" -eq 0 ] || return 2
