@@ -37,7 +37,7 @@ rollback|M2a|snapshot restore: rollback [--list] [--to <id>]
 update|M5|update engine: check|plan|apply|pin|status
 site|M3|tenant lifecycle: add|list|remove|isolate|doctor
 db|M3|database lifecycle: create|drop|list
-tls|M3|certificate management: issue|renew|status
+tls|M3|read-only certificate status and scheduler preflight; issuance blocked
 backup|M4|backup driver: run|list|verify
 restore|M4|restore driver: --from <id>
 bench|M6|reproducible benchmark
@@ -172,6 +172,33 @@ cmd_rollback() {
     echo "plan: would restore snapshot $TO; paths:"; cut -f2 "$dir/manifest" | sed 's/^/  /'
     echo "(re-run with --apply to make changes)"
   fi
+}
+
+cmd_tls() {
+  local sub=${1:-} rc=0
+  [ $# -gt 0 ] && shift
+  source "$SA_ROOT/lib/tls.sh"
+  case "$sub" in
+    status)
+      [ $# -le 1 ] || _sa_die "usage: stackalign tls status [domain]"
+      sa_tls_status "$@" ;;
+    preflight)
+      [ $# -eq 0 ] || _sa_die "usage: stackalign tls preflight"
+      sa_tls_preflight || rc=$?
+      if [ "$rc" -eq 0 ]; then
+        echo "tls preflight: no active upstream renewal schedulers detected"
+        return 0
+      fi
+      if [ "$rc" -eq 2 ]; then
+        echo "tls preflight: renewal scheduler conflict; no changes made" >&2
+        return 2
+      fi
+      return "$rc" ;;
+    issue|renew|migrate|enable-renewal)
+      echo "tls: $sub BLOCKED — issuance, renewal and client migration require protected secret transport, atomic certificate/key activation, and crash-safe rollback" >&2
+      return 2 ;;
+    *) _sa_die "usage: stackalign tls <status [domain]|preflight|issue|renew|migrate|enable-renewal>" ;;
+  esac
 }
 
 cmd_backup() {
@@ -536,6 +563,7 @@ _sa_dispatch() {  # <cmd> args...
     update)   cmd_update "$@" ;;
     hosting)  cmd_hosting "$@" ;;
     internet) cmd_internet "$@" ;;
+    tls)      cmd_tls "$@" ;;
     agent)    cmd_agent "$@" ;;
     backup)   cmd_backup "$@" ;;
     restore)  cmd_restore "$@" ;;

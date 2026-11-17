@@ -35,6 +35,7 @@ The repository contains the following implemented areas. Each item is subject to
 | Oracle Linux migration wrapper | Guarded CentOS 7/8 conversion wrapper and Oracle Linux 7/8 update wrapper | Fake-tool tests only; live conversion and package updates have not been run. |
 | SFTP module/tests | Chrooted key-only SFTP policy and a real-sshd integration test path | CI coverage is not a substitute for disposable-host validation. |
 | Database backup | Explicit logical `mysqldump` and physical MariaBackup workflows; list and integrity verification | Requires an owner-only MySQL defaults file; logical verification checks gzip integrity, not SQL restoreability; restore, encryption, retention, and off-host verification remain gated. |
+| TLS diagnostics | Read-only certificate-lineage status and active renewal-scheduler preflight | Issuance, renewal, migration, and scheduler enablement remain blocked until protected secret transport and atomic certificate/key deployment are implemented and tested. |
 
 The current LEMP bootstrap is limited to distro-provided packages and an Nginx listener on `127.0.0.1:8080`. A read-only hosting planner now describes `nginx`, `apache`, and `hybrid` modes; Apache/hybrid apply remains blocked pending tenant isolation and real-host acceptance. It does not configure public ingress, TLS, DNS, firewall rules, application databases/users, tenant isolation, backups, or production hardening. See [LEMP beta guide](docs/LEMP-BETA.md).
 
@@ -86,6 +87,18 @@ bash bin/stackalign internet doctor
 ```
 
 The wizard separately asks who manages DNS, how public websites should be reached (Cloudflare Tunnel or direct public IP), and how administrators should connect privately (Tailscale, WireGuard, or an existing VPN). This prevents treating a tunnel as a direct-origin A record or confusing private VPN access with public DNS. It stores only non-secret preferences with restrictive local permissions and validates saved configuration before reuse. It does **not** install clients, authenticate providers, change DNS, issue certificates, open firewall ports, or alter services. `internet apply` remains blocked. See [internet access setup](docs/INTERNET-ACCESS.md).
+
+### Inspect TLS certificates
+
+Read-only diagnostics inspect locally managed certificate lineages, expiry, hostname coverage, private-key match, key-file permissions, and the 30-day renewal window:
+
+```bash
+bash bin/stackalign tls status
+bash bin/stackalign tls status example.com
+bash bin/stackalign tls preflight
+```
+
+These checks do not validate the public trust chain, revocation status, live HTTPS reachability, or every possible third-party scheduler. Preflight detects known active Certbot/acme.sh/Lego/StackAlign timers and matching cron entries. Certificate issuance, renewal, client migration, and renewal-timer enablement are intentionally blocked: the previous adapter exposed ZeroSSL EAB secrets in process arguments and deployed the certificate and key with separate non-atomic renames. Do not enable that adapter until protected secret transport and crash-safe atomic activation/rollback are proven.
 
 ### Create and inspect database backups
 
@@ -166,7 +179,7 @@ The repository's CI workflows exercise Ubuntu and AlmaLinux 9. Treat a CI result
 
 The following are not established as complete production workflows:
 
-- Public web ingress, TLS issuance/renewal, DNS, and production firewall configuration; the internet wizard currently captures preferences and plans only.
+- Public web ingress, TLS issuance/renewal, DNS, and production firewall configuration; the internet wizard captures preferences and plans only, while TLS commands currently provide read-only diagnostics.
 - Application database/user provisioning and tenant management/isolation.
 - Automated database restore, encrypted backup storage, retention scheduling, off-host replication, and disaster-recovery validation; current backup commands only create/list/check artifacts.
 - Unattended updates or self-update.
