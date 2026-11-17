@@ -12,7 +12,75 @@
 
 sa_lemp_die() { echo "stackalign install: $*" >&2; return 1; }
 
+# The web root is interpolated into an Nginx directive by sed. Restrict it to
+# an absolute, normalized path alphabet so delimiters, replacement operators,
+# whitespace, and Nginx syntax cannot alter the generated configuration.
+sa_lemp_web_root_valid() {
+  local web=${SA_LEMP_WEB_ROOT:-} resolved
+  [[ $web == /* && $web =~ ^/[A-Za-z0-9._/-]+$ ]] || {
+    echo "stackalign install: web root must be an absolute path containing only letters, digits, dot, underscore, slash, and hyphen" >&2
+    return 64
+  }
+  resolved=$(realpath -m -- "$web" 2>/dev/null) || {
+    echo "stackalign install: cannot resolve web root safely" >&2
+    return 64
+  }
+  [[ $resolved == "$web" ]] || {
+    echo "stackalign install: web root must not resolve through symlinks or non-normalized components" >&2
+    return 64
+  }
+  [[ $web != *//* && $web != */ ]] || {
+    echo "stackalign install: web root must not contain duplicate or trailing slashes" >&2
+    return 64
+  }
+  case "$web" in
+    *"/../"*|*/..|*"/./"*|*/.)
+      echo "stackalign install: web root must not contain dot or dot-dot path components" >&2
+      return 64 ;;
+  esac
+}
+
+# Refuse symlinked path components, not just symlinked leaf files. A
+# symlinked public/ directory would otherwise redirect the generated health
+# page outside the configured web root even when index.php itself is regular.
+sa_lemp_path_components_safe() {
+  local candidate=$1 current=/ component
+  local -a components=()
+  IFS=/ read -r -a components <<< "$candidate"
+  for component in "${components[@]}"; do
+    [ -n "$component" ] || continue
+    current="${current%/}/$component"
+    if [ -L "$current" ]; then
+      echo "stackalign install: refusing symlinked path component: $current" >&2
+      return 64
+    fi
+  done
+}
+
+# Refuse symlink/non-regular managed targets before DNF or file writes.
+sa_lemp_targets_safe() {
+  local path
+  for path in "$SA_LEMP_ETC_ROOT/php-fpm.d" "$SA_LEMP_ETC_ROOT/nginx/conf.d" "$SA_LEMP_WEB_ROOT" "$SA_LEMP_WEB_ROOT/public"; do
+    sa_lemp_path_components_safe "$path" || return $?
+    if [ -e "$path" ] && [ ! -d "$path" ]; then
+      echo "stackalign install: managed directory path is not a directory: $path" >&2
+      return 64
+    fi
+  done
+  for path in "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
+    if [ -L "$path" ]; then
+      echo "stackalign install: refusing symlinked managed target: $path" >&2
+      return 64
+    fi
+    if [ -e "$path" ] && [ ! -f "$path" ]; then
+      echo "stackalign install: managed target is not a regular file: $path" >&2
+      return 64
+    fi
+  done
+}
+
 sa_lemp_host_check() {
+  sa_lemp_web_root_valid || return $?
   [ "${SA_LEMP_TESTING:-0}" = 1 ] && return 0
   [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   [ -r "$SA_LEMP_OS_RELEASE_FILE" ] || { sa_lemp_die "cannot read $SA_LEMP_OS_RELEASE_FILE"; return 1; }
@@ -51,7 +119,7 @@ EOF
 
 sa_lemp_restore() {
   local backup=$1 path
-  for path in "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf"; do
+  for path in "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
     if [ -e "$backup$path" ] || [ -L "$backup$path" ]; then
       cp -a "$backup$path" "$path" || return 1
     else
@@ -63,6 +131,7 @@ sa_lemp_restore() {
 sa_lemp_apply() {
   [ "${SA_LEMP_TESTING:-0}" = 1 ] || [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   sa_lemp_host_check || return $?
+  sa_lemp_targets_safe || return $?
   local etc="$SA_LEMP_ETC_ROOT" web="$SA_LEMP_WEB_ROOT"
   local pool="$etc/php-fpm.d/www.conf" site="$etc/nginx/conf.d/stackalign.conf"
   local backup failed=0
@@ -70,9 +139,10 @@ sa_lemp_apply() {
   dnf -y install nginx mariadb-server php-fpm php-mysqlnd || { sa_lemp_die "DNF package installation failed"; return 1; }
 
   backup=$(mktemp -d) || return 1
-  mkdir -p "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d"
-  [ ! -e "$pool" ] || cp -a "$pool" "$backup$pool" || { rm -rf "$backup"; return 1; }
-  [ ! -e "$site" ] || cp -a "$site" "$backup$site" || { rm -rf "$backup"; return 1; }
+  mkdir -p "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d" "$backup$web/public"
+  [ ! -e "$pool" ] && [ ! -L "$pool" ] || cp -a "$pool" "$backup$pool" || { rm -rf "$backup"; return 1; }
+  [ ! -e "$site" ] && [ ! -L "$site" ] || cp -a "$site" "$backup$site" || { rm -rf "$backup"; return 1; }
+  [ ! -e "$web/public/index.php" ] && [ ! -L "$web/public/index.php" ] || cp -a "$web/public/index.php" "$backup$web/public/index.php" || { rm -rf "$backup"; return 1; }
   mkdir -p "$etc/php-fpm.d" "$etc/nginx/conf.d" "$web/public" || failed=1
 
   if [ "$failed" -eq 0 ]; then
@@ -138,11 +208,16 @@ PHP
   fi
 
   if [ "$failed" -ne 0 ]; then
+    local recovery_failed=0
     echo "install: configuration or service activation failed; restoring prior StackAlign-managed config" >&2
-    sa_lemp_restore "$backup" || echo "CRITICAL: configuration restore failed; inspect $backup" >&2
-    systemctl restart php-fpm >/dev/null 2>&1 || true
-    systemctl restart nginx >/dev/null 2>&1 || true
-    rm -rf "$backup"
+    sa_lemp_restore "$backup" || recovery_failed=1
+    systemctl restart php-fpm >/dev/null 2>&1 || recovery_failed=1
+    systemctl restart nginx >/dev/null 2>&1 || recovery_failed=1
+    if [ "$recovery_failed" -eq 0 ]; then
+      rm -rf "$backup"
+    else
+      echo "CRITICAL: recovery was incomplete; backup preserved at $backup for manual recovery" >&2
+    fi
     sa_lemp_die "LEMP apply did not complete; installed RPMs may remain and require manual removal"
     return 1
   fi
