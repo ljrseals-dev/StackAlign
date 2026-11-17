@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
-# lib/db.sh -- guarded MariaDB database listing and creation.
+# lib/db.sh -- guarded MariaDB status, listing, and creation helpers.
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 sa_db_validate_name() {
@@ -36,6 +36,22 @@ _sa_db_require_client() {
         echo "db: mysql client is not installed" >&2
         return 69
     }
+}
+
+# sa_db_status -- read-only server and authenticated-account diagnostics.
+sa_db_status() {
+    local result version account
+    _sa_db_require_client || return $?
+    result=$(mysql --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT VERSION(), CURRENT_USER();') || {
+        echo "db: connection or status query failed" >&2
+        return 1
+    }
+    IFS=$'\t' read -r version account <<< "$result"
+    [ -n "$version" ] && [ -n "$account" ] || {
+        echo "db: server returned an incomplete status response" >&2
+        return 1
+    }
+    printf 'server_version: %s\nauthenticated_account: %s\n' "$version" "$account"
 }
 
 # sa_db_list -- read-only schema inventory.

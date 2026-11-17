@@ -170,3 +170,10 @@ The TLS status tests generate disposable self-signed certificates and verify exp
 | Database drop | BLOCKED | Requires dependency checks, pre-drop backup, explicit destructive approval, and verified rollback/restore. |
 
 Tests use a fake mysql executable and do not contact or mutate a live database. Real MariaDB permission behavior, concurrent create behavior, schema lifecycle, and restore remain NOT RUN.
+
+
+### Database server status — feature branch implementation
+
+- `stackalign db status` is read-only and reports the connected server version plus the authenticated database account.
+- Credentials continue to come from the same absolute owner-only defaults file used by `db list/create`; secrets are not passed as values in command arguments.
+- Tests use a fake `mysql` client. Live server connectivity, account privileges, and MariaDB-version compatibility remain NOT RUN.
