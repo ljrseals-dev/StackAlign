@@ -123,3 +123,20 @@ The CLI explicitly refuses `internet apply`. It must not claim that saving prefe
 - Host authority: the sidecar receives no root access, shell tool, Docker socket, or host filesystem mount. Any future provisioning remains in StackAlign's native approval-gated commands.
 - Remote API use: HTTPS only, with explicit STACKALIGN_AGENT_ALLOW_REMOTE=1; plain remote HTTP is rejected. API key is read from the environment and written only to a mode-600 temporary header file.
 - Validation: implementation code at 9f8b69a passed `make lint` and `make test` on Ubuntu and AlmaLinux 9 (runs #717 and #718). The expanded addon inventory documentation also passed PR CI on 82cfb43 (run #720, both environments). A final client-only change caps response downloads at 1 MiB; CI for the latest head is running (run #729). No live sidecar/provider or real-host deployment was run.
+
+
+## Database backup CLI — feature branch implementation
+
+**Branch:** `feat/backup-cli-workflow` (stacked on PR #53; not merged to `main`).
+
+| Area | State | Evidence / boundary |
+|---|---|---|
+| Logical backup | Implemented; CI PASS | `stackalign backup run logical <absolute-dir> [--apply]` uses `mysqldump --single-transaction --routines --triggers --events --hex-blob --all-databases` and gzip. Output is private mode 0600 with a visible timestamp/random filename. |
+| Physical backup | Implemented; CI PASS | `stackalign backup run physical <absolute-mariadb-dir> --apply` runs MariaBackup backup and prepare under umask 077. Partial failures are retained and marked incomplete rather than silently deleted. |
+| Backup listing | Implemented; CI PASS | Lists only recognized top-level logical and physical artifacts; symlink entries are ignored. |
+| Integrity checks | Implemented; CI PASS | Logical checks gzip container integrity only. Physical checks the `full-prepared` checkpoint marker. Neither proves restoreability. |
+| Credential handling | Guarded | MySQL defaults file must be a regular, non-symlink file owned by the invoking user with mode 0400 or 0600; credentials are not passed as command-line values. |
+| Restore | BLOCKED | No pre-restore snapshot, engine-specific recovery, rollback, or verified live restore contract. CLI refuses without touching database state. |
+| Encryption, retention, off-host copy | NOT IMPLEMENTED in CLI | Existing rclone helper is not exposed; no encryption or remote recovery guarantee is claimed. |
+
+Automated tests use fake `mysqldump` and `mariabackup` commands; they do not contact a live database. GitHub Actions run #757 on head `0e91413446b9984604a72ffda92045ada46d53d1` passed `make lint`, `make headers`, and `make test` on Ubuntu and AlmaLinux 9. Real MariaDB/MariaBackup backup and restore testing remains NOT RUN.

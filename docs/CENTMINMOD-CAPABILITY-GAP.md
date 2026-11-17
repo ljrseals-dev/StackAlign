@@ -43,7 +43,7 @@ Legend:
 | Suhosin | No module | **Do not prioritize** | Legacy extension; use maintained PHP hardening controls instead |
 | TLS issuance and renewal | lib/tls.sh contains Lego/Certbot issuance and renewal helpers; CLI tls remains a stub | **Partial / not wired** | Wire tls commands, secure DNS credentials, renewal timer ownership, Nginx/Apache install/reload tests |
 | WordPress vhost/cache install | templates/nginx/site-wordpress.conf.tmpl exists; no full WordPress installer/cache lifecycle | **Partial / missing** | Secure application install, database/user, WP-CLI, cache integration, updates, file permissions |
-| Backup and data transfer | lib/backup.sh has logical dump, MariaBackup, rclone copy; backup and restore CLI commands remain stubs | **Partial / not wired** | CLI, manifests, encryption, retention, off-host transfer, restore verification, disaster-recovery tests |
+| Backup and data transfer | PR #54 wires logical mysqldump and physical MariaBackup creation plus list/integrity checks; restore remains blocked | **Partial / guarded** | Add authenticated encryption, retention policy, off-host replication, verified restore with pre-restore snapshot/rollback, and disaster-recovery tests |
 | SSH tunnel migration and key management | SFTP key-only account module; no host-to-host migration workflow | **Partial** | Explicit migration plans, source/destination checks, resumability, integrity verification |
 | Multi-thread compression utilities | No installer/manager for pigz, pbzip2, zstd, lbzip2 | **Missing** | Optional tools only if benchmarked and packaged by supported repositories |
 | SSH port change | SFTP module supports key-only chroot accounts; no SSH port manager | **Do not prioritize** | Port changes are not a substitute for key-only auth, firewall policy, and private admin access |
@@ -72,7 +72,7 @@ The upstream source branch is useful as a feature and behavior reference, but it
 These should be completed and wired before creating duplicate implementations:
 
 1. **TLS:** lib/tls.sh already contains an ACME adapter. The CLI command is still a stub. Review existing secret handling and renewal scheduler before exposing it.
-2. **Backups:** lib/backup.sh already has mysqldump, mariabackup, and rclone copy helpers. The CLI backup/restore commands are stubs and there is no verified restore contract.
+2. **Backups:** PR #54 wires `backup run logical|physical`, `backup list`, and `backup verify`; credential defaults files must be owner-only. Logical verification checks gzip integrity only; physical verification checks the prepared checkpoint marker. Restore remains blocked pending pre-restore snapshots, engine-specific recovery, rollback, and live restore tests. Encryption, retention, and off-host replication are not wired.
 3. **Security scanning:** lib/security.sh queues advisory ClamAV findings. It does not remediate or quarantine.
 4. **Firewall:** lib/firewall.sh has backend selection and an intrusion-tool package install helper; that is not equivalent to Centmin Mod's complete CSF-managed stack.
 5. **PHP extensions:** lib/extensions.sh has a four-item package allowlist (Redis, Imagick, FFmpeg PHP, libheif); package availability is an explicit assumption.
