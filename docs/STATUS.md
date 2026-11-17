@@ -185,3 +185,10 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - The query does not select password hashes or authentication plugin data.
 - Account creation, grants, password rotation, and application credential handoff remain NOT IMPLEMENTED.
 - Fake-client tests validate command routing and output; no live account inventory has been run.
+
+
+## SFTP password-hash argument exposure fix — 2026-11-17
+
+- Changed random-password hashing to pass the generated secret to `openssl passwd -6 -stdin` rather than as a process argument.
+- Extended the fake-tool regression test to verify stdin delivery and assert the generated secret is absent from the recorded OpenSSL argument vector.
+- Validation: fresh CI required for this branch. No live sshd/account operation or local test run is claimed.
