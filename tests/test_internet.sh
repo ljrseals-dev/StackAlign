@@ -18,6 +18,12 @@ sa_internet_plan public cloudflare direct none example.com 999.1.1.1 >/dev/null 
 sa_internet_plan nonsense none none none "" "" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 64 ] && ok "rejects unknown access purpose" || bad "purpose validation"
 
+sa_internet_valid_ipv4 192.168.1.10 && bad "rejects private IPv4" || ok "rejects private IPv4"
+sa_internet_valid_ipv4 127.0.0.1 && bad "rejects loopback IPv4" || ok "rejects loopback IPv4"
+sa_internet_valid_ipv4 169.254.1.1 && bad "rejects link-local IPv4" || ok "rejects link-local IPv4"
+sa_internet_valid_ipv4 010.0.0.1 && bad "rejects leading-zero IPv4" || ok "rejects leading-zero IPv4"
+
+
 mkdir -p "$XDG_CONFIG_HOME/stackalign"
 chmod 700 "$XDG_CONFIG_HOME/stackalign"
 printf 'version=2\npurpose=both\ndns_provider=cloudflare\npublic_ingress=cloudflare_tunnel\nadmin_access=tailscale\ndomain=example.com\nserver_ipv4=\n' > "$XDG_CONFIG_HOME/stackalign/internet.conf"
@@ -45,7 +51,7 @@ XDG_CONFIG_HOME=relative sa_internet_config_path >/dev/null 2>&1; rc=$?
 out=$(sa_internet_plan both other cloudflare_tunnel tailscale example.com "" 2>&1); rc=$?
 { [ "$rc" -eq 0 ] && [[ "$out" == *"DNS action: MANUAL"* ]] && [[ "$out" == *"do not point an A record"* ]]; } && ok "Cloudflare Tunnel is not confused with direct-origin A records" || bad "tunnel DNS distinction"
 out=$(sa_internet_plan public other direct none example.com 8.8.8.8 2>&1); rc=$?
-{ [ "$rc" -eq 0 ] && [[ "$out" == *"A/AAAA records"* ]]; } && ok "direct ingress plans A/AAAA to supplied public IP" || bad "direct DNS plan"
+{ [ "$rc" -eq 0 ] && [[ "$out" == *"A record"* ]] && [[ "$out" == *"AAAA only after separately verifying"* ]]; } && ok "direct ingress plans A/AAAA to supplied public IP" || bad "direct DNS plan"
 sa_internet_plan private none none tailscale "" "" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "private-only access does not require public DNS" || bad "private-only plan"
 
