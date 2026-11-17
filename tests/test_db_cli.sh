@@ -22,6 +22,7 @@ done
 case "$query" in
   'SHOW DATABASES;') printf 'mysql\napp_db\n' ;;
   'SELECT VERSION(), CURRENT_USER();') printf '10.11.6-MariaDB\tstackalign@localhost\n' ;;
+  'SELECT User, Host FROM mysql.user ORDER BY User, Host;') printf 'stackalign\tlocalhost\nroot\tlocalhost\n' ;;
   SELECT*) ;;
   'CREATE DATABASE '*) printf '%s\n' "$query" >> "$TEST_TMP/create.log" ;;
   *) echo "unexpected query: $query" >&2; exit 64 ;;
@@ -37,6 +38,7 @@ bash "$ROOT/bin/stackalign" db create webapp --apply
 grep -Fq 'CREATE DATABASE IF NOT EXISTS `webapp`' "$TMP/create.log"
 bash "$ROOT/bin/stackalign" db list | grep -q 'app_db'
 bash "$ROOT/bin/stackalign" db status | grep -q 'server_version: 10.11.6-MariaDB'
+bash "$ROOT/bin/stackalign" db user list | grep -q 'stackalign'
 
 set +e
 bash "$ROOT/bin/stackalign" db drop webapp --apply >"$TMP/drop.out" 2>&1
