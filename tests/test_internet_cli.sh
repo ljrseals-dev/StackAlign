@@ -5,6 +5,7 @@ set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CLI="$ROOT/bin/stackalign"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+export XDG_CONFIG_HOME="$T/config"
 pass=0 fail=0
 ok(){ pass=$((pass+1)); echo "ok   - $1"; }
 bad(){ fail=$((fail+1)); echo "FAIL - $1"; }
