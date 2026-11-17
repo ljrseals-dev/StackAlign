@@ -187,7 +187,7 @@ cmd_doctor() {
     if sa_config_load "$SA_CONF_PATH" 2>"$errf"; then
       echo "config: ok ($SA_CONF_PATH)"
     else
-      echo "config: ERROR ($SA_CONF_PATH)"; crit=1
+      echo "config: ERROR ($SA_CONF_PATH): $(tr '\n' ' ' <"$errf")"; crit=1
     fi
     rm -f "$errf"
   else
