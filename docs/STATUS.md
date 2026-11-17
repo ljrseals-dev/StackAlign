@@ -192,3 +192,11 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - Changed random-password hashing to pass the generated secret to `openssl passwd -6 -stdin` rather than as a process argument.
 - Extended the fake-tool regression test to verify stdin delivery and assert the generated secret is absent from the recorded OpenSSL argument vector.
 - Validation: fresh CI required for this branch. No live sshd/account operation or local test run is claimed.
+
+
+## Backup credential path hardening — feature branch fix
+
+- `lib/backup.sh` now requires `SA_MYSQL_DEFAULTS_FILE` to be an absolute, canonical, regular non-symlink file owned by the invoking user with mode 0400 or 0600.
+- Rejects relative paths and files reached through symlinked parent directories, aligning backup credential validation with the database module.
+- Regression tests cover relative and symlink-parent paths.
+- No live database backup or restore was run; CI is required on the PR head.
