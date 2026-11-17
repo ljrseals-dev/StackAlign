@@ -12,7 +12,24 @@
 
 sa_lemp_die() { echo "stackalign install: $*" >&2; return 1; }
 
+# The web root is interpolated into an Nginx directive by sed. Restrict it to
+# an absolute, normalized path alphabet so delimiters, replacement operators,
+# whitespace, and Nginx syntax cannot alter the generated configuration.
+sa_lemp_web_root_valid() {
+  local web=${SA_LEMP_WEB_ROOT:-}
+  [[ $web == /* && $web =~ ^/[A-Za-z0-9._/-]+$ ]] || {
+    echo "stackalign install: web root must be an absolute path containing only letters, digits, dot, underscore, slash, and hyphen" >&2
+    return 64
+  }
+  case "$web" in
+    *"/../"*|*/..|*"/./"*|*/.)
+      echo "stackalign install: web root must not contain dot or dot-dot path components" >&2
+      return 64 ;;
+  esac
+}
+
 sa_lemp_host_check() {
+  sa_lemp_web_root_valid || return $?
   [ "${SA_LEMP_TESTING:-0}" = 1 ] && return 0
   [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   [ -r "$SA_LEMP_OS_RELEASE_FILE" ] || { sa_lemp_die "cannot read $SA_LEMP_OS_RELEASE_FILE"; return 1; }
@@ -51,7 +68,7 @@ EOF
 
 sa_lemp_restore() {
   local backup=$1 path
-  for path in "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf"; do
+  for path in "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
     if [ -e "$backup$path" ] || [ -L "$backup$path" ]; then
       cp -a "$backup$path" "$path" || return 1
     else
@@ -70,9 +87,10 @@ sa_lemp_apply() {
   dnf -y install nginx mariadb-server php-fpm php-mysqlnd || { sa_lemp_die "DNF package installation failed"; return 1; }
 
   backup=$(mktemp -d) || return 1
-  mkdir -p "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d"
-  [ ! -e "$pool" ] || cp -a "$pool" "$backup$pool" || { rm -rf "$backup"; return 1; }
-  [ ! -e "$site" ] || cp -a "$site" "$backup$site" || { rm -rf "$backup"; return 1; }
+  mkdir -p "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d" "$backup$web/public"
+  [ ! -e "$pool" ] && [ ! -L "$pool" ] || cp -a "$pool" "$backup$pool" || { rm -rf "$backup"; return 1; }
+  [ ! -e "$site" ] && [ ! -L "$site" ] || cp -a "$site" "$backup$site" || { rm -rf "$backup"; return 1; }
+  [ ! -e "$web/public/index.php" ] && [ ! -L "$web/public/index.php" ] || cp -a "$web/public/index.php" "$backup$web/public/index.php" || { rm -rf "$backup"; return 1; }
   mkdir -p "$etc/php-fpm.d" "$etc/nginx/conf.d" "$web/public" || failed=1
 
   if [ "$failed" -eq 0 ]; then
