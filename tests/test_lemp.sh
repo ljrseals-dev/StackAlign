@@ -40,6 +40,12 @@ for bad_root in relative "$T/web|injected" "$T/web/../escape" "$T/web;worker_pro
   rc=$?
   [ "$rc" -eq 64 ] && ok "unsafe web root rejected: $bad_root" || bad "unsafe web root accepted: $bad_root (rc=$rc)"
 done
+mkdir -p "$T/external"
+ln -s "$T/external" "$T/web-link"
+SA_LEMP_WEB_ROOT="$T/web-link" sa_lemp_plan >/dev/null 2>&1
+rc=$?
+[ "$rc" -eq 64 ] && ok "web root resolving through a symlink is rejected" || bad "symlinked web root accepted (rc=$rc)"
+rm -f "$T/web-link"
 [ ! -s "$LOG" ] && ok "invalid web roots cause no package or service calls" || bad "invalid web root side effects"
 
 # A pre-existing symlink must be rejected before DNF and must not be followed.
