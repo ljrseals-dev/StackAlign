@@ -24,7 +24,7 @@ target=''
 mode=''
 for arg in "$@"; do
   case "$arg" in
-    --target-dir=*) target=\${arg#--target-dir=} ;;
+    --target-dir=*) target=${arg#--target-dir=} ;;
     --backup) mode=backup ;;
     --prepare) mode=prepare ;;
   esac
