@@ -28,7 +28,7 @@ sa_internet_valid_domain() {
 
 sa_internet_valid_ipv4() {
   local ip=$1 a b c d octet
-  [[ $ip =~ ^([0-9]{1,3}\\.){3}[0-9]{1,3}$ ]] || return 1
+  [[ $ip =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
   IFS=. read -r a b c d <<< "$ip"
   for octet in "$a" "$b" "$c" "$d"; do
     [[ $octet =~ ^(0|[1-9][0-9]{0,2})$ ]] || return 1
