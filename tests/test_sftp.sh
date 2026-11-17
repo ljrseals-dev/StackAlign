@@ -82,6 +82,7 @@ if [ -e "$T/keys/bob" ]; then rc=0; else rc=1; fi; check "no key written for ref
 
 sa_sftp_remove_user bob >/dev/null 2>&1; check "remove non-SFTP account refused" "$?" 1
 grep -q userdel "$CALLS"; check "no userdel for bob" "$?" 1
+rm -f "$T/keys/alice"
 ln -s "$T/good.pub" "$T/keys/alice"
 : > "$CALLS"
 sa_sftp_remove_user alice >/dev/null 2>&1; check "refuse symlinked authorized-keys target on removal" "$?" 1
