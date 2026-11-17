@@ -30,17 +30,18 @@ These are distinct deployment models:
 
 A limitation on the second model must not be written as a prohibition on the first. A shared `www` pool is the default, not proof that vhosts are unsupported. Conversely, the existence of vhosts or optional pools alone is not proof of complete multi-tenant isolation.
 
-## Existing pull requests
+## Existing pull requests — 2026-11-17
 
-Do not recreate work already present in open PRs. Review and validate the existing branches in their dependency order, and treat their test/CI state as belonging to their exact PR heads:
+Do not recreate work already present in merged PRs. Treat CI evidence as belonging to the exact commit that ran it.
 
-- PR #61: read-only site/vhost inventory.
-- PR #62: fixture coverage stacked on PR #61.
-- PR #60: earlier overlapping site/vhost inventory implementation; reconcile rather than duplicate.
-- PR #63: database credential-boundary regression tests.
-- PR #64: SFTP password exposure fix.
+- PR #62: merged site-inventory fixture and symlink coverage; CI run #44089435209 passed.
+- PR #64: merged SFTP password-argument exposure fix; CI run #44090800679 passed.
+- PR #66: LEMP web-root validation, managed-target symlink refusal, and health-page rollback; current-main PR, CI pending on its latest head.
+- PR #67: current-main read-only site/vhost inventory; supersedes the closed stale-base PR #61 and duplicate PR #60. Latest-head CI status is pending after help-text clarification.
+- PR #68: current-main database credential-boundary tests; supersedes closed stale-base PR #63. Latest-head CI passed on Ubuntu and AlmaLinux 9.
+- PR #50: repository-doctor foundation remains draft and explicitly incomplete; its branch is substantially behind current main and must not be merged until fixture parsing and the documented review gates are satisfied.
 
-These PRs are implementation work already in progress. Their existence is not evidence that they have merged or passed fresh CI.
+PR #60 was closed without merging as a duplicate. PRs #61 and #63 were closed after their changes were ported to current-main PRs #67 and #68. A closed PR is not evidence that its work was merged; use the replacement PRs above for current review.
 
 ## Beta completion objective
 
