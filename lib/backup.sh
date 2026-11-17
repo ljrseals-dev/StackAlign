@@ -44,7 +44,7 @@ sa_backup_dump() {
     }
     stamp=$(date +%Y%m%dT%H%M%S) || return 1
     tmp=$(mktemp "$dest/.db-$stamp.XXXXXX") || return 1
-    f="$tmp.sql.gz"
+    f="$dest/db-$stamp-${tmp##*.}.sql.gz"
     if ( umask 077; set -o pipefail
          mysqldump --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --single-transaction \
                    --routines --triggers --all-databases | gzip -c > "$tmp" ) && ln -- "$tmp" "$f"; then
