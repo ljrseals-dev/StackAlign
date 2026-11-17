@@ -73,7 +73,7 @@ sa_config_get() {  # <section.key> [default]
 
 
 # Schema v1 validator. This is opt-in: loading an INI file remains generic.
-_sa_cfg_uint() { [[ ${1-} =~ ^[0-9]+$ ]] && (( 10#${1:-0} >= ${2:-1} && 10#${1:-0} <= ${3:-2147483647} )); }
+_sa_cfg_uint() { local n=${1-}; [[ $n =~ ^[0-9]{1,10}$ ]] && (( 10#$n >= ${2:-1} && 10#$n <= ${3:-2147483647} )); }
 _sa_cfg_domain() {
   local d=${1,,} label
   [[ ${#d} -le 253 && $d != .* && $d != *. && $d != *..* ]] || return 1
@@ -87,7 +87,7 @@ _sa_cfg_bad() { echo "config schema: $*" >&2; return 1; }
 
 sa_config_validate() {
   local key value section slug site_count=0 required
-  local -A site_seen=()
+  local -A site_seen=() seen_domains=() seen_users=() seen_pools=()
   [ "$#" -eq 0 ] || { _sa_cfg_bad "usage: sa_config_validate"; return 64; }
   [ "${SA_CONF[meta.config_version]-}" = 1 ] || { _sa_cfg_bad "config_version 1 is required"; return 1; }
 
@@ -148,8 +148,15 @@ sa_config_validate() {
       [ -n "${SA_CONF[site.$slug.$required]-}" ] || { _sa_cfg_bad "site.$slug.$required is required"; return 1; }
     done
   done
-  local tenant_mode=${SA_CONF[server.tenant_mode]-pool}
+  local tenant_mode=${SA_CONF[server.tenant_mode]-pool} domain user pool
   for slug in "${!site_seen[@]}"; do
+    domain=${SA_CONF[site.$slug.domain],,}
+    user=${SA_CONF[site.$slug.user]}
+    pool=${SA_CONF[site.$slug.pool]}
+    [ -z "${seen_domains[$domain]+x}" ] || { _sa_cfg_bad "duplicate site domain $domain"; return 1; }
+    [ -z "${seen_users[$user]+x}" ] || { _sa_cfg_bad "site Unix users must be unique ($user)"; return 1; }
+    [ -z "${seen_pools[$pool]+x}" ] || { _sa_cfg_bad "site PHP-FPM pool names must be unique ($pool)"; return 1; }
+    seen_domains[$domain]=1; seen_users[$user]=1; seen_pools[$pool]=1
     if [ "$tenant_mode" = pool ] && [ "${SA_CONF[site.$slug.isolation]}" != pool ]; then
       _sa_cfg_bad "site.$slug.isolation must be pool when server.tenant_mode=pool"; return 1
     fi
