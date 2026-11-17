@@ -19,6 +19,8 @@ out=$(sa_hosting_plan apache)
 [[ "$out" == *"httpd"* && "$out" == *"proxy_fcgi_module"* && "$out" == *"loopback"* ]] && ok "Apache plan declares package, PHP-FPM integration and private backend" || bad "Apache plan contract"
 out=$(sa_hosting_plan hybrid)
 [[ "$out" == *"127.0.0.1:8081"* && "$out" == *"never public"* ]] && ok "hybrid plan keeps Apache upstream private" || bad "hybrid private upstream"
+out=$(sa_hosting_plan apache)
+[[ "$out" == *"shared pool is not tenant isolation"* ]] && ok "Apache plan warns shared PHP-FPM pool is not isolation" || bad "shared pool warning"
 sa_hosting_plan invalid >/dev/null 2>&1; [ $? -eq 64 ] && ok "unknown mode rejected" || bad "unknown mode rejected"
 mkdir -p "$T/bin"
 for tool in nginx php-fpm; do printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/$tool"; chmod +x "$T/bin/$tool"; done
