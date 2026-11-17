@@ -32,7 +32,7 @@ MariaDB is started but no application database, application user, password, or r
 
 ## Failure and recovery behavior
 
-Before changing the PHP-FPM pool, StackAlign Nginx site file, and generated PHP health page, the installer copies any existing versions to a private temporary directory. If configuration validation or service activation fails, it attempts to restore those files (or remove a newly created health page) and restart PHP-FPM and Nginx. The configurable web root is validated as an absolute, normalized path before any package or service command runs; unsafe characters and dot-path components are rejected.
+Before changing the PHP-FPM pool, StackAlign Nginx site file, and generated PHP health page, the installer copies any existing versions to a private temporary directory. If configuration validation or service activation fails, it attempts to restore those files (or remove a newly created health page) and restart PHP-FPM and Nginx. The configurable web root is validated as an absolute, normalized path before any package or service command runs; unsafe characters, duplicate/trailing slashes, and dot-path components are rejected. Existing managed targets must be regular files, not symlinks, before DNF runs; this prevents the generated health page from following a pre-existing symlink outside the document root.
 
 **Important limitation:** DNF package installation is not reversed on failure. The installer does not snapshot or restore prior service enablement/running state, and it does not roll back a MariaDB data-directory initialization. Inspect the host and remove packages manually if needed. This is not a transactional host rollback guarantee.
 
@@ -44,7 +44,7 @@ The repository's install.sh release bootstrap remains intentionally disabled unt
 
 ## Validation
 
-tests/test_lemp.sh uses fake DNF, systemd, PHP-FPM, and Nginx commands. It checks planning, package selection, PHP-FPM pool edits, loopback binding, document-root handling, unsafe web-root rejection, syntax-test invocation, health-page restoration/removal after injected validation failures, and service activation commands. These are mock tests only.
+tests/test_lemp.sh uses fake DNF, systemd, PHP-FPM, and Nginx commands. It checks planning, package selection, PHP-FPM pool edits, loopback binding, document-root handling, unsafe web-root rejection, symlink-target refusal, syntax-test invocation, health-page restoration/removal after injected validation failures, and service activation commands. These are mock tests only.
 
 Required before calling this beta deployable on supported hosts:
 
