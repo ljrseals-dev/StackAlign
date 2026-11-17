@@ -4,22 +4,42 @@
 # lib/site.sh -- read-only virtual-host inventory and syntax diagnostics.
 sa_site_list() {
     local root=${SA_SITE_ETC_ROOT:-/etc}
-    local dir entry found=0 target rel
-    printf 'web_server\tconfig_path\ttarget\n'
+    local dir entry found=0 target rel rc=0 entries
+    printf 'web_server\tconfig_path_escaped\ttarget_escaped\n'
     for rel in nginx/conf.d nginx/sites-enabled httpd/conf.d httpd/sites-enabled; do
         dir=$root/$rel
         [ -d "$dir" ] || continue
+        if [ ! -r "$dir" ] || [ ! -x "$dir" ]; then
+            echo "site inventory: directory is not readable/searchable: $dir" >&2
+            rc=1
+            continue
+        fi
+        entries=$(mktemp "${TMPDIR:-/tmp}/stackalign-site.XXXXXX") || return 1
+        if ! find "$dir" -maxdepth 1 \( -type f -o -type l \) -print0 > "$entries"; then
+            echo "site inventory: failed to enumerate: $dir" >&2
+            rm -f -- "$entries"
+            rc=1
+            continue
+        fi
         while IFS= read -r -d '' entry; do
             [ -f "$entry" ] || [ -L "$entry" ] || continue
             target='regular-file'
             if [ -L "$entry" ]; then
-                target=$(readlink -- "$entry") || { echo "site inventory: cannot read symlink: $entry" >&2; target='unreadable-symlink'; }
+                target=$(readlink -- "$entry") || {
+                    echo "site inventory: cannot read symlink: $entry" >&2
+                    rc=1
+                    continue
+                }
             fi
-            printf '%s\t%s\t%s\n' "$rel" "$entry" "$target"
+            # Bash %q keeps tabs/newlines/control characters inside one TSV cell.
+            printf '%s\t' "$rel"
+            printf '%q\t%q\n' "$entry" "$target"
             found=1
-        done < <(find "$dir" -maxdepth 1 \( -type f -o -type l \) -print0 2>/dev/null | LC_ALL=C sort -z)
+        done < "$entries"
+        rm -f -- "$entries"
     done
     [ "$found" -eq 1 ] || echo 'no vhost configuration files found in standard directories'
+    return "$rc"
 }
 sa_site_doctor() {
     local server=${1:-all} rc=0 checked=0
