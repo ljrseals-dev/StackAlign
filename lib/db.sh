@@ -58,7 +58,7 @@ sa_db_create() {
         printf 'database already exists: %s\n' "$name"
         return 0
     fi
-    query="CREATE DATABASE \`$name\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+    query="CREATE DATABASE IF NOT EXISTS \`$name\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
     mysql --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query" || {
         echo "db: create failed for $name" >&2
         return 1
