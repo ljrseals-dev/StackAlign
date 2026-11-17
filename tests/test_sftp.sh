@@ -172,7 +172,7 @@ exit "$fail"
 SA_SFTP_KEYDIR="$T/keys/../other" sa_sftp_render >/dev/null 2>&1; dot_keydir=$?
 ln -s "$T" "$T/path-link"
 SA_SFTP_BASE="$T/path-link/sftp" sa_sftp_render >/dev/null 2>&1; symlink_base=$?
-set -e
+set +e
 check "reject sshd group directive injection" "$bad_group" 64
 check "reject sshd path directive injection" "$bad_base" 64
 check "reject non-canonical sshd path" "$dot_keydir" 64
