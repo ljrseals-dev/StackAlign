@@ -172,6 +172,35 @@ sa_repo_parse_status_fixture dnf "$T/fixture-link" >/dev/null 2>&1; parser_link_
 set -e
 [[ "$parser_link_rc" -eq 66 ]]
 
+# Symlinked .repo files and failed backend probes are visible failures.
+cat >"$T/repos/sample.repo" <<'EOF'
+[baseos]
+enabled=1
+EOF
+ln -s "$T/repos/sample.repo" "$T/repos/linked.repo"
+set +e
+sa_repo_doctor --section repo >"$T/symlink-repo.out" 2>&1; symlink_repo_rc=$?
+set -e
+[[ "$symlink_repo_rc" -eq 2 ]]
+grep -q '\[FAIL\] REPO-003' "$T/symlink-repo.out"
+rm -f "$T/repos/linked.repo"
+cat >"$T/bin/dnf" <<'EOF'
+#!/usr/bin/env bash
+exit 9
+EOF
+chmod +x "$T/bin/dnf"
+set +e
+sa_repo_doctor --section repo >"$T/backend-fail.out" 2>&1; backend_rc=$?
+set -e
+[[ "$backend_rc" -eq 2 ]]
+grep -q '\[FAIL\] REPO-002' "$T/backend-fail.out"
+cat >"$T/bin/dnf" <<'EOF'
+#!/usr/bin/env bash
+[ "${1:-}" = --version ] && { echo 4.14.0; exit 0; }
+exit 99
+EOF
+chmod +x "$T/bin/dnf"
+
 # CLI exposes the read-only repository doctor without changing default doctor behavior.
 cli_out=$(SA_OS_RELEASE_FILE="$T/os-release" SA_YUM_REPOS_DIR="$T/repos" "$ROOT/bin/stackalign" doctor --section repo)
 [[ "$cli_out" == *"[PASS] REPO-001"* ]]
