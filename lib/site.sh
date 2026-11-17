@@ -120,7 +120,7 @@ sa_site_add() {
 }
 sa_site_remove() {
     [ "$#" -eq 2 ] || { echo 'usage: sa_site_remove <domain> <apply:0|1>' >&2; return 64; }
-    local domain=$1 apply=$2 dir target marker backup_dir backup_tmp backup
+    local domain=$1 apply=$2 dir target marker backup_dir backup backup_real
     marker='# Managed by StackAlign site lifecycle v1'
     _sa_site_valid_domain "$domain" || { echo "site remove: invalid DNS hostname: $domain" >&2; return 64; }
     case "$apply" in 0|1) ;; *) return 64 ;; esac
@@ -136,9 +136,18 @@ sa_site_remove() {
     if [ -L "$backup_dir" ] || { [ -e "$backup_dir" ] && [ ! -d "$backup_dir" ]; }; then echo 'site remove: backup directory is unsafe' >&2; return 1; fi
     mkdir -p -- "$backup_dir" || return 1
     chmod 0700 -- "$backup_dir" || return 1
-    backup_tmp=$(mktemp "$backup_dir/.${domain}.XXXXXX") || return 1
-    backup=$backup_dir/${domain}-$(date -u +%Y%m%dT%H%M%SZ)-$$.conf
-    if ! cp -- "$target" "$backup_tmp" || ! chmod 0600 -- "$backup_tmp" || ! cmp -s -- "$target" "$backup_tmp" || ! mv -n -- "$backup_tmp" "$backup"; then rm -f -- "$backup_tmp"; echo 'site remove: could not create verified private backup; configuration unchanged' >&2; return 1; fi
+    backup_real=$(realpath -e -- "$backup_dir") || return 1
+    [ "$backup_real" = "$backup_dir" ] || { echo "site remove: backup path resolves through a symlink; refusing" >&2; return 1; }
+    chmod 0700 -- "$backup_dir" || return 1
+    if [ "${SA_SITE_TESTING:-0}" != 1 ] && [ "$(stat -c %u -- "$backup_dir")" != 0 ]; then
+        echo "site remove: backup directory must be root-owned" >&2; return 1
+    fi
+    backup=$(mktemp "$backup_dir/${domain}-XXXXXX.conf") || return 1
+    if ! cp -- "$target" "$backup" || ! chmod 0600 -- "$backup" || ! cmp -s -- "$target" "$backup"; then
+        rm -f -- "$backup"
+        echo "site remove: could not create verified private backup; configuration unchanged" >&2
+        return 1
+    fi
     rm -f -- "$target" || { echo "site remove: failed to remove configuration; backup retained at $backup" >&2; return 1; }
     if ! nginx -t; then cp -- "$backup" "$target" && chmod 0644 -- "$target" || echo 'CRITICAL: failed to restore vhost after nginx -t failure' >&2; echo "site remove: invalid resulting configuration; previous vhost restored from $backup" >&2; return 1; fi
     if ! _sa_site_reload_if_active; then
