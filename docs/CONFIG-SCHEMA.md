@@ -54,7 +54,7 @@ The proposed server-level tenant_mode values are pool and free_for_all. pool mea
 - Only the keys shown above are accepted. Unknown sections and keys are errors.
 - `meta.config_version` is required and must equal `1`; `meta.allow_override`, when present, is `0` or `1`.
 - Server role, tenant mode, PHP workload, Redis booleans/ports/memory/policies, site identity names, hostnames, resource limits, egress mode, and path syntax are validated.
-- Every `site.<slug>` requires `domain`, `user`, `pool`, and `isolation=pool`. `free_for_all` accepts at most one site.
+- Every `site.<slug>` requires `domain`, `user`, `pool`, and `isolation`. In `tenant_mode=pool`, isolation must be `pool`; in `tenant_mode=free_for_all`, isolation must be `free_for_all` and only one site is accepted.
 - Site resource limits are configuration values only. Validation does not create Unix users, PHP-FPM pools, cgroups, firewall rules, Redis instances, or filesystem boundaries.
 - `php_version` is syntactically checked as major.minor; availability/support of that runtime is not checked.
 - `sites_dir` and `open_basedir_extra` are syntax-checked, not created or resolved against the host filesystem.
