@@ -164,37 +164,47 @@ sa_repo_doctor() {
     _sa_repo_doc_check REPO-002 "package backend" FAIL "neither dnf nor yum is executable" "Install the distribution package backend." 
   fi
 
-  if [ -d "$dir" ]; then
-    while IFS= read -r -d '' f; do files+=("$f"); done < <(find "$dir" -maxdepth 1 -type f -name '*.repo' -print0 2>/dev/null | sort -z)
+  local syntax_bad=0 f count=0 enabled_total=0 had_nullglob=0
+  if [ -L "$dir" ] || { [ -e "$dir" ] && { [ ! -d "$dir" ] || [ ! -r "$dir" ] || [ ! -x "$dir" ]; }; }; then
+    syntax_bad=1
+  elif [ -d "$dir" ]; then
+    shopt -q nullglob && had_nullglob=1
+    shopt -s nullglob
+    files=("$dir"/*.repo)
+    [ "$had_nullglob" -eq 1 ] || shopt -u nullglob
   fi
-  local syntax_bad=0 f count=0 enabled_total=0
   for f in "${files[@]}"; do
+    if [ -L "$f" ] || [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      syntax_bad=1
+      continue
+    fi
     awk '
+      BEGIN { sections=0 }
       /^[[:space:]]*([#;]|$)/ { next }
-      /^[[:space:]]*\[[^][]+\][[:space:]]*$/ { next }
+      /^[[:space:]]*\[[^][]+\][[:space:]]*$/ { sections++; next }
       /^[[:space:]]*enabled[[:space:]]*=/ {
         v=$0; sub(/^[^=]*=[[:space:]]*/, "", v); v=tolower(v)
         if (v !~ /^(0|no|false|1|yes|true)$/) bad=1
+        if (!sections) bad=1
         next
       }
-      /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=/ { next }
+      /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=/ { if (!sections) bad=1; next }
       { bad=1 }
-      END { exit bad }
+      END { if (!sections) bad=1; exit bad }
     ' "$f" || syntax_bad=1
     count=$(awk '
       /^[[:space:]]*\[[^][]+\][[:space:]]*$/ { if (active && enabled !~ /^(0|no|false)$/) n++; active=1; enabled="1"; next }
       active && /^[[:space:]]*enabled[[:space:]]*=/ { v=$0; sub(/^[^=]*=[[:space:]]*/,"",v); v=tolower(v); if (v ~ /^(0|no|false)$/) enabled="0"; else if (v ~ /^(1|yes|true)$/) enabled="1"; else enabled="invalid" }
       END { if (active && enabled == "1") n++; print n+0 }
     ' "$f")
-    # Accumulate enabled stanzas per file without trusting DNF effective config.
-    enabled_total=$((${enabled_total:-0} + count))
+    enabled_total=$((enabled_total + count))
   done
-  if [ "${#files[@]}" -eq 0 ]; then
+  if [ "$syntax_bad" -ne 0 ]; then
+    _sa_repo_doc_check REPO-003 "repo config syntax" FAIL "repository directory or one or more .repo files are unreadable, symlinked, or malformed" "Review repository directory permissions and stanza syntax before package operations."
+  elif [ "${#files[@]}" -eq 0 ]; then
     _sa_repo_doc_check REPO-003 "repo config syntax" SKIP "no .repo files found"
-  elif [ "$syntax_bad" -eq 0 ]; then
-    _sa_repo_doc_check REPO-003 "repo config syntax" PASS "${#files[@]} files inspected"
   else
-    _sa_repo_doc_check REPO-003 "repo config syntax" FAIL "one or more .repo files contain malformed lines" "Review repository stanza syntax before package operations."
+    _sa_repo_doc_check REPO-003 "repo config syntax" PASS "${#files[@]} files inspected"
   fi
   if [ "${enabled_total:-0}" -ge 1 ]; then
     _sa_repo_doc_check REPO-004 "enabled repos" PASS "$enabled_total enabled repo stanza(s)"
