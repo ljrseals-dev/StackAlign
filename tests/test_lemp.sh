@@ -101,5 +101,14 @@ FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure-new.out" 2>&1
 rc=$?
 { [ "$rc" -ne 0 ] && [ ! -e "$T/web/public/index.php" ]; } && ok "failed config validation removes newly created health page" || bad "failed config validation left new health page"
 
+# A failed rollback must preserve the snapshot instead of deleting the
+# only recovery copy. Override the restore helper to inject that failure.
+sa_lemp_restore() { return 1; }
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/restore-failure.out" 2>&1
+rc=$?
+backup=$(sed -n 's/.*backup preserved at //p' "$T/restore-failure.out" | tail -n 1)
+{ [ "$rc" -ne 0 ] && [ -n "$backup" ] && [ -d "$backup" ] && [ -f "$backup$T/etc/php-fpm.d/www.conf" ]; } && ok "incomplete rollback preserves recovery snapshot" || bad "incomplete rollback deleted recovery snapshot"
+[ -z "$backup" ] || rm -rf -- "$backup"
+
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]
