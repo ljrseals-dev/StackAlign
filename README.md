@@ -38,7 +38,7 @@ The repository contains the following implemented areas. Each item is subject to
 | Database backup | Explicit logical `mysqldump` and physical MariaBackup workflows; list and integrity verification | Requires an owner-only MySQL defaults file; logical verification checks gzip integrity, not SQL restoreability; restore, encryption, retention, and off-host verification remain gated. |
 | TLS diagnostics | Read-only certificate-lineage status and active renewal-scheduler preflight | Issuance, renewal, migration, and scheduler enablement remain blocked until protected secret transport and atomic certificate/key deployment are implemented and tested. |
 
-The current LEMP bootstrap is limited to distro-provided packages and an Nginx listener on `127.0.0.1:8080`. A read-only hosting planner now describes `nginx`, `apache`, and `hybrid` modes; Apache/hybrid apply remains blocked pending tenant isolation and real-host acceptance. It does not configure public ingress, TLS, DNS, firewall rules, application databases/users, tenant isolation, backups, or production hardening. See [LEMP beta guide](docs/LEMP-BETA.md).
+The current LEMP bootstrap installs distro-provided Nginx, MariaDB, and PHP-FPM and creates a loopback listener on `127.0.0.1:8080`. StackAlign is intended for web hosting and virtual-host (vhost) administration; being a CLI rather than a browser-based commercial control panel does not make it a non-hosting tool. The default PHP-FPM configuration uses the shared `www` pool. Additional PHP-FPM pools are an operator-selectable CLI configuration choice and are not enabled automatically. A shared default pool is not per-account isolation, but the default does not prohibit vhosts or operator-managed sites. The read-only hosting planner also describes `nginx`, `apache`, and `hybrid` modes; Apache/hybrid apply remains separately gated. Public ingress, TLS, DNS, firewall rules, application database/user provisioning, independent-user isolation, backups, and production hardening must be assessed as separate capabilities. See [LEMP beta guide](docs/LEMP-BETA.md) and [beta hosting scope](docs/BETA-SCOPE-AND-HOSTING.md).
 
 ## Quick start
 
@@ -75,7 +75,7 @@ bash bin/stackalign hosting setup
 bash bin/stackalign hosting doctor hybrid
 ```
 
-Run `hosting setup` first from an interactive terminal to identify the intended operator model. It distinguishes one administrator managing multiple accounts from multiple independent end users. The independent-user choice is blocked until isolation is implemented and tested. The prompt currently reports the choice but does not persist it. A shared PHP-FPM `www` pool is not per-account isolation. Apache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; runtime apply is deliberately blocked until tenant identity, PHP-FPM, service/cgroup isolation, and real-host validation are complete. See [hosting modes](docs/HOSTING-MODES.md) and [Apache upstream integration](docs/APACHE-UPSTREAM.md).
+Run `hosting setup` from an interactive terminal to inspect the intended operator model. Administrator-managed hosting of multiple websites/vhosts is distinct from hosting mutually untrusted independent end users. The latter requires additional isolation and remains separately gated; that limitation must not be read as a restriction on ordinary web hosting or vhost use. The default PHP-FPM `www` pool is shared; additional pools may be selected through the CLI and are not enabled automatically. A separate pool alone is not a complete tenant-isolation guarantee. Apache is an optional application upstream behind Nginx in hybrid mode. Apache binds must remain private; Apache/hybrid runtime apply remains separately gated pending its implementation and host validation. See [hosting modes](docs/HOSTING-MODES.md), [beta hosting scope](docs/BETA-SCOPE-AND-HOSTING.md), and [Apache upstream integration](docs/APACHE-UPSTREAM.md).
 
 ### Configure internet access
 
@@ -223,6 +223,7 @@ A source file, design note, mock test, CI result, or successful plan does not pr
 
 - [Internet access setup](docs/INTERNET-ACCESS.md) — access-purpose questions, tunnel selection, manual fallback, and security boundaries.
 - [Hosting modes](docs/HOSTING-MODES.md) — Nginx, Apache, and hybrid mode contract and apply gates.
+- [Beta hosting scope](docs/BETA-SCOPE-AND-HOSTING.md) — web hosting/vhost scope, default PHP-FPM pool behavior, and distinction from independent-user isolation.
 - [Apache upstream integration](docs/APACHE-UPSTREAM.md) — reverse-proxy architecture, PHP-FPM integration requirements, and security boundaries.
 - [LEMP beta bootstrap](docs/LEMP-BETA.md) — supported scope, apply behavior, recovery limitations, and host-validation checklist.
 - [Egress firewall and passive LAN audit](docs/EGRESS.md) — opt-in nftables rules and read-only neighbour-cache audit.
