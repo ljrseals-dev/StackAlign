@@ -140,11 +140,17 @@ sa_sftp_add_user() {
 }
 
 sa_sftp_remove_user() {
-    local user=${1:-}
+    local user=${1:-} keytarget
+    _sa_sftp_config_ok || return $?
     _sa_sftp_user_ok "$user" || { echo "sftp: bad username" >&2; return 64; }
     _sa_sftp_in_group "$user" || { echo "sftp: $user is not an SFTP account; refusing" >&2; return 1; }
+    keytarget="$SA_SFTP_KEYDIR/$user"
+    if [ -L "$keytarget" ] || { [ -e "$keytarget" ] && [ ! -f "$keytarget" ]; }; then
+        echo "sftp: refusing unsafe authorized-keys target" >&2
+        return 1
+    fi
     userdel -- "$user" || return 1
-    rm -f -- "$SA_SFTP_KEYDIR/$user"
+    [ ! -e "$keytarget" ] || rm -fT -- "$keytarget" || return 1
     log "sftp: removed login for $user; data kept in $SA_SFTP_BASE/$user"
 }
 
