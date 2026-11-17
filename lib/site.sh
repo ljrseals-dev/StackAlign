@@ -62,7 +62,7 @@ sa_site_doctor() {
     return "$rc"
 }
 _sa_site_valid_domain() {
-    [[ ${1:-} =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$ ]]
+    [ ${#1} -le 253 ] && [[ ${1:-} =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$ ]]
 }
 _sa_site_valid_docroot() {
     local path=${1:-} resolved
