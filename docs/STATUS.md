@@ -185,3 +185,10 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - The query does not select password hashes or authentication plugin data.
 - Account creation, grants, password rotation, and application credential handoff remain NOT IMPLEMENTED.
 - Fake-client tests validate command routing and output; no live account inventory has been run.
+
+
+## Database credential-boundary regression tests — 2026-11-17
+
+- Added `tests/test_db_security.sh` for protected MySQL defaults-file handling.
+- Covers valid owner-only mode 0600, symlink rejection, invalid permission modes, relative/missing path rejection, and verifies that the password value is not passed in mysql command arguments.
+- Test execution on the new branch: PENDING CI. The suite uses a fake mysql executable and does not contact a live database.
