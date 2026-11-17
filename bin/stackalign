@@ -190,7 +190,7 @@ cmd_tls() {
         return 0
       fi
       if [ "$rc" -eq 2 ]; then
-        echo "tls preflight: upstream renewal scheduler conflict; no changes made" >&2
+        echo "tls preflight: renewal scheduler conflict; no changes made" >&2
         return 2
       fi
       return "$rc" ;;
