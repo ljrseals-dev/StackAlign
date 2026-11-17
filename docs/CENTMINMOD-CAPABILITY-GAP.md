@@ -1,7 +1,7 @@
 # Centmin Mod capability gap and StackAlign adoption plan
 
 **Research snapshot:** 2026-11-17  
-**Upstream reference:** Centmin Mod 141.00beta01 menu and addon catalogue  
+**Upstream reference:** Centmin Mod 141.00beta01 menu and addon catalogue (source commit e70d770884694c7491ad112f7d936634cd1fa2f2)  
 **StackAlign baseline:** feat/internet-access-wizard at c221951260e38eca1eb7c9d3ab1f9d1b4b445650 (PR #52 head; stacked on PR #51)
 
 This is a capability comparison, not a claim that Centmin Mod's implementation is suitable to copy or run on a StackAlign host. Centmin Mod's repository is GPL-3.0; StackAlign is MIT. Do not copy upstream implementation code into StackAlign without a deliberate licensing decision. Implement compatible behavior independently, or use Centmin Mod itself as a separately installed product on a fresh host.
@@ -72,6 +72,41 @@ These should be completed and wired before creating duplicate implementations:
 7. **Update engine:** package transaction code exists, but tested version matrices are empty and check, pin, and status remain stubs.
 8. **Hosting:** PR #51 adds Apache/hybrid planning and scope prompts only. Per-tenant isolation remains blocked.
 9. **Internet access:** PR #52 adds preference capture and read-only planning only. DNS, TLS, firewall, and tunnel provisioning remain blocked.
+
+## Upstream addon inventory cross-check
+
+The 141.00beta01 source tree contains 34 addon scripts. This cross-check expands the menu comparison so that optional features are not missed.
+
+| Upstream addon(s) | StackAlign assessment | Adoption direction |
+|---|---|---|
+| acmetool.sh | Partial: lib/tls.sh has ACME client helpers but the CLI is not wired | Finish the native TLS lifecycle first; do not copy the script |
+| anubis.sh | Missing | Optional bot-abuse protection; evaluate only behind an explicit reverse-proxy threat model |
+| avginstall.sh | Missing | Do not adopt legacy antivirus bundle without current vendor/security review |
+| customcurl.sh, wget.sh | Missing | Prefer supported EL packages and vendor security updates; no custom system curl replacement by default |
+| devtoolset-4.sh, devtoolset-6.sh | Missing | Do not install legacy compiler toolsets globally; use isolated build containers when needed |
+| docker.sh | Missing | Optional container runtime only; do not grant the Pinecone sidecar Docker socket access |
+| ffmpeg.sh | Partial | Package mapping exists for FFmpeg PHP, but the media runtime and end-to-end ABI checks are not implemented |
+| geoip.sh | Missing | Add trusted-proxy CIDR and database update design before exposing GeoIP data |
+| git2_install.sh | Missing | Prefer distribution Git unless a specific tested version is required |
+| golang.sh, nodejs.sh, ruby.sh, passenger.sh | Missing | Optional per-application runtimes; require version pinning and service isolation |
+| ioncube.sh | Missing | Optional proprietary loader; license acceptance and PHP ABI compatibility required |
+| ius-repo.sh | Do not adopt by default | Third-party repository expansion conflicts with StackAlign's conservative repository trust policy |
+| linfo.sh | Missing | Avoid public system-information pages; if implemented, protect behind administrator authentication |
+| maldet.sh | Partial | ClamAV advisory scanning exists; no LMD real-time monitoring/quarantine lifecycle |
+| mysqladmin_shell.sh | Partial | Database administration CLI is still a stub; implement native least-privilege db commands instead |
+| opendkim.sh | Missing | Optional mail-auth subsystem; DNS SPF/DKIM/DMARC still requires domain-owner action |
+| php-libheif.sh | Partial | libheif appears in the extension allowlist; validate package/ABI/runtime before claiming support |
+| php72-mcrypt.sh, php73-mcrypt.sh, php74-mcrypt.sh, php80-mcrypt.sh | Do not prioritize | Legacy mcrypt/PHP compatibility is not a modern default; prefer maintained cryptographic APIs |
+| python27_install.sh, python34_install.sh, python35_install.sh, python36_install.sh, python_switch_el8.sh | Do not adopt | Legacy Python versions and global interpreter switching are unsafe defaults; use supported system Python or isolated runtimes |
+| rclone.sh | Partial | rclone copy helper exists in lib/backup.sh; credentials, encryption, retention, and restore verification are incomplete |
+| redis-server-install.sh | Missing | Redis PHP extension is not a Redis server; add protected bind/auth/persistence and service checks |
+| wpcli.sh | Missing | WordPress config template exists, but WP-CLI and a full WordPress lifecycle do not |
+ 
+The upstream source tree also contains standalone data-management scripts for backup, MariaBackup/restore, SSH tunnel transfers, key generation, and logging. StackAlign's current backup library is only a partial building block; it is not equivalent to the full transfer/migration workflow.
+
+## Platform support difference
+
+Centmin Mod's 141.00beta01 documentation lists AlmaLinux/Rocky Linux 8, 9, and 10 support (plus a legacy CentOS 7 path on the stable branch). StackAlign's current LEMP apply gate is EL9 x86_64 only. Do not expand StackAlign's OS matrix until each distribution/version has package, SELinux, systemd, Nginx, PHP-FPM, MariaDB, rollback, and CI acceptance coverage.
 
 ## Priority order
 
