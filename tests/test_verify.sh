@@ -18,7 +18,7 @@ genkey "StackAlign Test <rel@test.invalid>"; genkey "Attacker <evil@test.invalid
 FPR="$(fprof rel@test.invalid)"; EVIL="$(fprof evil@test.invalid)"
 gpg --export rel@test.invalid > "$T/ring-good.gpg" 2>/dev/null
 cat "$T/ring-good.gpg" > "$T/ring-both.gpg"; gpg --export evil@test.invalid >> "$T/ring-both.gpg" 2>/dev/null
-[ -n "$FPR" ] && [ -n "$EVIL" ] && [ "$FPR" != "$EVIL" ]; check "throwaway keys created" "$?" 0
+if [ -n "$FPR" ] && [ -n "$EVIL" ] && [ "$FPR" != "$EVIL" ]; then rc=0; else rc=1; fi; check "throwaway keys created" "$rc" 0
 
 NAME="stackalign-0.1.0.tar.gz"
 # mkrel <dir> <expires-line-or-empty> <signer-fingerprint>
