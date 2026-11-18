@@ -36,6 +36,14 @@ printf '%s\n' "$out" | grep -q 'renewal: DUE_WITHIN_30_DAYS'
 cli_out=$(bash "$ROOT/bin/stackalign" tls status example.test)
 printf '%s\n' "$cli_out" | grep -q 'private_key: MATCH'
 
+# acme.sh is a valid explicit lineage owner, not an unknown marker.
+printf 'acme.sh\n' > "$SA_CERT_ROOT/example.test/.client"
+chmod 600 "$SA_CERT_ROOT/example.test/.client"
+out=$(sa_tls_status "example.test")
+printf '%s\n' "$out" | grep -q 'client: acme.sh'
+printf 'lego\n' > "$SA_CERT_ROOT/example.test/.client"
+chmod 600 "$SA_CERT_ROOT/example.test/.client"
+
 # The reverse mapping for wildcard lineage names must preserve exactly one dot.
 make_lineage "_wildcard_.wild.example.test" "*.wild.example.test"
 out=$(sa_tls_status "*.wild.example.test")
