@@ -283,6 +283,39 @@ cmd_db() {
   esac
 }
 
+
+cmd_state() {
+  _sa_parse "--plan --apply" "$@"
+  local sub=${POS[0]:-}
+  source "$SA_ROOT/lib/state.sh"
+  case "$sub" in
+    init)
+      [ "${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign state init [--apply]"
+      if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then sa_state_init
+      else echo "plan: initialize local SQLite database at ${SA_STATE_DB:-/var/lib/stackalign/state.db}"; echo "no database changes made"; fi ;;
+    status)
+      [ "${#POS[@]}" -eq 1 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign state status"
+      sa_state_status ;;
+    task)
+      [ "${#POS[@]}" -ge 2 ] || _sa_die "usage: stackalign state task <create|list|start|complete|fail> ..."
+      case "${POS[1]}" in
+        create)
+          [ "${#POS[@]}" -eq 4 ] || _sa_die "usage: stackalign state task create <type> <description> [--apply]"
+          if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then sa_task_create "${POS[2]}" "${POS[3]}"
+          else echo "plan: would register task type ${POS[2]}"; echo "no task record created"; fi ;;
+        list)
+          [ "${#POS[@]}" -eq 2 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign state task list"
+          sa_task_list ;;
+        start|complete|fail)
+          [ "${#POS[@]}" -ge 3 ] && [ "${#POS[@]}" -le 4 ] || _sa_die "usage: stackalign state task <start|complete|fail> <id> [detail] [--apply]"
+          [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ] || { echo "state task transition requires --apply" >&2; return 2; }
+          case "${POS[1]}" in start) sa_task_transition "${POS[2]}" running "${POS[3]:-}" ;; complete) sa_task_transition "${POS[2]}" succeeded "${POS[3]:-}" ;; fail) sa_task_transition "${POS[2]}" failed "${POS[3]:-}" ;; esac ;;
+        *) _sa_die "unknown task operation: ${POS[1]}" ;;
+      esac ;;
+    *) _sa_die "usage: stackalign state <init|status|task ...>" ;;
+  esac
+}
+
 cmd_tls() {
   local sub=${1:-} rc=0
   [ $# -gt 0 ] && shift
