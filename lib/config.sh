@@ -70,3 +70,106 @@ sa_config_get() {  # <section.key> [default]
   elif [ $# -ge 2 ]; then printf '%s\n' "$2"
   else return 1; fi
 }
+
+
+# sa_config_write_atomic <absolute-path>
+# Read configuration bytes from stdin and atomically replace a regular file.
+# This primitive is schema-agnostic: callers must validate content before
+# invoking it. The parent directory must already exist and be trusted.
+#
+# Cooperating writers are serialized with an atomic mkdir lock. A stale lock
+# after SIGKILL is deliberately not auto-broken; an operator must inspect and
+# remove it. This avoids guessing whether another writer is still active.
+#
+# Existing file mode and ownership are preserved. New files are owner-only
+# (0600). Final-component symlinks and non-regular targets are refused.
+# The temp file is created beside the target so rename stays on one filesystem.
+# Atomic visibility is provided; power-loss durability/fsync is not promised.
+sa_config_write_atomic() (
+  local requested=${1-} parent base target lock tmp metadata uid gid mode
+  local original_id="" current_id=""
+
+  if [ "$#" -ne 1 ] || [[ ! $requested = /* ]]; then
+    echo "config: usage: sa_config_write_atomic <absolute-path>" >&2
+    exit 64
+  fi
+
+  parent=$(dirname -- "$requested")
+  base=$(basename -- "$requested")
+  case $base in ''|.|..) echo "config: invalid target basename" >&2; exit 64 ;; esac
+  if ! parent=$(cd -P -- "$parent" 2>/dev/null && pwd -P); then
+    echo "config: parent directory does not exist or is inaccessible" >&2
+    exit 1
+  fi
+  target="$parent/$base"
+
+  if [ -L "$target" ]; then
+    echo "config: refusing symlink target: $target" >&2
+    exit 1
+  fi
+  if [ -e "$target" ] && [ ! -f "$target" ]; then
+    echo "config: refusing non-regular target: $target" >&2
+    exit 1
+  fi
+
+  lock="$parent/.$base.stackalign.lock"
+  if ! (umask 077; mkdir -- "$lock") 2>/dev/null; then
+    echo "config: writer lock exists; refusing concurrent or stale writer: $lock" >&2
+    exit 75
+  fi
+
+  tmp=""
+  _sa_config_write_cleanup() {
+    [ -z "$tmp" ] || rm -f -- "$tmp"
+    rmdir -- "$lock" 2>/dev/null || :
+  }
+  trap _sa_config_write_cleanup EXIT
+  trap 'exit 1' HUP INT TERM
+
+  if [ -e "$target" ]; then
+    metadata=$(stat -c '%u %g %a %d:%i' -- "$target") || exit 1
+    read -r uid gid mode original_id <<< "$metadata"
+  fi
+
+  tmp=$(umask 077; mktemp -- "$parent/.$base.stackalign.XXXXXX") || {
+    echo "config: cannot create staged file in $parent" >&2
+    exit 1
+  }
+  if ! cat > "$tmp"; then
+    echo "config: failed to write staged content" >&2
+    exit 1
+  fi
+
+  if [ -n "$original_id" ]; then
+    if ! chown "$uid:$gid" -- "$tmp"; then
+      echo "config: cannot preserve target ownership" >&2
+      exit 1
+    fi
+    if ! chmod "$mode" -- "$tmp"; then
+      echo "config: cannot preserve target mode" >&2
+      exit 1
+    fi
+    if [ -L "$target" ] || [ ! -f "$target" ]; then
+      echo "config: target type changed while staging; refusing replacement" >&2
+      exit 1
+    fi
+    current_id=$(stat -c '%d:%i' -- "$target") || exit 1
+    if [ "$current_id" != "$original_id" ]; then
+      echo "config: target changed while staging; refusing replacement" >&2
+      exit 1
+    fi
+  else
+    if [ -e "$target" ] || [ -L "$target" ]; then
+      echo "config: target appeared while staging; refusing replacement" >&2
+      exit 1
+    fi
+    chmod 0600 -- "$tmp" || exit 1
+  fi
+
+  if ! mv -fT -- "$tmp" "$target"; then
+    echo "config: atomic replacement failed" >&2
+    exit 1
+  fi
+  tmp=""
+  exit 0
+)
