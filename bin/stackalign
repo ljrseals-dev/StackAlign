@@ -107,7 +107,7 @@ _sa_cmd_help() {
     routine) printf 'stackalign routine  [M3]\n  routine subsystem: plan|install|doctor|run|run-builtin\n' ;;
     internet) printf 'stackalign internet  [M2b]\n  interactive internet access preferences and read-only planning\n' ;;
     hosting) printf 'stackalign hosting  [M2b]\n  hosting scope prompt, plans, and read-only inspection\n' ;;
-    agent) printf 'stackalign agent  [M2b]\n  Pinecone Neural planning sidecar: status or ask (read-only)\n' ;;
+    agent) printf 'stackalign agent  [M2b]\n  LLM request planner: plan <request>; optional sidecar status\n' ;;
     sftp) printf 'stackalign sftp  [M3]\n  chrooted key-only SFTP account management\n' ;;
     egress) printf 'stackalign egress  [M4]\n  outbound firewall and passive LAN audit\n' ;;
     contain) printf 'stackalign contain  [M4]\n  evidence preservation before rebuild\n' ;;
@@ -575,16 +575,20 @@ cmd_internet() {
 
 cmd_agent() {
   local sub=${1:-}; shift || true
-  source "$SA_ROOT/lib/agent.sh"
   case "$sub" in
+    plan)
+      [ $# -ge 1 ] || _sa_die "usage: stackalign agent plan <request>"
+      source "$SA_ROOT/lib/llm.sh"
+      sa_llm_plan "$@" ;;
     status)
       [ $# -eq 0 ] || _sa_die "usage: stackalign agent status"
+      source "$SA_ROOT/lib/agent.sh"
       sa_agent_status ;;
     ask)
-      [ $# -ge 1 ] || _sa_die "usage: stackalign agent ask <question>"
-      sa_agent_ask "$@" ;;
+      echo "stackalign agent ask: DISABLED — the legacy Pinecone Neural agent executes model-generated Python; use 'agent plan' instead" >&2
+      return 2 ;;
     *)
-      _sa_die "usage: stackalign agent <status|ask <question>>" ;;
+      _sa_die "usage: stackalign agent <plan <request>|status|ask (disabled)>" ;;
   esac
 }
 

@@ -7,7 +7,7 @@ SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh)
 all: lint headers test
 
 # Rule 1: SPDX header + author on every source file (first 5 lines).
-HDR_FILES := $(SH_FILES) Makefile tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml
+HDR_FILES := $(SH_FILES) Makefile tests/test_tune_math.py scripts/validate_llm_plan.py .github/workflows/ci.yml .gitea/workflows/ci.yml
 headers:
 	@bad=0; for f in $(HDR_FILES); do \
 	  head -5 "$$f" | grep -q 'SPDX-License-Identifier:' && head -5 "$$f" | grep -q 'Author: Lewis James Seals Jr.' \

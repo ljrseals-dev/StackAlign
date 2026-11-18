@@ -286,11 +286,13 @@ This wrapper has fake-tool unit coverage only. Live CentOS conversion, Oracle re
 MIT. See [LICENSE](LICENSE).
 
 
-### Optional Pinecone Neural planning sidecar
+### Optional LLM request planner
 
-StackAlign can send a read-only host doctor and repository inventory snapshot to an already-running, hardened Pinecone Neural sidecar. It only displays recommendations; model output is never executed. The sidecar is optional and is not installed or started by StackAlign. See [the integration contract](docs/PINECONE-AGENT-INTEGRATION.md) and [Centmin Mod capability gap analysis](docs/CENTMINMOD-CAPABILITY-GAP.md).
+StackAlign includes an optional, read-only natural-language planner. It sends only the operator's request to a configured OpenAI-compatible endpoint, validates the structured response against a deterministic allowlist, and displays a proposal. It does not send host inventory or configuration data and cannot execute model output.
 
-```bash
-stackalign agent status
-STACKALIGN_AGENT_API_KEY='<configured sidecar key>' stackalign agent ask "Review the current hosting and backup gaps"
-```
+~~~bash
+export STACKALIGN_LLM_API_KEY='<provider key>'
+stackalign agent plan "Check whether my web server is healthy"
+~~~
+
+Only the health_check task type is currently accepted, and even that is a proposal rather than an executed health check. Deployment, database, backup, migration, TLS, firewall, and other operations remain unsupported until their deterministic workflows are implemented and tested. The legacy Pinecone Neural agent ask command is disabled because the inspected sidecar revision uses model-generated Python eval/exec; see [LLM planner](docs/LLM-PLANNER.md) and [sidecar security review](docs/PINECONE-AGENT-INTEGRATION.md).
