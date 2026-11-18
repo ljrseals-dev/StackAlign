@@ -94,7 +94,7 @@ _sa_cmd_help() {
     rollback) printf 'stackalign rollback  [M2a]\n  snapshot restore: rollback [--list] [--to <id>]\n' ;;
     update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
     site) printf 'stackalign site  [M3]\n  read-only vhost inventory/doctor; lifecycle actions gated\n' ;;
-    db) printf 'stackalign db  [M3]\n  database status/list/user inventory/create; destructive drop blocked\n' ;; ;;
+    db) printf 'stackalign db  [M3]\n  database status/list/user inventory/create; destructive drop blocked\n' ;;
     state) printf 'stackalign state  [M3]\n  init|status|task create|list|start|complete|fail\n' ;;
     tls) printf 'stackalign tls  [M3]\n  status, clients, plan-issue (Certbot HTTP-01 only), and scheduler preflight\n' ;;
     backup) printf 'stackalign backup  [M4]\n  backup driver: run|list|verify\n' ;;
@@ -670,7 +670,8 @@ _sa_dispatch() {  # <cmd> args...
     hosting)  cmd_hosting "$@" ;;
     internet) cmd_internet "$@" ;;
     site)     cmd_site "$@" ;;
-    db)       cmd_db "$@" ;;\n    state)    cmd_state "$@" ;;
+    db)       cmd_db "$@" ;;
+    state)    cmd_state "$@" ;;
     tls)      cmd_tls "$@" ;;
     agent)    cmd_agent "$@" ;;
     backup)   cmd_backup "$@" ;;
