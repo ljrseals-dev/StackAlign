@@ -195,3 +195,13 @@ This PR is documentation/design only. It does not add `lib/tls.sh`, `lib/tls_mig
 The feature branch adds `sa_tls_status` and wires `stackalign tls status [domain]` plus `stackalign tls preflight`. Status checks the local certificate expiry, hostname coverage, private-key match, client marker, and private-key permissions. It does not validate the public trust chain, revocation, live HTTPS reachability, or all possible scheduler configurations.
 
 The previous `sa_tls_issue` adapter is now fail-closed. It passed ZeroSSL EAB credentials as command-line arguments and activated the certificate and key using separate renames, which are not a crash-safe atomic pair. Issuance, renewal, migration, and renewal timer enablement must remain blocked until the secret channel, versioned release activation, scheduler ownership, and crash recovery contract are implemented and tested. This is a deliberate safety gate, not a claim that TLS issuance is complete.
+
+
+## Read-only ACME client discovery — 2026-11-17
+
+- `stackalign tls clients` reports availability and executable path for Certbot, acme.sh, and Lego independently.
+- RPM ownership is reported as package ownership only; it is **not** represented as proof of GPG signature verification or repository provenance.
+- Executables without an RPM owner are reported as manual-or-unknown, with DNF provenance explicitly NOT VERIFIED.
+- The internal `sa_tls_require_client` gate requires the exact selected client and returns `error=acme_client_not_available:client=<client>` when it is absent. It never substitutes another client.
+- Discovery does not execute client binaries, install packages, enable repositories, change schedulers, or request certificates.
+- Tests use isolated fake executables and a fake RPM query. Real EL9/10 package provenance and upstream installation acceptance remain NOT RUN.
