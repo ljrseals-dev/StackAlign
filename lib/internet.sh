@@ -239,3 +239,6 @@ sa_internet_doctor() {
   echo "This checks local interfaces, a default route, and one DNS lookup only. Provider authentication, authoritative DNS, inbound reachability, firewall/provider rules, and tunnel health require separate checks."
   return "$failures"
 }
+
+# Load the maintained diagnostic implementation after legacy planning helpers.
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/internet_doctor.sh"
