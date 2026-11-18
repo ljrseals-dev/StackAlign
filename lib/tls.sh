@@ -116,10 +116,32 @@ sa_tls_certbot_http01_plan() {
         echo "error=tls_http01_webroot_not_canonical" >&2
         return 1
     }
+    cert_root=${SA_CERT_ROOT:-/etc/stackalign/certs}
+    case "$cert_root" in
+        /*) ;;
+        *) echo "error=tls_certificate_root_invalid" >&2; return 64 ;;
+    esac
+    case "$cert_root" in
+        *"/../"*|*"/./"*|*/..|*/.) echo "error=tls_certificate_root_invalid" >&2; return 64 ;;
+    esac
+    [ -d "$cert_root" ] && [ ! -L "$cert_root" ] || {
+        echo "error=tls_certificate_root_unavailable" >&2
+        return 1
+    }
+    resolved=$(realpath -e -- "$cert_root" 2>/dev/null) || return 1
+    [[ $resolved == "$cert_root" && $resolved != / ]] || {
+        echo "error=tls_certificate_root_not_canonical" >&2
+        return 1
+    }
+    root_mode=$(stat -c '%a' -- "$cert_root" 2>/dev/null || echo invalid)
+    [ "$root_mode" = 700 ] || {
+        echo "error=tls_certificate_root_permissions_unsafe" >&2
+        return 1
+    }
     certbot=$(sa_tls_require_client certbot) || return $?
-    config="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/config"
-    work="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/work"
-    logs="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/logs"
+    config="$cert_root/.certbot/config"
+    work="$cert_root/.certbot/work"
+    logs="$cert_root/.certbot/logs"
 
     printf 'state: PLAN_ONLY\n'
     printf 'client: certbot\n'
