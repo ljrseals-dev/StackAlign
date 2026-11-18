@@ -288,6 +288,9 @@ cmd_tls() {
   [ $# -gt 0 ] && shift
   source "$SA_ROOT/lib/tls.sh"
   case "$sub" in
+    clients)
+      [ $# -eq 0 ] || _sa_die "usage: stackalign tls clients"
+      sa_tls_clients ;;
     status)
       [ $# -le 1 ] || _sa_die "usage: stackalign tls status [domain]"
       sa_tls_status "$@" ;;
