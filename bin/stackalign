@@ -371,10 +371,53 @@ cmd_restore() {
     esac
     shift
   done
-  [ -n "$from" ] || _sa_die "usage: stackalign restore --from <backup-artifact> [--apply]"
+  [ -n "$from" ] || _sa_die "usage: stackalign restore --from <backup-artifact> [--plan|--apply]"
   if [ "$apply" = 1 ] && [ "$plan" = 1 ]; then _sa_die "restore --plan and --apply are mutually exclusive"; fi
-  echo "stackalign restore: BLOCKED — no verified pre-restore snapshot, engine-specific recovery, or failure rollback contract exists; no database changes made" >&2
-  return 2
+
+  # A restore plan is useful only after the artifact and credential boundary
+  # have been checked. This remains read-only: no database client is invoked.
+  source "$SA_ROOT/lib/backup.sh"
+  _sa_bk_artifact_ok "$from" || {
+    echo "stackalign restore: invalid, missing, non-canonical, or symlinked artifact; no database changes made" >&2
+    return 64
+  }
+  sa_backup_verify "$from" || {
+    echo "stackalign restore: artifact verification failed; no database changes made" >&2
+    return 1
+  }
+
+  if [ -f "$from" ] && [[ $from == *.sql.gz ]]; then
+    _sa_bk_defaults_ok || {
+      echo "stackalign restore: owner-only MySQL defaults file required (mode 0400/0600); no database changes made" >&2
+      return 64
+    }
+    command -v mysql >/dev/null 2>&1 || {
+      echo "stackalign restore: mysql client is not installed; no database changes made" >&2
+      return 69
+    }
+    echo "=== LOGICAL RESTORE PREFLIGHT (READ-ONLY) ==="
+    echo "Artifact: $from"
+    echo "Integrity: gzip container PASS; SQL semantics and restoreability NOT VERIFIED"
+    echo "Credentials: owner-only defaults-file boundary PASS (path not displayed)"
+    echo "Client: mysql available (not invoked)"
+    echo "Scope: all-databases dump; may create, replace, or modify system and application schemas"
+    echo "Safety: restore into an isolated disposable MariaDB instance only"
+  elif [ -d "$from" ] && [[ ${from##*/} == mariadb-* ]]; then
+    echo "=== PHYSICAL RESTORE PREFLIGHT (READ-ONLY) ==="
+    echo "Artifact: $from"
+    echo "Integrity: prepared checkpoint marker PASS; restore test NOT RUN"
+    echo "Safety: datadir ownership, service-stop, prepare/copy-back, and recovery workflow are not implemented"
+  else
+    echo "stackalign restore: unsupported backup artifact type; no database changes made" >&2
+    return 64
+  fi
+
+  if [ "$apply" = 1 ]; then
+    echo "stackalign restore: BLOCKED — isolated target provisioning, verified pre-restore snapshot, engine-specific recovery, and failure rollback are not implemented; no database changes made" >&2
+    return 2
+  fi
+  echo "Execution: NOT RUN (preflight only; no database changes made)"
+  echo "(re-run with --apply only after a separately reviewed restore implementation is available)"
 }
 
 cmd_secret() {  # secret gen <name> | secret list
