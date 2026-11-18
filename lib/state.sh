@@ -16,7 +16,7 @@ _sa_state_require_sqlite() {
   command -v sqlite3 >/dev/null 2>&1 || { echo "state: sqlite3 is required" >&2; return 69; }
 }
 _sa_state_sql_quote() { local v=${1-}; v=${v//\'/\'\'}; printf "'%s'" "$v"; }
-_sa_state_exec() { sqlite3 -batch -bail -noheader -cmd '.timeout 5000' "$SA_STATE_DB" "$1"; }
+_sa_state_exec() { (umask 077; sqlite3 -batch -bail -noheader -cmd '.timeout 5000' "$SA_STATE_DB" "$1"); }
 sa_state_init() {
   _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
@@ -32,7 +32,7 @@ sa_state_init() {
     [[ $owner == "$(id -u)" && ( $mode == 600 || $mode == 400 ) ]] || { echo "state: existing database must be owned by this user with mode 600 or 400" >&2; return 1; }
   fi
   chmod 600 -- "$SA_STATE_DB" || return 1
-  if ! sqlite3 -batch -bail -cmd '.timeout 5000' "$SA_STATE_DB" < "$schema"; then
+  if ! (umask 077; sqlite3 -batch -bail -cmd '.timeout 5000' "$SA_STATE_DB" < "$schema"); then
     echo "state: migration failed" >&2
     [[ $created == 1 ]] && rm -f -- "$SA_STATE_DB"
     return 1
@@ -77,10 +77,15 @@ sa_task_transition() {
   [[ -f $SA_STATE_DB && ! -L $SA_STATE_DB ]] || { echo "task: state database is not initialized" >&2; return 1; }
   qid=$(_sa_state_sql_quote "$id"); qdetail=$(_sa_state_sql_quote "$detail")
   result=$(_sa_state_exec "BEGIN IMMEDIATE;
+CREATE TEMP TABLE _sa_transition_result(changed INTEGER);
 UPDATE tasks SET status='$target',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=$qid AND status='$expected';
-INSERT INTO task_events(task_id,event_type,detail,created_at) SELECT $qid,'$target',$qdetail,strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE changes()=1;
-SELECT CASE WHEN (SELECT status FROM tasks WHERE id=$qid)='$target' THEN 'transitioned' ELSE 'invalid_transition' END;
+INSERT INTO _sa_transition_result VALUES(changes());
+INSERT INTO task_events(task_id,event_type,detail,created_at)
+ SELECT $qid,'$target',$qdetail,strftime('%Y-%m-%dT%H:%M:%fZ','now')
+ WHERE (SELECT changed FROM _sa_transition_result)=1;
+SELECT changed FROM _sa_transition_result;
+DROP TABLE _sa_transition_result;
 COMMIT;") || return $?
-  [[ $result == transitioned ]] || { echo "task: transition refused (missing task or invalid current state)" >&2; return 1; }
+  [[ $result == 1 ]] || { echo "task: transition refused (missing task or invalid current state)" >&2; return 1; }
   printf 'task %s: %s\n' "$id" "$target"
 }
