@@ -528,8 +528,8 @@ cmd_internet() {
       [ "${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign internet plan"
       sa_internet_show_saved_plan ;;
     doctor)
-      [ "${#POS[@]}" -eq 1 ] || _sa_die "usage: stackalign internet doctor"
-      sa_internet_doctor ;;
+      [ "${#POS[@]}" -le 2 ] || _sa_die "usage: stackalign internet doctor [--json]"
+      sa_internet_doctor "${POS[1]:-}" ;;
     apply)
       echo "stackalign internet apply: BLOCKED — provider auth, DNS ownership, firewall and tunnel acceptance are not implemented; no changes made" >&2
       return 2 ;;
