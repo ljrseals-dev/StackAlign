@@ -195,3 +195,27 @@ This PR is documentation/design only. It does not add `lib/tls.sh`, `lib/tls_mig
 The feature branch adds `sa_tls_status` and wires `stackalign tls status [domain]` plus `stackalign tls preflight`. Status checks the local certificate expiry, hostname coverage, private-key match, client marker, and private-key permissions. It does not validate the public trust chain, revocation, live HTTPS reachability, or all possible scheduler configurations.
 
 The previous `sa_tls_issue` adapter is now fail-closed. It passed ZeroSSL EAB credentials as command-line arguments and activated the certificate and key using separate renames, which are not a crash-safe atomic pair. Issuance, renewal, migration, and renewal timer enablement must remain blocked until the secret channel, versioned release activation, scheduler ownership, and crash recovery contract are implemented and tested. This is a deliberate safety gate, not a claim that TLS issuance is complete.
+
+
+## Read-only ACME client discovery — 2026-11-17
+
+- `stackalign tls clients` reports availability and executable path for Certbot, acme.sh, and Lego independently.
+- RPM ownership is reported as package ownership only; it is **not** represented as proof of GPG signature verification or repository provenance.
+- Executables without an RPM owner are reported as manual-or-unknown, with DNF provenance explicitly NOT VERIFIED.
+- The internal `sa_tls_require_client` gate requires the exact selected client and returns `error=acme_client_not_available:client=<client>` when it is absent. It never substitutes another client.
+- Discovery does not execute client binaries, install packages, enable repositories, change schedulers, or request certificates.
+- Tests use isolated fake executables and a fake RPM query. Real EL9/10 package provenance and upstream installation acceptance remain NOT RUN.
+
+
+## Certbot HTTP-01 webroot plan — 2026-11-17
+
+The CLI now supports a plan-only command:
+
+```bash
+stackalign tls plan-issue example.com --client certbot --challenge http-01 \
+  --webroot /var/www/html --email admin@example.com
+```
+
+The planner validates a non-wildcard DNS name, a constrained contact-email form, an existing canonical non-symlink webroot, and an existing canonical certificate root with mode 0700. It renders a shell-escaped Certbot argv preview using isolated StackAlign-owned Certbot config/work/log paths.
+
+**This is not issuance.** The discovered executable is not invoked; the output labels source provenance NOT_VERIFIED and execution NOT_RUN. There is no `--apply` path. HTTP-01 reachability, port 80 routing, ACME source provenance, Certbot version compatibility, staged certificate validation, atomic release activation, Nginx test/reload, and rollback are not established. Wildcards are rejected because they require DNS-01.

@@ -65,7 +65,7 @@ _sa_cmd_list() {
     update M5 'update engine: check|plan|apply|pin|status' \
     site M3 'read-only vhost inventory/doctor; lifecycle actions gated' \
     db M3 'database status/list/user inventory/create; destructive drop blocked' \
-    tls M3 'read-only certificate status and scheduler preflight; issuance blocked' \
+    tls M3 'certificate status, client inventory, HTTP-01 plan, and scheduler preflight' \
     backup M4 'backup driver: run|list|verify' \
     restore M4 'restore driver: --from <id>' \
     bench M6 'reproducible benchmark' \
@@ -94,7 +94,7 @@ _sa_cmd_help() {
     update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
     site) printf 'stackalign site  [M3]\n  read-only vhost inventory/doctor; lifecycle actions gated\n' ;;
     db) printf 'stackalign db  [M3]\n  database status/list/user inventory/create; destructive drop blocked\n' ;;
-    tls) printf 'stackalign tls  [M3]\n  read-only certificate status and scheduler preflight; issuance blocked\n' ;;
+    tls) printf 'stackalign tls  [M3]\n  status, clients, plan-issue (Certbot HTTP-01 only), and scheduler preflight\n' ;;
     backup) printf 'stackalign backup  [M4]\n  backup driver: run|list|verify\n' ;;
     restore) printf 'stackalign restore  [M4]\n  restore driver: --from <id>\n' ;;
     bench) printf 'stackalign bench  [M6]\n  reproducible benchmark\n' ;;
@@ -288,9 +288,28 @@ cmd_tls() {
   [ $# -gt 0 ] && shift
   source "$SA_ROOT/lib/tls.sh"
   case "$sub" in
+    clients)
+      [ $# -eq 0 ] || _sa_die "usage: stackalign tls clients"
+      sa_tls_clients ;;
     status)
       [ $# -le 1 ] || _sa_die "usage: stackalign tls status [domain]"
       sa_tls_status "$@" ;;
+    plan-issue)
+      local domain=${1:-} client="" challenge="" webroot="" email=""
+      [ $# -ge 1 ] || _sa_die "usage: stackalign tls plan-issue <domain> --client certbot --challenge http-01 --webroot <path> --email <address>"
+      shift
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --client) [ $# -ge 2 ] || _sa_die "missing --client value"; client=$2; shift 2 ;;
+          --challenge) [ $# -ge 2 ] || _sa_die "missing --challenge value"; challenge=$2; shift 2 ;;
+          --webroot) [ $# -ge 2 ] || _sa_die "missing --webroot value"; webroot=$2; shift 2 ;;
+          --email) [ $# -ge 2 ] || _sa_die "missing --email value"; email=$2; shift 2 ;;
+          *) _sa_die "unknown tls plan-issue argument: $1" ;;
+        esac
+      done
+      [ "$client" = certbot ] || _sa_die "TLS client must be explicitly certbot for HTTP-01 planning"
+      [ "$challenge" = http-01 ] || _sa_die "Certbot plan requires --challenge http-01"
+      sa_tls_certbot_http01_plan "$domain" "$webroot" "$email" ;;
     preflight)
       [ $# -eq 0 ] || _sa_die "usage: stackalign tls preflight"
       sa_tls_preflight || rc=$?
@@ -306,7 +325,7 @@ cmd_tls() {
     issue|renew|migrate|enable-renewal)
       echo "tls: $sub BLOCKED — issuance, renewal and client migration require protected secret transport, atomic certificate/key activation, and crash-safe rollback" >&2
       return 2 ;;
-    *) _sa_die "usage: stackalign tls <status [domain]|preflight|issue|renew|migrate|enable-renewal>" ;;
+    *) _sa_die "usage: stackalign tls <clients|status [domain]|plan-issue <domain> --client certbot --challenge http-01 --webroot <path> --email <address>|preflight|issue|renew|migrate|enable-renewal>" ;;
   esac
 }
 

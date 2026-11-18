@@ -8,14 +8,158 @@
 
 : "${SA_CERT_ROOT:=/etc/stackalign/certs}"
 
-_sa_tls_domain_ok() { [[ $1 =~ ^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; }
+# Return the selected executable path without invoking the client.
+_sa_tls_client_path() {
+    case "${1-}" in
+        certbot) type -P certbot 2>/dev/null ;;
+        acme.sh) type -P acme.sh 2>/dev/null ;;
+        lego) type -P lego 2>/dev/null ;;
+        *) return 64 ;;
+    esac
+}
+
+# Report package ownership only; rpm ownership is not proof of GPG provenance.
+_sa_tls_client_provenance() {
+    local path=$1 package=""
+    if command -v rpm >/dev/null 2>&1; then
+        package=$(rpm -qf -- "$path" 2>/dev/null) || package=""
+    fi
+    if [ -n "$package" ]; then
+        printf 'rpm-managed package=%s (signature provenance not independently verified)' "$package"
+    else
+        printf 'manual-or-unknown (DNF provenance NOT VERIFIED)'
+    fi
+}
+
+# Read-only inventory. Never runs an ACME client, installs packages, or changes repos.
+sa_tls_clients() {
+    local client path provenance
+    printf '%s\n' 'TLS ACME client inventory (read-only; no installation attempted)'
+    for client in certbot acme.sh lego; do
+        path=$(_sa_tls_client_path "$client") || path=""
+        if [ -n "$path" ]; then
+            provenance=$(_sa_tls_client_provenance "$path")
+            printf 'client: %s\n  state: AVAILABLE\n  executable: %s\n  provenance: %s\n' \
+                "$client" "$path" "$provenance"
+        else
+            printf 'client: %s\n  state: NOT_INSTALLED\n  provenance: UNKNOWN\n' "$client"
+        fi
+    done
+}
+
+# A future adapter must call this with the lineage's explicit owner. No fallback.
+sa_tls_require_client() {
+    local client=${1-} path
+    [ "$#" -eq 1 ] || {
+        echo "error=acme_client_not_available:client=invalid" >&2
+        return 64
+    }
+    case "$client" in certbot|acme.sh|lego) ;; *)
+        echo "error=acme_client_not_available:client=invalid" >&2
+        return 64 ;;
+    esac
+    path=$(_sa_tls_client_path "$client") || path=""
+    [ -n "$path" ] || {
+        echo "error=acme_client_not_available:client=$client" >&2
+        return 69
+    }
+    printf '%s\n' "$path"
+}
+
+
+_sa_tls_domain_ok() { [[ ${1-} =~ ^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; }
 _sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
 _sa_tls_ca_url() {
-    case $1 in
+    case "$1" in
         letsencrypt) echo "https://acme-v02.api.letsencrypt.org/directory" ;;
-        zerossl)     echo "https://acme.zerossl.com/v2/DV90" ;;
+        zerossl) echo "https://acme.zerossl.com/v2/DV90" ;;
         *) return 1 ;;
     esac
+}
+
+# Render a Certbot HTTP-01 webroot command without executing it.
+# Issuance remains disabled pending source verification and deployment acceptance.
+sa_tls_certbot_http01_plan() {
+    local domain=${1-} webroot=${2-} email=${3-} resolved certbot config work logs root_mode cert_root
+    local arg quoted email_re='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+    [ "$#" -eq 3 ] || {
+        echo "error=tls_certbot_http01_invalid_arguments" >&2
+        return 64
+    }
+    _sa_tls_domain_ok "$domain" || {
+        echo "error=tls_http01_domain_invalid" >&2
+        return 64
+    }
+    case "$domain" in
+        \*.*) echo "error=tls_http01_wildcard_requires_dns01" >&2; return 64 ;;
+    esac
+    [[ $email =~ $email_re ]] || {
+        echo "error=tls_contact_email_invalid" >&2
+        return 64
+    }
+    case "$webroot" in
+        /*) ;;
+        *) echo "error=tls_http01_webroot_invalid" >&2; return 64 ;;
+    esac
+    case "$webroot" in
+        *"/../"*|*"/./"*|*/..|*/.) echo "error=tls_http01_webroot_invalid" >&2; return 64 ;;
+    esac
+    [ -d "$webroot" ] && [ ! -L "$webroot" ] || {
+        echo "error=tls_http01_webroot_unavailable" >&2
+        return 1
+    }
+    resolved=$(realpath -e -- "$webroot" 2>/dev/null) || {
+        echo "error=tls_http01_webroot_unavailable" >&2
+        return 1
+    }
+    [[ $resolved == "$webroot" && $resolved != / ]] || {
+        echo "error=tls_http01_webroot_not_canonical" >&2
+        return 1
+    }
+    cert_root=${SA_CERT_ROOT:-/etc/stackalign/certs}
+    case "$cert_root" in
+        /*) ;;
+        *) echo "error=tls_certificate_root_invalid" >&2; return 64 ;;
+    esac
+    case "$cert_root" in
+        *"/../"*|*"/./"*|*/..|*/.) echo "error=tls_certificate_root_invalid" >&2; return 64 ;;
+    esac
+    [ -d "$cert_root" ] && [ ! -L "$cert_root" ] || {
+        echo "error=tls_certificate_root_unavailable" >&2
+        return 1
+    }
+    resolved=$(realpath -e -- "$cert_root" 2>/dev/null) || return 1
+    [[ $resolved == "$cert_root" && $resolved != / ]] || {
+        echo "error=tls_certificate_root_not_canonical" >&2
+        return 1
+    }
+    root_mode=$(stat -c '%a' -- "$cert_root" 2>/dev/null || echo invalid)
+    [ "$root_mode" = 700 ] || {
+        echo "error=tls_certificate_root_permissions_unsafe" >&2
+        return 1
+    }
+    certbot=$(sa_tls_require_client certbot) || return $?
+    config="$cert_root/.certbot/config"
+    work="$cert_root/.certbot/work"
+    logs="$cert_root/.certbot/logs"
+
+    printf 'state: PLAN_ONLY\n'
+    printf 'client: certbot\n'
+    printf 'client_executable: %s\n' "$certbot"
+    printf 'source_provenance: NOT_VERIFIED\n'
+    printf 'challenge: http-01 (webroot)\n'
+    printf 'domain: %s\n' "$domain"
+    printf 'webroot: %s\n' "$resolved"
+    printf 'execution: NOT_RUN\n'
+    printf 'argv:'
+    for arg in "$certbot" certonly --non-interactive --agree-tos --email "$email" \
+        --webroot --webroot-path "$resolved" --preferred-challenges http \
+        --server https://acme-v02.api.letsencrypt.org/directory -d "$domain" \
+        --config-dir "$config" --work-dir "$work" --logs-dir "$logs"; do
+        printf -v quoted '%q' "$arg"
+        printf ' %s' "$quoted"
+    done
+    printf '\n'
 }
 
 # Reports known ACME renewal schedulers; returns 2 if one is active.
@@ -47,7 +191,7 @@ _sa_tls_status_one() {
     if [ -f "$dir/.client" ] && [ ! -L "$dir/.client" ]; then
         client=$(cat -- "$dir/.client" 2>/dev/null) || client=unknown
         client_mode=$(stat -c '%a' -- "$dir/.client" 2>/dev/null || echo invalid)
-        case "$client" in lego|certbot) ;; *) client=UNKNOWN; rc=1 ;; esac
+        case "$client" in lego|certbot|acme.sh) ;; *) client=UNKNOWN; rc=1 ;; esac
         case "$client_mode" in 400|600) ;; *) rc=1 ;; esac
     else
         rc=1
