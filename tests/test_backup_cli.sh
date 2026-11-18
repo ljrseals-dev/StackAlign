@@ -42,6 +42,31 @@ if bash "$ROOT/bin/stackalign" restore --from "$TMP/missing.sql.gz" --plan >/dev
   echo "FAIL: missing restore artifact accepted" >&2; exit 1
 fi
 
+# Physical restore preflight requires a private prepared artifact and remains read-only.
+mkdir -m 700 "$TMP/backups/mariadb-prepared"
+printf 'backup_type = full-prepared\\n' > "$TMP/backups/mariadb-prepared/xtrabackup_checkpoints"
+physical_plan=$(bash "$ROOT/bin/stackalign" restore --from "$TMP/backups/mariadb-prepared" --plan)
+printf '%s\\n' "$physical_plan" | grep -q 'PHYSICAL RESTORE PREFLIGHT'
+printf '%s\\n' "$physical_plan" | grep -q 'restore test NOT RUN'
+printf '%s\\n' "$physical_plan" | grep -q 'no database changes made'
+ln -s "$TMP/backups/mariadb-prepared" "$TMP/backups/mariadb-link"
+if bash "$ROOT/bin/stackalign" restore --from "$TMP/backups/mariadb-link" --plan >/dev/null 2>&1; then
+  echo "FAIL: symlinked physical restore artifact accepted" >&2; exit 1
+fi
+touch "$TMP/backups/mariadb-prepared/.stackalign-incomplete"
+if bash "$ROOT/bin/stackalign" restore --from "$TMP/backups/mariadb-prepared" --plan >/dev/null 2>&1; then
+  echo "FAIL: incomplete physical restore artifact accepted" >&2; exit 1
+fi
+rm -f "$TMP/backups/mariadb-prepared/.stackalign-incomplete"
+
+set +e
+bash "$ROOT/bin/stackalign" restore --from "$TMP/backups/mariadb-prepared" --apply >"$TMP/physical-restore.out" 2>&1
+physical_rc=$?
+set -e
+[ "$physical_rc" -eq 2 ]
+grep -q 'BLOCKED' "$TMP/physical-restore.out"
+grep -q 'no database changes made' "$TMP/physical-restore.out"
+
 set +e
 bash "$ROOT/bin/stackalign" restore --from "$file" --apply >"$TMP/restore.out" 2>&1
 rc=$?
