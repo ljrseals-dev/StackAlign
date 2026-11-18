@@ -8,6 +8,60 @@
 
 : "${SA_CERT_ROOT:=/etc/stackalign/certs}"
 
+# Return the selected executable path without invoking the client.
+_sa_tls_client_path() {
+    case "${1-}" in
+        certbot) type -P certbot 2>/dev/null ;;
+        acme.sh) type -P acme.sh 2>/dev/null ;;
+        lego) type -P lego 2>/dev/null ;;
+        *) return 64 ;;
+    esac
+}
+
+# Report package ownership only; rpm ownership is not proof of GPG provenance.
+_sa_tls_client_provenance() {
+    local path=$1 package=""
+    if command -v rpm >/dev/null 2>&1; then
+        package=$(rpm -qf -- "$path" 2>/dev/null) || package=""
+    fi
+    if [ -n "$package" ]; then
+        printf 'rpm-managed package=%s (signature provenance not independently verified)' "$package"
+    else
+        printf 'manual-or-unknown (DNF provenance NOT VERIFIED)'
+    fi
+}
+
+# Read-only inventory. Never runs an ACME client, installs packages, or changes repos.
+sa_tls_clients() {
+    local client path provenance
+    printf '%s\\n' 'TLS ACME client inventory (read-only; no installation attempted)'
+    for client in certbot acme.sh lego; do
+        path=$(_sa_tls_client_path "$client") || path=""
+        if [ -n "$path" ]; then
+            provenance=$(_sa_tls_client_provenance "$path")
+            printf 'client: %s\\n  state: AVAILABLE\\n  executable: %s\\n  provenance: %s\\n' \
+                "$client" "$path" "$provenance"
+        else
+            printf 'client: %s\\n  state: NOT_INSTALLED\\n  provenance: UNKNOWN\\n' "$client"
+        fi
+    done
+}
+
+# A future adapter must call this with the lineage's explicit owner. No fallback.
+sa_tls_require_client() {
+    local client=${1-} path
+    case "$client" in certbot|acme.sh|lego) ;; *)
+        echo "error=acme_client_not_available:client=invalid" >&2
+        return 64 ;;
+    esac
+    path=$(_sa_tls_client_path "$client") || path=""
+    [ -n "$path" ] || {
+        echo "error=acme_client_not_available:client=$client" >&2
+        return 69
+    }
+    printf '%s\\n' "$path"
+}
+
 _sa_tls_domain_ok() { [[ $1 =~ ^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; }
 _sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
 _sa_tls_ca_url() {
@@ -47,7 +101,7 @@ _sa_tls_status_one() {
     if [ -f "$dir/.client" ] && [ ! -L "$dir/.client" ]; then
         client=$(cat -- "$dir/.client" 2>/dev/null) || client=unknown
         client_mode=$(stat -c '%a' -- "$dir/.client" 2>/dev/null || echo invalid)
-        case "$client" in lego|certbot) ;; *) client=UNKNOWN; rc=1 ;; esac
+        case "$client" in lego|certbot|acme.sh) ;; *) client=UNKNOWN; rc=1 ;; esac
         case "$client_mode" in 400|600) ;; *) rc=1 ;; esac
     else
         rc=1
