@@ -65,7 +65,7 @@ _sa_cmd_list() {
     update M5 'update engine: check|plan|apply|pin|status' \
     site M3 'read-only vhost inventory/doctor; lifecycle actions gated' \
     db M3 'database status/list/user inventory/create; destructive drop blocked' \
-    tls M3 'read-only certificate status and scheduler preflight; issuance blocked' \
+    tls M3 'certificate status, ACME client inventory, and scheduler preflight' \
     backup M4 'backup driver: run|list|verify' \
     restore M4 'restore driver: --from <id>' \
     bench M6 'reproducible benchmark' \
@@ -94,7 +94,7 @@ _sa_cmd_help() {
     update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
     site) printf 'stackalign site  [M3]\n  read-only vhost inventory/doctor; lifecycle actions gated\n' ;;
     db) printf 'stackalign db  [M3]\n  database status/list/user inventory/create; destructive drop blocked\n' ;;
-    tls) printf 'stackalign tls  [M3]\n  read-only certificate status and scheduler preflight; issuance blocked\n' ;;
+    tls) printf 'stackalign tls  [M3]\n  certificate status, ACME client inventory, and scheduler preflight\n' ;;
     backup) printf 'stackalign backup  [M4]\n  backup driver: run|list|verify\n' ;;
     restore) printf 'stackalign restore  [M4]\n  restore driver: --from <id>\n' ;;
     bench) printf 'stackalign bench  [M6]\n  reproducible benchmark\n' ;;
@@ -306,7 +306,7 @@ cmd_tls() {
     issue|renew|migrate|enable-renewal)
       echo "tls: $sub BLOCKED — issuance, renewal and client migration require protected secret transport, atomic certificate/key activation, and crash-safe rollback" >&2
       return 2 ;;
-    *) _sa_die "usage: stackalign tls <status [domain]|preflight|issue|renew|migrate|enable-renewal>" ;;
+    *) _sa_die "usage: stackalign tls <clients|status [domain]|preflight|issue|renew|migrate|enable-renewal>" ;;
   esac
 }
 
