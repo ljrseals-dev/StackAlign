@@ -20,6 +20,7 @@ source "$ROOT/lib/tls.sh"
 PATH="$TMP/bin:$PATH"
 export PATH
 export SA_CERT_ROOT="$TMP/stackalign-certs"
+mkdir -m 700 "$SA_CERT_ROOT"
 
 out=$(sa_tls_certbot_http01_plan example.com "$TMP/webroot" admin@example.com)
 printf '%s\n' "$out" | grep -q '^state: PLAN_ONLY$'
