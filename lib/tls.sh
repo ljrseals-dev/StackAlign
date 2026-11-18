@@ -67,31 +67,77 @@ sa_tls_require_client() {
 }
 
 
-# Render a safe Certbot HTTP-01 webroot command without executing it.
-# This is deliberately a plan-only boundary; source verification and deployment
-# acceptance are still required before a future apply path can be enabled.
+_sa_tls_domain_ok() { [[ ${1-} =~ ^(\\*\\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\\.)+[A-Za-z]{2,}$ ]]; }
+_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\\*./_wildcard_.}"; }
+_sa_tls_ca_url() {
+    case "$1" in
+        letsencrypt) echo "https://acme-v02.api.letsencrypt.org/directory" ;;
+        zerossl) echo "https://acme.zerossl.com/v2/DV90" ;;
+        *) return 1 ;;
+    esac
+}
+
+# Render a Certbot HTTP-01 webroot command without executing it.
+# Issuance remains disabled pending source verification and deployment acceptance.
 sa_tls_certbot_http01_plan() {
     local domain=${1-} webroot=${2-} email=${3-} resolved certbot config work logs
-    local arg quoted
+    local arg quoted email_re='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'
     [ "$#" -eq 3 ] || {
         echo "error=tls_certbot_http01_invalid_arguments" >&2
         return 64
     }
-    _sa_tls_domain_ok "$domain" && [[ $domain != \*.* ]] || {
-        echo "error=tls_http01_domain_invalid:domain=$domain" >&2
+    _sa_tls_domain_ok "$domain" || {
+        echo "error=tls_http01_domain_invalid" >&2
         return 64
     }
-    [[ $email =~ ^[A-Za-z0-9.!#$%\&'*+/=?^_`{|}~-]+@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$ ]] || {
+    case "$domain" in
+        \\*.*) echo "error=tls_http01_wildcard_requires_dns01" >&2; return 64 ;;
+    esac
+    [[ $email =~ $email_re ]] || {
         echo "error=tls_contact_email_invalid" >&2
         return 64
     }
-    [[ $webroot == /* && $webroot != *_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
-_sa_tls_ca_url() {
-    case $1 in
-        letsencrypt) echo "https://acme-v02.api.letsencrypt.org/directory" ;;
-        zerossl)     echo "https://acme.zerossl.com/v2/DV90" ;;
-        *) return 1 ;;
+    case "$webroot" in
+        /*) ;;
+        *) echo "error=tls_http01_webroot_invalid" >&2; return 64 ;;
     esac
+    case "$webroot" in
+        *"/../"*|*"/./"*|*/..|*/.) echo "error=tls_http01_webroot_invalid" >&2; return 64 ;;
+    esac
+    [ -d "$webroot" ] && [ ! -L "$webroot" ] || {
+        echo "error=tls_http01_webroot_unavailable" >&2
+        return 1
+    }
+    resolved=$(realpath -e -- "$webroot" 2>/dev/null) || {
+        echo "error=tls_http01_webroot_unavailable" >&2
+        return 1
+    }
+    [[ $resolved == "$webroot" && $resolved != / ]] || {
+        echo "error=tls_http01_webroot_not_canonical" >&2
+        return 1
+    }
+    certbot=$(sa_tls_require_client certbot) || return $?
+    config="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/config"
+    work="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/work"
+    logs="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/logs"
+
+    printf 'state: PLAN_ONLY\\n'
+    printf 'client: certbot\\n'
+    printf 'client_executable: %s\\n' "$certbot"
+    printf 'source_provenance: NOT_VERIFIED\\n'
+    printf 'challenge: http-01 (webroot)\\n'
+    printf 'domain: %s\\n' "$domain"
+    printf 'webroot: %s\\n' "$resolved"
+    printf 'execution: NOT_RUN\\n'
+    printf 'argv:'
+    for arg in "$certbot" certonly --non-interactive --agree-tos --email "$email" \\
+        --webroot --webroot-path "$resolved" --preferred-challenges http \\
+        --server https://acme-v02.api.letsencrypt.org/directory -d "$domain" \\
+        --config-dir "$config" --work-dir "$work" --logs-dir "$logs"; do
+        printf -v quoted '%q' "$arg"
+        printf ' %s' "$quoted"
+    done
+    printf '\\n'
 }
 
 # Reports known ACME renewal schedulers; returns 2 if one is active.
