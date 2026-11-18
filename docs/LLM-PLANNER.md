@@ -17,9 +17,9 @@ Configuration:
 |---|---|---|
 | STACKALIGN_LLM_BASE_URL | https://api.openai.com/v1 | OpenAI-compatible API base URL |
 | STACKALIGN_LLM_MODEL | gpt-4o-mini | Provider model identifier |
-| STACKALIGN_LLM_API_KEY | unset | Provider API key; required |
+| STACKALIGN_LLM_API_KEY | unset | Provider API key; required for remote HTTPS, optional for loopback HTTP |
 
-A local OpenAI-compatible endpoint may use HTTP only when the hostname is localhost or 127.0.0.1. Remote endpoints must use HTTPS. URL credentials, query strings, fragments, redirects, and malformed ports are rejected. The request and API key are held in a mode-700 temporary directory with mode-600 files and removed when the command exits. The key is not put in curl's command-line arguments or printed.
+A local OpenAI-compatible endpoint (for example, an Ollama-compatible local server) may use HTTP only when the hostname is localhost or 127.0.0.1; a key is optional for this loopback-only mode. Remote endpoints must use HTTPS and a provider key. URL credentials, query strings, fragments, redirects, and malformed ports are rejected. The request and API key are held in a mode-700 temporary directory with mode-600 files and removed when the command exits. The key is not put in curl's command-line arguments or printed.
 
 ## Authority and privacy boundary
 

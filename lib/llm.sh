@@ -23,7 +23,11 @@ sa_llm_plan() {
   key=${STACKALIGN_LLM_API_KEY:-}
   _sa_llm_url_valid "$base_url" || { echo "agent: LLM base URL must be loopback HTTP or HTTPS without credentials/query/fragment" >&2; return 64; }
   [[ $model =~ ^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,127}$ ]] || { echo "agent: invalid LLM model name" >&2; return 64; }
-  [[ $key =~ ^[A-Za-z0-9._-]{16,512}$ ]] || { echo "agent: set STACKALIGN_LLM_API_KEY to a provider key (16-512 safe characters)" >&2; return 2; }
+  if [[ $base_url == https://* ]]; then
+    [[ $key =~ ^[A-Za-z0-9._-]{16,512}$ ]] || { echo "agent: set STACKALIGN_LLM_API_KEY for remote HTTPS providers" >&2; return 2; }
+  else
+    [[ -z $key || $key =~ ^[A-Za-z0-9._-]{16,512}$ ]] || { echo "agent: invalid local-provider API key" >&2; return 2; }
+  fi
   command -v curl >/dev/null 2>&1 || { echo "agent: curl is required" >&2; return 69; }
   command -v python3 >/dev/null 2>&1 || { echo "agent: python3 is required" >&2; return 69; }
   base_url=$(printf '%s' "$base_url" | sed 's:/*$::')
@@ -69,7 +73,11 @@ payload = {
 with open(path, "w", encoding="utf-8") as f:
     json.dump(payload, f, ensure_ascii=True)
 PY
-    printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$key" > "$headers" || exit 1
+    if [[ -n $key ]]; then
+      printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$key" > "$headers" || exit 1
+    else
+      printf 'Content-Type: application/json\n' > "$headers" || exit 1
+    fi
     if curl --silent --show-error --fail --connect-timeout 5 --max-time 60 \
         --max-filesize 1048576 --max-redirs 0 \
         --header "@$headers" --data-binary "@$body" \

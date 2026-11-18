@@ -56,11 +56,12 @@ if sa_llm_plan "run id" >/dev/null 2>&1; then
 fi
 echo "ok   LLM plan rejects arbitrary execution task types"
 
+export STACKALIGN_LLM_BASE_URL="https://api.example.com/v1"
 unset STACKALIGN_LLM_API_KEY
 if sa_llm_plan "check server" >/dev/null 2>&1; then
   echo "FAIL: missing provider key accepted" >&2; exit 1
 fi
-echo "ok   LLM plan refuses when provider key is missing"
+echo "ok   LLM plan requires a key for remote HTTPS providers"
 
 export STACKALIGN_LLM_API_KEY="test-provider-key-123456789"
 export STACKALIGN_LLM_BASE_URL="http://example.com/v1"
@@ -77,3 +78,9 @@ if sa_llm_plan "check server" >/dev/null 2>&1; then
   echo "FAIL: malformed model output accepted" >&2; exit 1
 fi
 echo "ok   LLM plan rejects malformed model output"
+
+unset STACKALIGN_LLM_API_KEY
+cp "$TMP/valid-response.json" "$LLM_TEST_RESPONSE"
+OUT=$(sa_llm_plan "Explain the local health-check capability")
+[[ $OUT == *'"type": "health_check"'* ]]
+echo "ok   local OpenAI-compatible endpoint works without an API key"
