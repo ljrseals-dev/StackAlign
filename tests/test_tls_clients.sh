@@ -5,7 +5,7 @@
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+trap '/usr/bin/rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin"
 
 for client in certbot acme.sh lego; do
