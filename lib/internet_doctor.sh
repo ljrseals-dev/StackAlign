@@ -28,7 +28,7 @@ sa_internet_doctor() {
   }
 
   if command -v ip >/dev/null 2>&1; then
-    if addr=$(ip -brief address 2>&1) && printf '%s\n' "$addr" | awk "$1 != \"lo\" && $2 != \"DOWN\" { found=1 } END { exit !found }"; then
+    if addr=$(ip -brief address 2>&1) && printf '%s\n' "$addr" | grep -Ev '^(lo[[:space:]]|[^[:space:]]+[[:space:]]+DOWN)' >/dev/null; then
       _sa_inet_record interface PASS "$addr"
     else
       _sa_inet_record interface FAIL "ip address inspection failed: $addr"
