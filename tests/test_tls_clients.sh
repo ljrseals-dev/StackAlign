@@ -51,4 +51,11 @@ set -e
 [ "$rc" -eq 64 ]
 case "$invalid" in *'error=acme_client_not_available:client=invalid'*) ;; *) echo "FAIL: invalid client was not rejected"; exit 1 ;; esac
 
+set +e
+invalid=$(sa_tls_require_client certbot extra 2>&1)
+rc=$?
+set -e
+[ "$rc" -eq 64 ]
+case "$invalid" in *'error=acme_client_not_available:client=invalid'*) ;; *) echo "FAIL: extra client-selection arguments were not rejected"; exit 1 ;; esac
+
 echo "TLS client discovery tests: PASS"
