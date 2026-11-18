@@ -43,6 +43,7 @@ source "$ROOT/lib/llm.sh"
 cat > "$LLM_TEST_RESPONSE" <<'JSON'
 {"choices":[{"message":{"content":"{\"summary\":\"A read-only health review is appropriate.\",\"tasks\":[{\"type\":\"health_check\",\"description\":\"Inspect service and configuration health.\"}],\"questions\":[],\"warnings\":[\"No host state was inspected.\"],\"unsupported_requests\":[]}"}}]}
 JSON
+cp "$LLM_TEST_RESPONSE" "$TMP/valid-response.json"
 OUT=$(sa_llm_plan "Please check whether my server is healthy")
 [[ $OUT == *'"type": "health_check"'* ]]
 [[ $OUT == *'"No host state was inspected."'* ]]
