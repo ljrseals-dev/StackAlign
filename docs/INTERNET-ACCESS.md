@@ -26,9 +26,11 @@ The wizard stores only non-secret preferences in `$XDG_CONFIG_HOME/stackalign/in
 
 No API tokens, passwords, tunnel credentials, or private keys are requested or stored. The wizard does not prove domain ownership, public address ownership, DNS propagation, or reachability.
 
-## Read-only doctor
+## Read-only internet doctor
 
-`stackalign internet doctor` checks that `ip` and `getent` exist, reads interface addresses and the default route, and performs one DNS lookup for `example.com`. It reports failures instead of hiding failed command exit statuses. This is only a local connectivity smoke check; it does not verify authoritative DNS, public inbound reachability, provider login, firewall/security-group policy, TLS, or tunnel health.
+`stackalign internet doctor` performs bounded, read-only diagnostics in layers: interface addresses; IPv4 and IPv6 default routes; system NSS lookups (`getent ahostsv4/ahostsv6`); HTTPS/TLS requests over IPv4 and IPv6 (`curl`); proxy-environment detection; and a heuristic HTTP 204 captive-portal check. Resolver calls are bounded with GNU `timeout`; HTTPS and portal requests use explicit connect/total timeouts and do not follow redirects. It does not require root, change routes/firewall/DNS, install packages, or expose proxy values. IPv6 and captive-portal results are advisory because IPv6 may not be provisioned and captive-portal endpoints can be filtered.
+
+Use `stackalign internet doctor --json` for stable machine-readable status/detail records and a summary. Exit status is nonzero when a required local/interface, IPv4 route, IPv4 DNS, or IPv4 HTTPS check fails; IPv6 and portal uncertainty are warnings. HTTPS success verifies a TLS handshake and an HTTP response, not application correctness or public inbound reachability. The doctor does not authenticate DNS ownership, inspect cloud security groups, validate tunnel provider state, or prove remote access.
 
 ## Security boundaries
 
