@@ -66,6 +66,355 @@ sa_tls_require_client() {
     printf '%s\n' "$path"
 }
 
+
+# Render a safe Certbot HTTP-01 webroot command without executing it.
+# This is deliberately a plan-only boundary; source verification and deployment
+# acceptance are still required before a future apply path can be enabled.
+sa_tls_certbot_http01_plan() {
+    local domain=${1-} webroot=${2-} email=${3-} resolved certbot config work logs
+    local arg quoted
+    [ "$#" -eq 3 ] || {
+        echo "error=tls_certbot_http01_invalid_arguments" >&2
+        return 64
+    }
+    _sa_tls_domain_ok "$domain" && [[ $domain != \*.* ]] || {
+        echo "error=tls_http01_domain_invalid:domain=$domain" >&2
+        return 64
+    }
+    [[ $email =~ ^[A-Za-z0-9.!#$%\&'*+/=?^_`{|}~-]+@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$ ]] || {
+        echo "error=tls_contact_email_invalid" >&2
+        return 64
+    }
+    [[ $webroot == /* && $webroot != *_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
+_sa_tls_ca_url() {
+    case $1 in
+        letsencrypt) echo "https://acme-v02.api.letsencrypt.org/directory" ;;
+        zerossl)     echo "https://acme.zerossl.com/v2/DV90" ;;
+        *) return 1 ;;
+    esac
+}
+
+# Reports known ACME renewal schedulers; returns 2 if one is active.
+sa_tls_preflight() {
+    local found=0 t
+    for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer acme.sh.timer lego-renew.timer stackalign-renew.timer; do
+        if systemctl is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
+    done
+    if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -Eq 'acme\.sh|(^|[[:space:]/])(lego|certbot)([[:space:]]|$)'; then
+        echo "scheduler: ACME client cron entry present"; found=1
+    fi
+    [ "$found" -eq 0 ] || return 2
+}
+
+# Renewal automation is disabled until lineage ownership and scheduler isolation exist.
+sa_tls_enable_renewal_timer() {
+    echo "tls: renewal timer enablement BLOCKED — scheduler ownership and renewal execution are not implemented" >&2
+    return 2
+}
+
+
+# _sa_tls_status_one <lineage-dir> <domain>
+_sa_tls_status_one() {
+    local dir=$1 domain=$2 client=unknown crt="$1/fullchain.pem" key="$1/privkey.pem"
+    local expiry=unknown cert_state=MISSING host_state=UNKNOWN key_state=MISSING renewal=UNKNOWN
+    local probe=$domain work key_mode client_mode rc=0
+    [ ! -L "$dir" ] || { printf 'lineage: %s\n  state: UNSAFE_SYMLINK\n' "$domain"; return 1; }
+
+    if [ -f "$dir/.client" ] && [ ! -L "$dir/.client" ]; then
+        client=$(cat -- "$dir/.client" 2>/dev/null) || client=unknown
+        client_mode=$(stat -c '%a' -- "$dir/.client" 2>/dev/null || echo invalid)
+        case "$client" in lego|certbot|acme.sh) ;; *) client=UNKNOWN; rc=1 ;; esac
+        case "$client_mode" in 400|600) ;; *) rc=1 ;; esac
+    else
+        rc=1
+    fi
+
+    if [ -L "$crt" ] || [ -L "$key" ]; then
+        printf 'lineage: %s\n  client: %s\n  state: UNSAFE_SYMLINK\n' "$domain" "$client"
+        return 1
+    fi
+    if [ ! -s "$crt" ] || [ ! -s "$key" ]; then
+        printf 'lineage: %s\n  client: %s\n  certificate: MISSING\n  private_key: MISSING\n' "$domain" "$client"
+        return 1
+    fi
+    command -v openssl >/dev/null 2>&1 || { echo "tls: openssl is not installed" >&2; return 69; }
+
+    expiry=$(openssl x509 -in "$crt" -noout -enddate 2>/dev/null) || {
+        printf 'lineage: %s\n  client: %s\n  certificate: INVALID\n  private_key: NOT_CHECKED\n' "$domain" "$client"
+        return 1
+    }
+    if openssl x509 -in "$crt" -noout -checkend 0 >/dev/null 2>&1; then
+        cert_state=NOT_EXPIRED
+    else
+        cert_state=EXPIRED
+        rc=1
+    fi
+    if [[ $domain == \*.* ]]; then probe="stackalign-probe.${domain#*.}"; fi
+    if openssl x509 -in "$crt" -noout -checkhost "$probe" >/dev/null 2>&1; then
+        host_state=MATCH
+    else
+        host_state=MISMATCH
+        rc=1
+    fi
+    key_mode=$(stat -c '%a' -- "$key" 2>/dev/null || echo invalid)
+    case "$key_mode" in 400|600) ;; *) key_state=UNSAFE_PERMISSIONS; rc=1 ;; esac
+    if [ "$key_state" != UNSAFE_PERMISSIONS ]; then
+        work=$(mktemp -d) || return 1
+        if openssl x509 -in "$crt" -pubkey -noout > "$work/cert.pub" 2>/dev/null &&
+           openssl pkey -in "$key" -pubout -passin pass: > "$work/key.pub" 2>/dev/null &&
+           cmp -s "$work/cert.pub" "$work/key.pub"; then
+            key_state=MATCH
+        else
+            key_state=MISMATCH
+            rc=1
+        fi
+        rm -rf -- "$work"
+    fi
+    if openssl x509 -in "$crt" -noout -checkend 2592000 >/dev/null 2>&1; then
+        renewal=OUTSIDE_30_DAY_WINDOW
+    else
+        renewal=DUE_WITHIN_30_DAYS
+    fi
+
+    printf 'lineage: %s\n  client: %s\n  certificate: %s\n  expires: %s\n  hostname: %s (%s)\n  private_key: %s\n  renewal: %s\n' \
+        "$domain" "$client" "$cert_state" "$expiry" "$host_state" "$probe" "$key_state" "$renewal"
+    return "$rc"
+}
+
+# sa_tls_status [domain] -- read-only certificate and key inspection.
+sa_tls_status() {
+    local root=${SA_CERT_ROOT:-/etc/stackalign/certs} resolved domain lineage dir entry found=0 rc=0
+    [ $# -le 1 ] || { echo "usage: sa_tls_status [domain]" >&2; return 64; }
+    [[ $root == /* && $root != *..* ]] || { echo "tls: certificate root must be an absolute safe path" >&2; return 64; }
+    [ ! -L "$root" ] || { echo "tls: refusing symlinked certificate root" >&2; return 1; }
+    if [ ! -d "$root" ]; then
+        echo "tls: no managed certificate lineages found"
+        return 0
+    fi
+    resolved=$(realpath -e -- "$root" 2>/dev/null) || return 1
+    [[ $resolved == "$root" ]] || { echo "tls: certificate root resolves through a symlink" >&2; return 1; }
+    command -v openssl >/dev/null 2>&1 || { echo "tls: openssl is not installed" >&2; return 69; }
+
+    if [ $# -eq 1 ]; then
+        domain=$1
+        _sa_tls_domain_ok "$domain" || { echo "tls: invalid domain" >&2; return 64; }
+        lineage=$(_sa_tls_lineage "$domain")
+        dir="$root/$lineage"
+        [ -d "$dir" ] || { echo "tls: no managed lineage for $domain"; return 1; }
+        _sa_tls_status_one "$dir" "$domain"
+        return $?
+    fi
+
+    while IFS= read -r -d '' entry; do
+        if [ -L "$entry" ]; then
+            printf 'lineage: %s\n  state: UNSAFE_SYMLINK\n' "${entry##*/}" >&2
+            rc=1
+            continue
+        fi
+        [ -d "$entry" ] || continue
+        found=1
+        lineage=${entry##*/}
+        if [[ $lineage == _wildcard_.* ]]; then domain="*${lineage#_wildcard_}"; else domain=$lineage; fi
+        _sa_tls_status_one "$entry" "$domain" || rc=1
+    done < <(find "$root" -mindepth 1 -maxdepth 1 -print0)
+    [ "$found" -eq 1 ] || echo "tls: no managed certificate lineages found"
+    return "$rc"
+}
+
+# sa_tls_issue is deliberately fail-closed. The previous adapter passed
+# ZeroSSL EAB secrets in argv and deployed cert/key as separate file renames.
+# Do not restore issuance until both secret transport and atomic activation exist.
+sa_tls_issue() {
+    echo "tls: issuance BLOCKED — protected EAB transport and crash-safe atomic certificate/key deployment are not implemented" >&2
+    return 2
+}
+\\n'* && $webroot != *_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
+_sa_tls_ca_url() {
+    case $1 in
+        letsencrypt) echo "https://acme-v02.api.letsencrypt.org/directory" ;;
+        zerossl)     echo "https://acme.zerossl.com/v2/DV90" ;;
+        *) return 1 ;;
+    esac
+}
+
+# Reports known ACME renewal schedulers; returns 2 if one is active.
+sa_tls_preflight() {
+    local found=0 t
+    for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer acme.sh.timer lego-renew.timer stackalign-renew.timer; do
+        if systemctl is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
+    done
+    if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -Eq 'acme\.sh|(^|[[:space:]/])(lego|certbot)([[:space:]]|$)'; then
+        echo "scheduler: ACME client cron entry present"; found=1
+    fi
+    [ "$found" -eq 0 ] || return 2
+}
+
+# Renewal automation is disabled until lineage ownership and scheduler isolation exist.
+sa_tls_enable_renewal_timer() {
+    echo "tls: renewal timer enablement BLOCKED — scheduler ownership and renewal execution are not implemented" >&2
+    return 2
+}
+
+
+# _sa_tls_status_one <lineage-dir> <domain>
+_sa_tls_status_one() {
+    local dir=$1 domain=$2 client=unknown crt="$1/fullchain.pem" key="$1/privkey.pem"
+    local expiry=unknown cert_state=MISSING host_state=UNKNOWN key_state=MISSING renewal=UNKNOWN
+    local probe=$domain work key_mode client_mode rc=0
+    [ ! -L "$dir" ] || { printf 'lineage: %s\n  state: UNSAFE_SYMLINK\n' "$domain"; return 1; }
+
+    if [ -f "$dir/.client" ] && [ ! -L "$dir/.client" ]; then
+        client=$(cat -- "$dir/.client" 2>/dev/null) || client=unknown
+        client_mode=$(stat -c '%a' -- "$dir/.client" 2>/dev/null || echo invalid)
+        case "$client" in lego|certbot|acme.sh) ;; *) client=UNKNOWN; rc=1 ;; esac
+        case "$client_mode" in 400|600) ;; *) rc=1 ;; esac
+    else
+        rc=1
+    fi
+
+    if [ -L "$crt" ] || [ -L "$key" ]; then
+        printf 'lineage: %s\n  client: %s\n  state: UNSAFE_SYMLINK\n' "$domain" "$client"
+        return 1
+    fi
+    if [ ! -s "$crt" ] || [ ! -s "$key" ]; then
+        printf 'lineage: %s\n  client: %s\n  certificate: MISSING\n  private_key: MISSING\n' "$domain" "$client"
+        return 1
+    fi
+    command -v openssl >/dev/null 2>&1 || { echo "tls: openssl is not installed" >&2; return 69; }
+
+    expiry=$(openssl x509 -in "$crt" -noout -enddate 2>/dev/null) || {
+        printf 'lineage: %s\n  client: %s\n  certificate: INVALID\n  private_key: NOT_CHECKED\n' "$domain" "$client"
+        return 1
+    }
+    if openssl x509 -in "$crt" -noout -checkend 0 >/dev/null 2>&1; then
+        cert_state=NOT_EXPIRED
+    else
+        cert_state=EXPIRED
+        rc=1
+    fi
+    if [[ $domain == \*.* ]]; then probe="stackalign-probe.${domain#*.}"; fi
+    if openssl x509 -in "$crt" -noout -checkhost "$probe" >/dev/null 2>&1; then
+        host_state=MATCH
+    else
+        host_state=MISMATCH
+        rc=1
+    fi
+    key_mode=$(stat -c '%a' -- "$key" 2>/dev/null || echo invalid)
+    case "$key_mode" in 400|600) ;; *) key_state=UNSAFE_PERMISSIONS; rc=1 ;; esac
+    if [ "$key_state" != UNSAFE_PERMISSIONS ]; then
+        work=$(mktemp -d) || return 1
+        if openssl x509 -in "$crt" -pubkey -noout > "$work/cert.pub" 2>/dev/null &&
+           openssl pkey -in "$key" -pubout -passin pass: > "$work/key.pub" 2>/dev/null &&
+           cmp -s "$work/cert.pub" "$work/key.pub"; then
+            key_state=MATCH
+        else
+            key_state=MISMATCH
+            rc=1
+        fi
+        rm -rf -- "$work"
+    fi
+    if openssl x509 -in "$crt" -noout -checkend 2592000 >/dev/null 2>&1; then
+        renewal=OUTSIDE_30_DAY_WINDOW
+    else
+        renewal=DUE_WITHIN_30_DAYS
+    fi
+
+    printf 'lineage: %s\n  client: %s\n  certificate: %s\n  expires: %s\n  hostname: %s (%s)\n  private_key: %s\n  renewal: %s\n' \
+        "$domain" "$client" "$cert_state" "$expiry" "$host_state" "$probe" "$key_state" "$renewal"
+    return "$rc"
+}
+
+# sa_tls_status [domain] -- read-only certificate and key inspection.
+sa_tls_status() {
+    local root=${SA_CERT_ROOT:-/etc/stackalign/certs} resolved domain lineage dir entry found=0 rc=0
+    [ $# -le 1 ] || { echo "usage: sa_tls_status [domain]" >&2; return 64; }
+    [[ $root == /* && $root != *..* ]] || { echo "tls: certificate root must be an absolute safe path" >&2; return 64; }
+    [ ! -L "$root" ] || { echo "tls: refusing symlinked certificate root" >&2; return 1; }
+    if [ ! -d "$root" ]; then
+        echo "tls: no managed certificate lineages found"
+        return 0
+    fi
+    resolved=$(realpath -e -- "$root" 2>/dev/null) || return 1
+    [[ $resolved == "$root" ]] || { echo "tls: certificate root resolves through a symlink" >&2; return 1; }
+    command -v openssl >/dev/null 2>&1 || { echo "tls: openssl is not installed" >&2; return 69; }
+
+    if [ $# -eq 1 ]; then
+        domain=$1
+        _sa_tls_domain_ok "$domain" || { echo "tls: invalid domain" >&2; return 64; }
+        lineage=$(_sa_tls_lineage "$domain")
+        dir="$root/$lineage"
+        [ -d "$dir" ] || { echo "tls: no managed lineage for $domain"; return 1; }
+        _sa_tls_status_one "$dir" "$domain"
+        return $?
+    fi
+
+    while IFS= read -r -d '' entry; do
+        if [ -L "$entry" ]; then
+            printf 'lineage: %s\n  state: UNSAFE_SYMLINK\n' "${entry##*/}" >&2
+            rc=1
+            continue
+        fi
+        [ -d "$entry" ] || continue
+        found=1
+        lineage=${entry##*/}
+        if [[ $lineage == _wildcard_.* ]]; then domain="*${lineage#_wildcard_}"; else domain=$lineage; fi
+        _sa_tls_status_one "$entry" "$domain" || rc=1
+    done < <(find "$root" -mindepth 1 -maxdepth 1 -print0)
+    [ "$found" -eq 1 ] || echo "tls: no managed certificate lineages found"
+    return "$rc"
+}
+
+# sa_tls_issue is deliberately fail-closed. The previous adapter passed
+# ZeroSSL EAB secrets in argv and deployed cert/key as separate file renames.
+# Do not restore issuance until both secret transport and atomic activation exist.
+sa_tls_issue() {
+    echo "tls: issuance BLOCKED — protected EAB transport and crash-safe atomic certificate/key deployment are not implemented" >&2
+    return 2
+}
+\\r'* ]] || {
+        echo "error=tls_http01_webroot_invalid" >&2
+        return 64
+    }
+    [[ ! $webroot =~ (^|/)\.\.?(/|$) ]] || {
+        echo "error=tls_http01_webroot_invalid" >&2
+        return 64
+    }
+    [ -d "$webroot" ] && [ ! -L "$webroot" ] || {
+        echo "error=tls_http01_webroot_unavailable" >&2
+        return 1
+    }
+    resolved=$(realpath -e -- "$webroot" 2>/dev/null) || {
+        echo "error=tls_http01_webroot_unavailable" >&2
+        return 1
+    }
+    [[ $resolved == "$webroot" && $resolved != / ]] || {
+        echo "error=tls_http01_webroot_not_canonical" >&2
+        return 1
+    }
+    certbot=$(sa_tls_require_client certbot) || return $?
+    config="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/config"
+    work="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/work"
+    logs="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/logs"
+
+    printf 'state: PLAN_ONLY\\n'
+    printf 'client: certbot\\n'
+    printf 'client_executable: %s\\n' "$certbot"
+    printf 'source_provenance: NOT_VERIFIED\\n'
+    printf 'challenge: http-01 (webroot)\\n'
+    printf 'domain: %s\\n' "$domain"
+    printf 'webroot: %s\\n' "$resolved"
+    printf 'execution: NOT_RUN\\n'
+    printf 'argv:'
+    for arg in "$certbot" certonly --non-interactive --agree-tos --email "$email" \
+        --webroot --webroot-path "$resolved" --preferred-challenges http \
+        --server https://acme-v02.api.letsencrypt.org/directory -d "$domain" \
+        --config-dir "$config" --work-dir "$work" --logs-dir "$logs"; do
+        printf -v quoted '%q' "$arg"
+        printf ' %s' "$quoted"
+    done
+    printf '\\n'
+}
+
 _sa_tls_domain_ok() { [[ $1 =~ ^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; }
 _sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
 _sa_tls_ca_url() {
