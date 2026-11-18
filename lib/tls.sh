@@ -80,7 +80,7 @@ _sa_tls_ca_url() {
 # Render a Certbot HTTP-01 webroot command without executing it.
 # Issuance remains disabled pending source verification and deployment acceptance.
 sa_tls_certbot_http01_plan() {
-    local domain=${1-} webroot=${2-} email=${3-} resolved certbot config work logs
+    local domain=${1-} webroot=${2-} email=${3-} resolved certbot config work logs root_mode cert_root
     local arg quoted email_re='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
     [ "$#" -eq 3 ] || {
         echo "error=tls_certbot_http01_invalid_arguments" >&2
@@ -296,11 +296,4 @@ sa_tls_issue() {
     echo "tls: issuance BLOCKED — protected EAB transport and crash-safe atomic certificate/key deployment are not implemented" >&2
     return 2
 }
-\\n'* && $webroot != *_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
-_sa_tls_ca_url() {
-    case $1 in
-        letsencrypt) echo "https://acme-v02.api.letsencrypt.org/directory" ;;
-        zerossl)     echo "https://acme.zerossl.com/v2/DV90" ;;
-        *) return 1 ;;
-    esac
-}
+\
