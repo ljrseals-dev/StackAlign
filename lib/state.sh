@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 # lib/state.sh -- local SQLite state store and deterministic task lifecycle.
-set -euo pipefail
 _sa_state_db_path() {
   SA_STATE_DB=${SA_STATE_DB:-/var/lib/stackalign/state.db}
   [[ $SA_STATE_DB == /* && $SA_STATE_DB != *$'\n'* ]] || { echo "state: database path must be absolute" >&2; return 64; }
@@ -17,6 +16,13 @@ _sa_state_require_sqlite() {
 }
 _sa_state_sql_quote() { local v=${1-}; v=${v//\'/\'\'}; printf "'%s'" "$v"; }
 _sa_state_exec() { (umask 077; sqlite3 -batch -bail -noheader -cmd '.timeout 5000' "$SA_STATE_DB" "$1"); }
+
+_sa_state_existing_db() {
+  [[ -f $SA_STATE_DB && ! -L $SA_STATE_DB ]] || { echo "state: database is missing or not a regular file" >&2; return 1; }
+  local mode owner
+  read -r mode owner < <(stat -c '%a %u' -- "$SA_STATE_DB") || return 1
+  [[ $owner == "$(id -u)" && ( $mode == 600 || $mode == 400 ) ]] || { echo "state: database must be owned by this user with mode 600 or 400" >&2; return 1; }
+}
 sa_state_init() {
   _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
@@ -43,7 +49,7 @@ sa_state_init() {
 sa_state_status() {
   _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
-  [[ -f $SA_STATE_DB && ! -L $SA_STATE_DB ]] || { echo "state: not initialized; run state init --apply" >&2; return 1; }
+  _sa_state_existing_db || { echo "state: not initialized or unsafe; run state init --apply" >&2; return 1; }
   local version counts
   version=$(_sa_state_exec "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1;") || return $?
   counts=$(_sa_state_exec "SELECT status || ':' || count(*) FROM tasks GROUP BY status ORDER BY status;") || return $?
@@ -54,7 +60,7 @@ sa_task_create() {
   case "$kind" in health_check|website_deploy|database_backup|website_migration) ;; *) echo "task: unsupported type: $kind" >&2; return 64 ;; esac
   [[ -n $description && ${#description} -le 500 ]] || { echo "task: description must contain 1-500 characters" >&2; return 64; }
   _sa_state_db_path || return $?
-  [[ -f $SA_STATE_DB && ! -L $SA_STATE_DB ]] || { echo "task: state database is not initialized" >&2; return 1; }
+  _sa_state_existing_db || { echo "task: state database is not initialized or has unsafe permissions" >&2; return 1; }
   id=$(< /proc/sys/kernel/random/uuid) || return 1
   qid=$(_sa_state_sql_quote "$id"); qkind=$(_sa_state_sql_quote "$kind"); qdesc=$(_sa_state_sql_quote "$description")
   _sa_state_exec "BEGIN IMMEDIATE;
