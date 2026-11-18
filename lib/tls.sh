@@ -296,4 +296,3 @@ sa_tls_issue() {
     echo "tls: issuance BLOCKED — protected EAB transport and crash-safe atomic certificate/key deployment are not implemented" >&2
     return 2
 }
-\
