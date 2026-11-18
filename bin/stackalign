@@ -65,6 +65,7 @@ _sa_cmd_list() {
     update M5 'update engine: check|plan|apply|pin|status' \
     site M3 'read-only vhost inventory/doctor; lifecycle actions gated' \
     db M3 'database status/list/user inventory/create; destructive drop blocked' \
+    state M3 'local SQLite state database and deterministic task lifecycle' \
     tls M3 'certificate status, client inventory, HTTP-01 plan, and scheduler preflight' \
     backup M4 'backup driver: run|list|verify' \
     restore M4 'restore driver: --from <id>' \
