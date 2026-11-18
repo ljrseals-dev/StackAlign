@@ -207,3 +207,16 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 - PR #68 ports the defaults-file and MySQL argument-boundary regression tests to current main.
 - Ubuntu and AlmaLinux 9 CI passed on head `fe17284ad504cc69fb1c918d7660ff94f44b9a9b` (runs #44113804056 / #44113746387).
 - Tests use a fake MySQL client only; live database behavior remains NOT RUN.
+
+
+## TLS ACME client discovery — 2026-11-17
+
+| Area | State | Evidence / boundary |
+|---|---|---|
+| Client availability inventory | Implemented; automated tests added | `stackalign tls clients` detects Certbot, acme.sh, and Lego independently and reports executable paths. |
+| Installation provenance | Partial / conservative | RPM package ownership is reported without claiming signature verification. Non-RPM executables are manual-or-unknown and DNF provenance is NOT VERIFIED. |
+| Exact client selection gate | Implemented; automated tests added | Internal selection requires the named executable and fails with `error=acme_client_not_available:client=<client>`; no fallback or silent substitution. |
+| Installation, issuance, renewal, migration | BLOCKED | No package installation, repository enablement, CA request, DNS mutation, scheduler change, or certificate deployment is exposed. |
+| EL9/10 provenance acceptance | NOT RUN | Disposable AlmaLinux/Rocky Linux package-source and GPG verification remain required before any installer is considered. |
+
+The inventory does not execute discovered ACME client binaries. Automated tests use fake executables and a fake RPM query; they do not establish real package provenance or host compatibility.
