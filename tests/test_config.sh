@@ -102,8 +102,11 @@ rc=$?
 rmdir "$lock"
 { [ "$rc" -eq 75 ] && [ "$(cat "$newcfg")" = preserved ]; } && ok "atomic writer refuses concurrent/stale lock without changing target" || bad "atomic writer refuses concurrent/stale lock without changing target"
 
-# A closed stdin makes cat fail while staging; the previous target must survive.
-sa_config_write_atomic "$newcfg" <&- >/dev/null 2>&1
+# A scoped fake cat fails deterministically while staging; the old target must survive.
+mkdir "$T/failbin"
+printf '#!/bin/sh\\nexit 1\\n' > "$T/failbin/cat"
+chmod 0700 "$T/failbin/cat"
+PATH="$T/failbin:$PATH" sa_config_write_atomic "$newcfg" </dev/null >/dev/null 2>&1
 rc=$?
 { [ "$rc" -ne 0 ] && [ "$(cat "$newcfg")" = preserved ]; } && ok "atomic writer keeps old file after staged write failure" || bad "atomic writer keeps old file after staged write failure"
 [ -z "$(find "$T" -maxdepth 1 -name '.new.conf.stackalign.*' -print -quit)" ] && ok "atomic writer cleans staged files" || bad "atomic writer cleans staged files"
