@@ -13,8 +13,7 @@ _sa_inet_json_escape() {
 
 sa_internet_doctor() {
   local format=${1:-text} failures=0 warnings=0
-  local ip4_route="" ip6_route="" addr="" dns4="" dns6="" https4="" https6="" https="" portal=""
-  local proxy=none tool_status="available" result="" code="" detail=""
+  local ip4_route="" ip6_route="" addr="" dns4="" dns6="" code=""
   local -a names=(interface ipv4_route ipv6_route dns_ipv4 dns_ipv6 https_ipv4 https_ipv6 https_proxy captive_portal)
   local -A status=() message=()
 
@@ -29,15 +28,15 @@ sa_internet_doctor() {
   }
 
   if command -v ip >/dev/null 2>&1; then
-    if addr=$(ip -brief address 2>&1); then
-      _sa_inet_record interface PASS "${addr:-ip command returned no interfaces}"
+    if addr=$(ip -brief address 2>&1) && printf '%s\n' "$addr" | awk "$1 != \"lo\" && $2 != \"DOWN\" { found=1 } END { exit !found }"; then
+      _sa_inet_record interface PASS "$addr"
     else
       _sa_inet_record interface FAIL "ip address inspection failed: $addr"
     fi
     if ip4_route=$(ip -4 route show default 2>&1) && [[ -n $ip4_route ]]; then
       _sa_inet_record ipv4_route PASS "$ip4_route"
     else
-      _sa_inet_record ipv4_route WARN "${ip4_route:-no IPv4 default route}"
+      _sa_inet_record ipv4_route FAIL "${ip4_route:-no IPv4 default route}"
     fi
     if ip6_route=$(ip -6 route show default 2>&1) && [[ -n $ip6_route ]]; then
       _sa_inet_record ipv6_route PASS "$ip6_route"
@@ -78,7 +77,6 @@ sa_internet_doctor() {
       _sa_inet_record https_ipv6 WARN "IPv6 HTTPS/TLS request failed, timed out, or IPv6 is unavailable"
     fi
     if [[ -n ${https_proxy:-}${HTTPS_PROXY:-}${all_proxy:-}${ALL_PROXY:-} ]]; then
-      proxy=configured
       _sa_inet_record https_proxy WARN "proxy environment variable is set; curl may route through a proxy (value deliberately hidden)"
     else
       _sa_inet_record https_proxy PASS "no HTTPS/ALL proxy environment variable detected"
