@@ -44,11 +44,11 @@ fi
 
 # Physical restore preflight requires a private prepared artifact and remains read-only.
 mkdir -m 700 "$TMP/backups/mariadb-prepared"
-printf 'backup_type = full-prepared\\n' > "$TMP/backups/mariadb-prepared/xtrabackup_checkpoints"
+printf 'backup_type = full-prepared\n' > "$TMP/backups/mariadb-prepared/xtrabackup_checkpoints"
 physical_plan=$(bash "$ROOT/bin/stackalign" restore --from "$TMP/backups/mariadb-prepared" --plan)
-printf '%s\\n' "$physical_plan" | grep -q 'PHYSICAL RESTORE PREFLIGHT'
-printf '%s\\n' "$physical_plan" | grep -q 'restore test NOT RUN'
-printf '%s\\n' "$physical_plan" | grep -q 'no database changes made'
+printf '%s\n' "$physical_plan" | grep -q 'PHYSICAL RESTORE PREFLIGHT'
+printf '%s\n' "$physical_plan" | grep -q 'restore test NOT RUN'
+printf '%s\n' "$physical_plan" | grep -q 'no database changes made'
 ln -s "$TMP/backups/mariadb-prepared" "$TMP/backups/mariadb-link"
 if bash "$ROOT/bin/stackalign" restore --from "$TMP/backups/mariadb-link" --plan >/dev/null 2>&1; then
   echo "FAIL: symlinked physical restore artifact accepted" >&2; exit 1
