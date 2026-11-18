@@ -35,9 +35,9 @@ exit 99
 EOF
 chmod 700 "$TMP/bin/mysql"
 plan=$(bash "$ROOT/bin/stackalign" restore --from "$file" --plan)
-printf '%s\\n' "$plan" | grep -q 'LOGICAL RESTORE PREFLIGHT'
-printf '%s\\n' "$plan" | grep -q 'all-databases dump'
-printf '%s\\n' "$plan" | grep -q 'no database changes made'
+printf '%s\n' "$plan" | grep -q 'LOGICAL RESTORE PREFLIGHT'
+printf '%s\n' "$plan" | grep -q 'all-databases dump'
+printf '%s\n' "$plan" | grep -q 'no database changes made'
 if bash "$ROOT/bin/stackalign" restore --from "$TMP/missing.sql.gz" --plan >/dev/null 2>&1; then
   echo "FAIL: missing restore artifact accepted" >&2; exit 1
 fi
