@@ -27,6 +27,21 @@ file=$(bash "$ROOT/bin/stackalign" backup run logical "$TMP/backups" --apply)
 bash "$ROOT/bin/stackalign" backup verify "$file" | grep -q 'gzip container integrity'
 bash "$ROOT/bin/stackalign" backup list "$TMP/backups" | grep -q 'logical'
 
+# Restore planning verifies the artifact and credential boundary without invoking mysql.
+cat > "$TMP/bin/mysql" <<'EOF'
+#!/usr/bin/env bash
+echo "FAIL: restore preflight invoked mysql" >&2
+exit 99
+EOF
+chmod 700 "$TMP/bin/mysql"
+plan=$(bash "$ROOT/bin/stackalign" restore --from "$file" --plan)
+printf '%s\\n' "$plan" | grep -q 'LOGICAL RESTORE PREFLIGHT'
+printf '%s\\n' "$plan" | grep -q 'all-databases dump'
+printf '%s\\n' "$plan" | grep -q 'no database changes made'
+if bash "$ROOT/bin/stackalign" restore --from "$TMP/missing.sql.gz" --plan >/dev/null 2>&1; then
+  echo "FAIL: missing restore artifact accepted" >&2; exit 1
+fi
+
 set +e
 bash "$ROOT/bin/stackalign" restore --from "$file" --apply >"$TMP/restore.out" 2>&1
 rc=$?
