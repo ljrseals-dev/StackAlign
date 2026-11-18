@@ -220,3 +220,16 @@ Tests use a fake mysql executable and do not contact or mutate a live database. 
 | EL9/10 provenance acceptance | NOT RUN | Disposable AlmaLinux/Rocky Linux package-source and GPG verification remain required before any installer is considered. |
 
 The inventory does not execute discovered ACME client binaries. Automated tests use fake executables and a fake RPM query; they do not establish real package provenance or host compatibility.
+
+
+## Certbot HTTP-01 planning boundary — 2026-11-17
+
+| Area | State | Evidence / boundary |
+|---|---|---|
+| HTTP-01 request validation | Implemented; tests added | Rejects wildcard domains, invalid email forms, relative/traversal/symlink webroots, non-canonical paths, and unsafe certificate-root permissions. |
+| Certbot command planning | Implemented; tests added | `stackalign tls plan-issue` emits a shell-escaped argv preview using isolated StackAlign Certbot state paths. |
+| Execution / issuance | BLOCKED / NOT RUN | No Certbot binary is invoked; output marks source provenance NOT_VERIFIED and execution NOT_RUN. No apply switch exists. |
+| Deployment / renewal | BLOCKED | Candidate chain/SAN validation, atomic release activation, Nginx validation/reload, rollback, and scheduler isolation remain outstanding. |
+| Live HTTP-01 acceptance | NOT RUN | No port 80, DNS, CA, or live-host operation was attempted. |
+
+The planner is an argument and filesystem-precondition check only. It does not prove that the ACME challenge can reach the selected webroot.
