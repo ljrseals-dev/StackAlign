@@ -205,3 +205,17 @@ The previous `sa_tls_issue` adapter is now fail-closed. It passed ZeroSSL EAB cr
 - The internal `sa_tls_require_client` gate requires the exact selected client and returns `error=acme_client_not_available:client=<client>` when it is absent. It never substitutes another client.
 - Discovery does not execute client binaries, install packages, enable repositories, change schedulers, or request certificates.
 - Tests use isolated fake executables and a fake RPM query. Real EL9/10 package provenance and upstream installation acceptance remain NOT RUN.
+
+
+## Certbot HTTP-01 webroot plan — 2026-11-17
+
+The CLI now supports a plan-only command:
+
+```bash
+stackalign tls plan-issue example.com --client certbot --challenge http-01 \
+  --webroot /var/www/html --email admin@example.com
+```
+
+The planner validates a non-wildcard DNS name, a constrained contact-email form, an existing canonical non-symlink webroot, and an existing canonical certificate root with mode 0700. It renders a shell-escaped Certbot argv preview using isolated StackAlign-owned Certbot config/work/log paths.
+
+**This is not issuance.** The discovered executable is not invoked; the output labels source provenance NOT_VERIFIED and execution NOT_RUN. There is no `--apply` path. HTTP-01 reachability, port 80 routing, ACME source provenance, Certbot version compatibility, staged certificate validation, atomic release activation, Nginx test/reload, and rollback are not established. Wildcards are rejected because they require DNS-01.
