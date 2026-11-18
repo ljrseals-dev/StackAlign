@@ -23,9 +23,9 @@ RPM
 chmod 700 "$TMP/bin/rpm"
 
 # Restrict PATH so host-installed clients cannot make this fixture nondeterministic.
+source "$ROOT/lib/tls.sh"
 PATH="$TMP/bin"
 export PATH
-source "$ROOT/lib/tls.sh"
 
 out=$(sa_tls_clients)
 case "$out" in *'client: certbot'*'state: AVAILABLE'*'rpm-managed package=certbot-1.0-1.el9'*) ;; *) echo "FAIL: RPM-managed Certbot not reported"; exit 1 ;; esac
@@ -36,7 +36,7 @@ case "$out" in *'client: lego'*'state: AVAILABLE'*) ;; *) echo "FAIL: Lego not r
 [ "$(sa_tls_require_client acme.sh)" = "$TMP/bin/acme.sh" ]
 [ "$(sa_tls_require_client lego)" = "$TMP/bin/lego" ]
 
-rm "$TMP/bin/acme.sh"
+/usr/bin/rm "$TMP/bin/acme.sh"
 set +e
 missing=$(sa_tls_require_client acme.sh 2>&1)
 rc=$?
