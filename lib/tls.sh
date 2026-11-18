@@ -34,15 +34,15 @@ _sa_tls_client_provenance() {
 # Read-only inventory. Never runs an ACME client, installs packages, or changes repos.
 sa_tls_clients() {
     local client path provenance
-    printf '%s\\n' 'TLS ACME client inventory (read-only; no installation attempted)'
+    printf '%s\n' 'TLS ACME client inventory (read-only; no installation attempted)'
     for client in certbot acme.sh lego; do
         path=$(_sa_tls_client_path "$client") || path=""
         if [ -n "$path" ]; then
             provenance=$(_sa_tls_client_provenance "$path")
-            printf 'client: %s\\n  state: AVAILABLE\\n  executable: %s\\n  provenance: %s\\n' \
+            printf 'client: %s\n  state: AVAILABLE\n  executable: %s\n  provenance: %s\n' \
                 "$client" "$path" "$provenance"
         else
-            printf 'client: %s\\n  state: NOT_INSTALLED\\n  provenance: UNKNOWN\\n' "$client"
+            printf 'client: %s\n  state: NOT_INSTALLED\n  provenance: UNKNOWN\n' "$client"
         fi
     done
 }
@@ -59,7 +59,7 @@ sa_tls_require_client() {
         echo "error=acme_client_not_available:client=$client" >&2
         return 69
     }
-    printf '%s\\n' "$path"
+    printf '%s\n' "$path"
 }
 
 _sa_tls_domain_ok() { [[ $1 =~ ^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; }
