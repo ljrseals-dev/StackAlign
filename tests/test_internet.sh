@@ -59,8 +59,9 @@ mkdir -p "$T/fakebin"
 cat > "$T/fakebin/ip" <<'IP'
 #!/usr/bin/env bash
 case "$*" in
-  "-brief address") echo "lo UNKNOWN 127.0.0.1/8"; exit "${FAKE_IP_ADDR_RC:-0}" ;;
+  "-brief address") echo "lo UNKNOWN 127.0.0.1/8"; echo "eth0 UP 192.0.2.10/24"; exit "${FAKE_IP_ADDR_RC:-0}" ;;
   "-4 route show default") [ "${FAKE_ROUTE_EMPTY:-0}" = 1 ] || echo "default via 192.0.2.1 dev eth0"; exit 0 ;;
+  "-6 route show default") echo "default via 2001:db8::1 dev eth0"; exit 0 ;;
 esac
 exit 2
 IP
@@ -88,7 +89,7 @@ out=$(sa_internet_doctor 2>&1); rc=$?
 unset FAKE_IP_ADDR_RC FAKE_DNS_RC
 FAKE_ROUTE_EMPTY=1; export FAKE_ROUTE_EMPTY
 out=$(sa_internet_doctor 2>&1); rc=$?
-{ [ "$rc" -ne 0 ] && [[ "$out" == *"ipv4_route"* ]]; } && ok "doctor detects missing default route" || bad "missing route detection"
+{ [ "$rc" -ne 0 ] && [[ "$out" == *"ipv4_route       FAIL"* ]]; } && ok "doctor detects missing default route" || bad "missing route detection"
 unset FAKE_ROUTE_EMPTY
 PATH=$OLD_PATH; export PATH
 echo "passed=$pass failed=$fail"
