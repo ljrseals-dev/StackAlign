@@ -104,7 +104,7 @@ rmdir "$lock"
 
 # A scoped fake cat fails deterministically while staging; the old target must survive.
 mkdir "$T/failbin"
-printf '#!/bin/sh\\nexit 1\\n' > "$T/failbin/cat"
+printf '#!/bin/sh\nexit 1\n' > "$T/failbin/cat"
 chmod 0700 "$T/failbin/cat"
 PATH="$T/failbin:$PATH" sa_config_write_atomic "$newcfg" </dev/null >/dev/null 2>&1
 rc=$?
