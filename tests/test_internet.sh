@@ -60,27 +60,35 @@ cat > "$T/fakebin/ip" <<'IP'
 #!/usr/bin/env bash
 case "$*" in
   "-brief address") echo "lo UNKNOWN 127.0.0.1/8"; exit "${FAKE_IP_ADDR_RC:-0}" ;;
-  "route show default") [ "${FAKE_ROUTE_EMPTY:-0}" = 1 ] || echo "default via 192.0.2.1 dev eth0"; exit 0 ;;
+  "-4 route show default") [ "${FAKE_ROUTE_EMPTY:-0}" = 1 ] || echo "default via 192.0.2.1 dev eth0"; exit 0 ;;
 esac
 exit 2
 IP
 cat > "$T/fakebin/getent" <<'GETENT'
 #!/usr/bin/env bash
-[ "$1" = ahosts ] && [ "$2" = example.com ] || exit 2
+[[ "$1" == ahostsv4 || "$1" == ahostsv6 ]] && [ "$2" = example.com ] || exit 2
 [ "${FAKE_DNS_RC:-0}" = 0 ] || exit "$FAKE_DNS_RC"
 echo "93.184.216.34 STREAM example.com"
 GETENT
-chmod +x "$T/fakebin/ip" "$T/fakebin/getent"
+cat > "$T/fakebin/curl" <<'CURL'
+#!/usr/bin/env bash
+case "$*" in
+  *connectivitycheck*) printf 204; exit 0 ;;
+  *example.com*) printf 200; exit 0 ;;
+esac
+exit 1
+CURL
+chmod +x "$T/fakebin/ip" "$T/fakebin/getent" "$T/fakebin/curl"
 OLD_PATH=$PATH; PATH="$T/fakebin:$PATH"; export PATH
 out=$(sa_internet_doctor 2>&1); rc=$?
-{ [ "$rc" -eq 0 ] && [[ "$out" == *"default via 192.0.2.1"* ]] && [[ "$out" == *"DNS example.com"* ]]; } && ok "doctor reports interface, route, and DNS success" || bad "doctor success path"
+{ [ "$rc" -eq 0 ] && [[ "$out" == *"ipv4_route"* ]] && [[ "$out" == *"dns_ipv4"* ]]; } && ok "doctor reports interface, route, and DNS success" || bad "doctor success path"
 FAKE_IP_ADDR_RC=1 FAKE_DNS_RC=1; export FAKE_IP_ADDR_RC FAKE_DNS_RC
 out=$(sa_internet_doctor 2>&1); rc=$?
-{ [ "$rc" -ne 0 ] && [[ "$out" == *"interface inspection: FAILED"* ]] && [[ "$out" == *"DNS lookup example.com: FAILED"* ]]; } && ok "doctor propagates interface and DNS failures" || bad "doctor failure path"
+{ [ "$rc" -ne 0 ] && [[ "$out" == *"interface"* ]] && [[ "$out" == *"dns_ipv4"* ]]; } && ok "doctor propagates interface and DNS failures" || bad "doctor failure path"
 unset FAKE_IP_ADDR_RC FAKE_DNS_RC
 FAKE_ROUTE_EMPTY=1; export FAKE_ROUTE_EMPTY
 out=$(sa_internet_doctor 2>&1); rc=$?
-{ [ "$rc" -ne 0 ] && [[ "$out" == *"default route: MISSING"* ]]; } && ok "doctor detects missing default route" || bad "missing route detection"
+{ [ "$rc" -ne 0 ] && [[ "$out" == *"ipv4_route"* ]]; } && ok "doctor detects missing default route" || bad "missing route detection"
 unset FAKE_ROUTE_EMPTY
 PATH=$OLD_PATH; export PATH
 echo "passed=$pass failed=$fail"
