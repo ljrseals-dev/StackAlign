@@ -67,8 +67,8 @@ sa_tls_require_client() {
 }
 
 
-_sa_tls_domain_ok() { [[ ${1-} =~ ^(\\*\\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\\.)+[A-Za-z]{2,}$ ]]; }
-_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\\*./_wildcard_.}"; }
+_sa_tls_domain_ok() { [[ ${1-} =~ ^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; }
+_sa_tls_lineage() { local d=$1; printf '%s' "${d/#\*./_wildcard_.}"; }
 _sa_tls_ca_url() {
     case "$1" in
         letsencrypt) echo "https://acme-v02.api.letsencrypt.org/directory" ;;
@@ -81,7 +81,7 @@ _sa_tls_ca_url() {
 # Issuance remains disabled pending source verification and deployment acceptance.
 sa_tls_certbot_http01_plan() {
     local domain=${1-} webroot=${2-} email=${3-} resolved certbot config work logs
-    local arg quoted email_re='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'
+    local arg quoted email_re='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
     [ "$#" -eq 3 ] || {
         echo "error=tls_certbot_http01_invalid_arguments" >&2
         return 64
@@ -91,7 +91,7 @@ sa_tls_certbot_http01_plan() {
         return 64
     }
     case "$domain" in
-        \\*.*) echo "error=tls_http01_wildcard_requires_dns01" >&2; return 64 ;;
+        \*.*) echo "error=tls_http01_wildcard_requires_dns01" >&2; return 64 ;;
     esac
     [[ $email =~ $email_re ]] || {
         echo "error=tls_contact_email_invalid" >&2
@@ -121,23 +121,23 @@ sa_tls_certbot_http01_plan() {
     work="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/work"
     logs="${SA_CERT_ROOT:-/etc/stackalign/certs}/.certbot/logs"
 
-    printf 'state: PLAN_ONLY\\n'
-    printf 'client: certbot\\n'
-    printf 'client_executable: %s\\n' "$certbot"
-    printf 'source_provenance: NOT_VERIFIED\\n'
-    printf 'challenge: http-01 (webroot)\\n'
-    printf 'domain: %s\\n' "$domain"
-    printf 'webroot: %s\\n' "$resolved"
-    printf 'execution: NOT_RUN\\n'
+    printf 'state: PLAN_ONLY\n'
+    printf 'client: certbot\n'
+    printf 'client_executable: %s\n' "$certbot"
+    printf 'source_provenance: NOT_VERIFIED\n'
+    printf 'challenge: http-01 (webroot)\n'
+    printf 'domain: %s\n' "$domain"
+    printf 'webroot: %s\n' "$resolved"
+    printf 'execution: NOT_RUN\n'
     printf 'argv:'
-    for arg in "$certbot" certonly --non-interactive --agree-tos --email "$email" \\
-        --webroot --webroot-path "$resolved" --preferred-challenges http \\
-        --server https://acme-v02.api.letsencrypt.org/directory -d "$domain" \\
+    for arg in "$certbot" certonly --non-interactive --agree-tos --email "$email" \
+        --webroot --webroot-path "$resolved" --preferred-challenges http \
+        --server https://acme-v02.api.letsencrypt.org/directory -d "$domain" \
         --config-dir "$config" --work-dir "$work" --logs-dir "$logs"; do
         printf -v quoted '%q' "$arg"
         printf ' %s' "$quoted"
     done
-    printf '\\n'
+    printf '\n'
 }
 
 # Reports known ACME renewal schedulers; returns 2 if one is active.
