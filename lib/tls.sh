@@ -50,6 +50,10 @@ sa_tls_clients() {
 # A future adapter must call this with the lineage's explicit owner. No fallback.
 sa_tls_require_client() {
     local client=${1-} path
+    [ "$#" -eq 1 ] || {
+        echo "error=acme_client_not_available:client=invalid" >&2
+        return 64
+    }
     case "$client" in certbot|acme.sh|lego) ;; *)
         echo "error=acme_client_not_available:client=invalid" >&2
         return 64 ;;
