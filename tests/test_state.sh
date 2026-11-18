@@ -13,7 +13,7 @@ sa_state_init
 [[ $(sqlite3 "$SA_STATE_DB" 'SELECT version FROM schema_migrations;') == 1 ]]
 sa_state_init >/dev/null
 [[ $(sqlite3 "$SA_STATE_DB" 'SELECT count(*) FROM schema_migrations;') == 1 ]]
-id=$(sa_task_create health_check 'Operator's initial server inspection')
+id=$(sa_task_create health_check "Operator's initial server inspection")
 [[ $id =~ ^[0-9a-f-]{36}$ ]]
 [[ $(sqlite3 "$SA_STATE_DB" "SELECT status FROM tasks WHERE id='$id';") == pending ]]
 sa_task_transition "$id" running 'Started by operator' >/dev/null
