@@ -35,7 +35,7 @@ GPLAN=0; YES=0
 # Keep command metadata in Bash: no cat/awk subprocesses during dispatch.
 _sa_known() {
   case "$1" in
-    version|help|plan|install|doctor|tune|rollback|update|site|db|tls|backup|restore|bench|secret|repo|optimize|xcart|routine|internet|hosting|agent|sftp|egress|contain) return 0 ;;
+    version|help|plan|install|doctor|tune|rollback|update|site|db|state|tls|backup|restore|bench|secret|repo|optimize|xcart|routine|internet|hosting|agent|sftp|egress|contain) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -45,7 +45,7 @@ _sa_ms() {
     version|help|plan|doctor) printf '%s\n' M1 ;;
     install|tune|rollback|secret|repo|optimize) printf '%s\n' M2a ;;
     internet|hosting|agent) printf '%s\n' M2b ;;
-    site|db|tls|xcart|routine|sftp) printf '%s\n' M3 ;;
+    site|db|state|tls|xcart|routine|sftp) printf '%s\n' M3 ;;
     backup|restore|egress|contain) printf '%s\n' M4 ;;
     update) printf '%s\n' M5 ;;
     bench) printf '%s\n' M6 ;;
@@ -635,7 +635,7 @@ _sa_dispatch() {  # <cmd> args...
     hosting)  cmd_hosting "$@" ;;
     internet) cmd_internet "$@" ;;
     site)     cmd_site "$@" ;;
-    db)       cmd_db "$@" ;;
+    db)       cmd_db "$@" ;;\n    state)    cmd_state "$@" ;;
     tls)      cmd_tls "$@" ;;
     agent)    cmd_agent "$@" ;;
     backup)   cmd_backup "$@" ;;
