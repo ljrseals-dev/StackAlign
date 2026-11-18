@@ -5,7 +5,7 @@
 **StackAlign branch / commit inspected:** `main` / `ca069223d7ba5ac071d3198508d47f172ad49009`  
 **Centmin Mod comparison:** `master` / `4e7aec8585c6ad169773d1a77df17f560e4e0d71`; relevant beta baseline previously pinned in the existing assessment as `141.00beta01` / `1d1146eb17b82b246a15e49a4addca92f8b748d4`  
 **Sidecar:** https://github.com/ljrseals-dev/pinecone-neural, `main` / `8260ee84fc6deb96aeebe46079d47948a30cd84d`  
-**Sidecar hardening PR:** https://github.com/ljrseals-dev/pinecone-neural/pull/1 — open, not merged, at inspection.
+**Sidecar hardening chain:** Pinecone Neural PRs [#1](https://github.com/ljrseals-dev/pinecone-neural/pull/1), [#2](https://github.com/ljrseals-dev/pinecone-neural/pull/2), and [#3](https://github.com/ljrseals-dev/pinecone-neural/pull/3) — all open and unmerged at the evidence refresh. Latest cumulative test head: `49d5dbdc713dc5fe3c779a5c5d8fe472c5530747`.
 
 ## Executive result
 
@@ -21,7 +21,7 @@ The previous capability assessment at `docs/CENTMINMOD-CAPABILITY-GAP.md` is use
 - No privileged VM or real-host integration environment was available or used.
 - Centmin Mod is GPL-3.0; StackAlign is MIT. This audit proposes independent behavior, not copying upstream code.
 - The sidecar was **not invoked for this audit**. Its configured deployment endpoint and provider credentials are not available through repository inspection. More importantly, the sidecar's inspected `main` revision still contains model-generated Python `eval/exec` in `app/harness.py`. Its own README describes production hardening requirements, and StackAlign's `docs/PINECONE-AGENT-INTEGRATION.md` explicitly says not to deploy that revision as a host-control agent.
-- Sidecar PR #1 proposes registered JSON tools, key/session scoping, removal of demo keys, and a non-root container. It remains open. Its CI run #44035274780 passed the Python compile and pytest steps on the PR head; provider-backed end-to-end tests were not run. This is useful automated evidence but does not replace review, merge, pinned deployment, or isolated runtime validation. Do not deploy it merely because the PR exists.
+- Sidecar PRs #1–#3 form a stacked, unmerged hardening sequence. PR #1 replaces model-generated code with registered JSON tools, hardens API-key parsing/session scoping, removes demo keys and runs the container as UID 10001. PR #2 adds neural-memory contract/retention fixes, history replay, provider and Redis bounds, run token/cost budgets, tool limits and more regression tests. PR #3 switches chat completions to AsyncOpenAI, serializes same-session read/run/write operations within one process, bounds concurrent runs and tests cancellation/lock reclamation. Their latest cumulative CI head is PR #3 `49d5dbdc713dc5fe3c779a5c5d8fe472c5530747`; run #44073253827 passed compileall and 34 pytest tests. Earlier stacked heads passed 10 tests (#1, run #44035274780) and 30 tests (#2, run #44039697690). These are credential-free unit/regression tests only: provider-backed Pinecone/OpenAI end-to-end tests and deployment/runtime validation were not run. The chain remains unmerged; do not deploy it merely because CI passes.
 - StackAlign's sidecar client in `lib/agent.sh` is planning-only: it sends read-only doctor and repository-inventory output and prints an answer; it does not execute model output. Its tests use a fake curl executable. They do not prove a live sidecar connection or provider behavior.
 - Do not send secrets, credentials, customer data, private keys, or sensitive logs to the sidecar. External provider traffic is a separate data-flow decision requiring operator approval.
 
@@ -110,27 +110,36 @@ Status describes StackAlign evidence, not Centmin Mod parity. “Partial” mean
 
 ## Sidecar readiness decision
 
-**Current status: blocked for live use pending PR #1 review/merge and deployment approval.**
+**Current status: static integration only; live sidecar use remains blocked pending review/merge of the complete hardening chain, a pinned deployment, and explicit provider-egress approval.**
 
-Evidence:
+### Source and branch evidence
 
-- Sidecar `main` SHA: `8260ee84fc6deb96aeebe46079d47948a30cd84d`.
-- `app/harness.py` in that revision compiles and executes model-generated Python using `eval/exec` with a restricted builtins dictionary. A restricted builtins dictionary is not a secure Python sandbox.
-- `app/tools/sandbox_exec.py` exists but the inspected main agent loop does not call it.
-- `.env.example` in main includes demo API-key entries. The config model reads provider credentials and API host defaults; README itself lists authentication and sandboxing as production requirements.
-- Sidecar PR #1 (`Harden agent tools and session isolation`) is open and unmerged. Its diff removes arbitrary model-code execution in favor of registered JSON tools, tightens API key parsing/session scoping, removes demo keys, changes container user to UID 10001 and adds CI/tests. These are proposed changes, not yet the deployed sidecar.
-- StackAlign `lib/agent.sh` sends read-only doctor/repository inventory and displays the answer only. It does not execute returned code. `tests/test_agent.sh` uses a fake curl binary, so live integration remains untested.
-- The sidecar is an optional external-provider data flow. No API endpoint, provider credential, or operator approval for deploying the service was supplied in this repository inspection. No request was sent.
+- Sidecar main remains 8260ee84fc6deb96aeebe46079d47948a30cd84d. Static inspection confirms its agent loop compiles/executes model-generated Python with eval/exec; the separate sandbox helper is not wired into that loop. Do not deploy this main revision as a host-control agent.
+- PR #1 head a57e6e1c5cfea2231a9562e3f133ea961e0eb9fb is based on main and remains open/unmerged.
+- PR #2 head 78334bac420d778ef30fe5c3b4f0ffaf6b5f3702 is stacked on PR #1 and remains open/unmerged.
+- PR #3 head 49d5dbdc713dc5fe3c779a5c5d8fe472c5530747 is stacked on PR #2 and remains open/unmerged. This is the latest cumulative source revision inspected, not the repository's default branch.
+- CI evidence: PR #1 run 44035274780 passed compileall and 10 tests; PR #2 run 44039697690 passed compileall and 30 tests; PR #3 run 44073253827 passed compileall and 34 tests. These are cumulative branch snapshots, not 74 distinct tests. The latest 34-test run is the strongest single regression result.
+- The PR #2 change set adds memory/neural contract and retention fixes, bounded embedding inputs/index readiness, authenticated history replay, namespace limits, provider/Redis timeouts, run token/cost accounting, tool timeout/output enforcement, explicit CORS allowlists and configurable neural paths. Cost is an estimate and excludes Pinecone units, Redis and host costs.
+- The PR #3 change set uses asynchronous chat completions, session-level serialization and a process-wide run semaphore. Session locks and admission control are process-local; multi-worker/multi-host deployments still need sticky routing or a distributed lock.
+- No provider-backed integration test or production deployment is claimed. CI uses placeholder credentials explicitly marked unused.
 
-**Required gate before sidecar-assisted full prompt review:**
+### StackAlign integration boundary
 
-1. Review and merge sidecar PR #1 (or independently remediate and review the same findings).
-2. Pin the reviewed sidecar commit; verify CI and dependency lock/provenance.
-3. Deploy only in an isolated, non-root container with no host mounts, Docker socket, host networking, added capabilities or shell/SQL tools; publish loopback only.
+- StackAlign lib/agent.sh remains a planning-only client. It sends a read-only doctor/repository snapshot and an operator question, then prints advisory text. It does not execute model output or grant shell, SQL, root, Docker, or host filesystem authority.
+- StackAlign transport tests use a fake curl; they do not prove a live sidecar connection, provider behavior, or prompt accuracy.
+- The current client does not persist/replay a sidecar session_id between separate CLI invocations. Do not claim durable conversational continuity through the StackAlign CLI based solely on the sidecar's internal session-store tests.
+- No live sidecar request was sent during this audit. No secrets, credentials, customer data, private keys or sensitive logs were sent. Provider egress remains an explicit operator decision.
+- Detailed commit/test evidence and boundaries are recorded in [SIDECAR-HARNESS-EVIDENCE-2026-11-18.md](SIDECAR-HARNESS-EVIDENCE-2026-11-18.md).
+
+### Required gate before live sidecar use
+
+1. Review and merge the complete sidecar PR chain (or independently implement and review equivalent changes); verify the final merged tree rather than assuming stacked PR heads are already present on main.
+2. Pin the reviewed merged commit and verify dependency provenance, CI and image build.
+3. Deploy only in an isolated non-root container with no host mounts, Docker socket, host networking, added capabilities or shell/SQL tools; publish loopback only and apply CPU, memory and PID limits.
 4. Obtain explicit approval for provider egress and the exact sanitized data sent.
-5. Supply an operator-managed API key through the documented protected mechanism. Never place credentials in a prompt, repository, issue or PR.
-6. Run the complete A–O prompt against the sanitized repository evidence and require path/SHA/test references for each material claim.
-7. Independently verify every sidecar finding against source/tests; the model is an assistant, not the evidence authority.
+5. Supply an operator-managed API key through the protected mechanism; never put credentials in prompts, repositories, issues or PRs.
+6. Use the sidecar only to produce reviewable recommendations. Independently verify every material claim against StackAlign source, tests and pinned commits.
+7. Keep host changes in StackAlign's native CLI with its own explicit apply gate and host checks.
 
 ## Prioritized backlog and dependency path
 
@@ -154,9 +163,9 @@ Evidence:
 | StackAlign main branch metadata | Verified at `ca069223d7ba5ac071d3198508d47f172ad49009` | Remote GitHub view; no local working-tree state |
 | Centmin Mod master metadata | Verified at `4e7aec8585c6ad169773d1a77df17f560e4e0d71` | Branch snapshot, not all supported releases |
 | Sidecar main metadata | Verified at `8260ee84fc6deb96aeebe46079d47948a30cd84d` | Static source inspection only |
-| Sidecar PR #1 | Open, not merged | Proposed hardening only; no live deployment |
+| Sidecar PRs #1–#3 | All open, stacked, unmerged | Latest PR #3 head passed 34 credential-free tests; no live deployment |
 | StackAlign PR #79 CI | Ubuntu and AlmaLinux 9 passed at `ef997d4102c7855af4293dbb4a2399dba65da472` | PR head only; no real DB restore |
-| Sidecar live API call | Not run | No configured endpoint/credentials; main revision is not safe to deploy |
+| Sidecar live API call | Not run | No configured endpoint/credentials or approved provider-egress/data-flow decision |
 | Real-host / disposable-VM integration | Not run | No approved environment |
 | Performance benchmark | Not run | No benchmark data |
 | Clean-host restore drill | Not run | Restore apply remains blocked |
@@ -178,7 +187,10 @@ Sidecar main `8260ee84fc6deb96aeebe46079d47948a30cd84d`:
 - `app/tools/sandbox_exec.py` — sandbox helper not wired into that agent loop.
 - `app/main.py`, `app/auth/middleware.py`, `app/config.py` — API and auth configuration.
 - `tests/test_smoke.py` — minimal smoke/sanitization coverage in main.
-- PR #1 — proposed structured-tool/auth/container hardening.
+- PR #1 — structured-tool/auth/container hardening proposal.
+- PR #2 — neural-memory correctness, history replay, provider/resource budgets and regression coverage.
+- PR #3 — async API and process-local session serialization/concurrency controls.
+- docs/SIDECAR-HARNESS-EVIDENCE-2026-11-18.md — pinned PR heads, CI runs, coverage and non-claims.
 
 Centmin Mod:
 - `master` SHA above and existing `141.00beta01` baseline in the prior StackAlign comparison report.
