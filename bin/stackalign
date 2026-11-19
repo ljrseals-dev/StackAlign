@@ -450,7 +450,7 @@ cmd_update_plan() {
 
   # --cacheonly prevents repository metadata refresh; logfile=/dev/null avoids
   # DNF's normal persistent logfile. Planning refuses if usable metadata is absent.
-  target_nevra=$(sa_exec dnf -- --cacheonly --setopt=logfile=/dev/null \
+  target_nevra=$(sa_exec dnf --timeout 120 -- --cacheonly --setopt=logfile=/dev/null \
     repoquery --latest-limit 1 --qf '%{NEVRA}' -- "$package-$target_version" 2>/dev/null) || \
     _sa_die "error: cached repository metadata unavailable or DNF repoquery failed; refresh metadata separately, then retry"
   target_nevra=$(printf '%s\n' "$target_nevra" | awk 'NF { if (++n == 1) v=$0 } END { if (n == 1) print v; else exit 1 }') || \
