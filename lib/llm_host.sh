@@ -83,12 +83,48 @@ sa_llm_host_pull() {
   ollama pull "$model"
 }
 
+
+sa_llm_host_configure() {
+  local model=$1 apply=${2:-0}
+  local config dir tmp
+  _sa_llm_model_valid "$model" || { echo "llm: invalid model identifier" >&2; return 64; }
+  config=${STACKALIGN_LLM_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/stackalign/llm.env}
+  [[ $config == /* && $config != *..* ]] || { echo "llm: config path must be an absolute path without '..'" >&2; return 64; }
+  dir=${config%/*}
+  if [[ $apply != 1 ]]; then
+    echo "plan: would create local planner config at $config"
+    echo "model: $model"
+    echo "endpoint: http://127.0.0.1:11434/v1"
+    echo "No file was written; rerun with --apply to save this configuration."
+    return 0
+  fi
+  [[ ! -e $config && ! -L $config ]] || {
+    echo "llm: config already exists; refusing to overwrite $config" >&2
+    return 2
+  }
+  mkdir -p -- "$dir" || return 1
+  chmod 700 "$dir" || return 1
+  tmp=$(mktemp "$dir/.llm.env.XXXXXX") || return 1
+  chmod 600 "$tmp" || { rm -f -- "$tmp"; return 1; }
+  if ! {
+    printf 'STACKALIGN_LLM_BASE_URL=%s\\n' 'http://127.0.0.1:11434/v1'
+    printf 'STACKALIGN_LLM_MODEL=%s\\n' "$model"
+  } > "$tmp"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+  if ! mv -- "$tmp" "$config"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+  echo "llm: saved local planner configuration to $config (mode 600)"
+}
+
 sa_llm_host_help() {
   printf '%s\n' \
-    'usage: stackalign llm <status|models|pull <model> [--apply]>' \
+    'usage: stackalign llm <status|models|pull <model> [--apply]|configure <model> [--apply]>' \
     '  status   inspect the loopback Ollama API (read-only)' \
     '  models   list models already present in Ollama' \
-    '  pull     plan a model download; --apply explicitly downloads it' \
-    'Set STACKALIGN_OLLAMA_HOST (default http://127.0.0.1:11434).' \
+    '  pull      plan a model download; --apply explicitly downloads it' \\\n    '  configure plan/save the local planner model; --apply writes a private config' \\\n    'Set STACKALIGN_OLLAMA_HOST (default http://127.0.0.1:11434).' \
     'For agent plan, set STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11434/v1'
 }
