@@ -45,6 +45,9 @@ _sa_repo_path_policy() {
     }
   else
     [[ $SA_YUM_REPOS_DIR == /* && $SA_YUM_REPOS_DIR != *..* ]] || return 64
+    [ ! -L "$SA_YUM_REPOS_DIR" ] || return 1
+    /usr/bin/mkdir -p -- "$SA_YUM_REPOS_DIR" || return 1
+    /usr/bin/chmod 0700 -- "$SA_YUM_REPOS_DIR" || return 1
     [ -d "$SA_YUM_REPOS_DIR" ] && [ ! -L "$SA_YUM_REPOS_DIR" ] || return 1
     resolved=$(/usr/bin/realpath -e -- "$SA_YUM_REPOS_DIR") || return 1
     [ "$resolved" = "$SA_YUM_REPOS_DIR" ] || return 1
