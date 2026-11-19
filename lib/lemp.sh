@@ -8,7 +8,7 @@
 
 : "${SA_LEMP_ETC_ROOT:=/etc}"
 : "${SA_LEMP_WEB_ROOT:=/var/www/stackalign}"
-: "${SA_LEMP_OS_RELEASE_FILE:=/etc/os-release}"
+SA_LEMP_OS_RELEASE_FILE=/etc/os-release
 . "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
 
 sa_lemp_die() { echo "stackalign install: $*" >&2; return 1; }
@@ -97,7 +97,7 @@ sa_lemp_host_check() {
   done < "$SA_LEMP_OS_RELEASE_FILE"
   id=${id%\"}; id=${id#\"}
   version=${version%\"}; version=${version#\"}
-  arch=$(uname -m) || return 1
+  arch=$(/usr/bin/uname -m) || return 1
   case "$id:$version:$arch" in
     almalinux:9*:x86_64|rocky:9*:x86_64|rhel:9*:x86_64|ol:9*:x86_64|centos:9*:x86_64) ;;
     *) sa_lemp_die "supported apply target is EL9 x86_64 (AlmaLinux, Rocky, RHEL, Oracle Linux, or CentOS Stream); found $id $version $arch"; return 1 ;;
