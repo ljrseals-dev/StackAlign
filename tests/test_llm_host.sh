@@ -58,6 +58,8 @@ if sa_llm_host_status >/dev/null 2>&1; then
 fi
 echo "ok   non-loopback Ollama management endpoint rejected"
 
+export STACKALIGN_OLLAMA_HOST=http://127.0.0.1:11434
+
 export HOME="$T/home"
 export STACKALIGN_LLM_CONFIG="$T/config/llm.env"
 out=$(sa_llm_host_configure local-model:latest 0)
