@@ -106,7 +106,7 @@ echo "ok   planner rejects insecure config-file permissions"
 
 # Duplicate keys are ambiguous and must fail closed.
 DUP_CONFIG="$T/duplicate.env"
-printf '%s\\n' 'STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11434/v1' 'STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11435/v1' 'STACKALIGN_LLM_MODEL=local-model:latest' > "$DUP_CONFIG"
+printf '%s\n' 'STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11434/v1' 'STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11435/v1' 'STACKALIGN_LLM_MODEL=local-model:latest' > "$DUP_CONFIG"
 chmod 600 "$DUP_CONFIG"
 if STACKALIGN_LLM_CONFIG="$DUP_CONFIG" _sa_llm_load_config >/dev/null 2>&1; then
   echo "FAIL: duplicate planner config keys accepted" >&2; exit 1
