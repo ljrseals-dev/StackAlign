@@ -74,3 +74,17 @@ if sa_llm_host_configure another-model 1 >/dev/null 2>&1; then
   echo "FAIL: existing local config overwritten" >&2; exit 1
 fi
 echo "ok   existing local planner config is not overwritten"
+
+CLI_HOME="$T/cli-home"
+CLI_CONFIG="$CLI_HOME/.config/stackalign/llm.env"
+out=$(HOME="$CLI_HOME" STACKALIGN_LLM_CONFIG="$CLI_CONFIG" bash "$ROOT/bin/stackalign" llm configure local-model:latest)
+[[ $out == *"would create local planner config"* && ! -e $CLI_CONFIG ]]
+echo "ok   CLI configure command is plan-only by default"
+
+HOME="$CLI_HOME" STACKALIGN_LLM_CONFIG="$CLI_CONFIG" bash "$ROOT/bin/stackalign" llm configure local-model:latest --apply >/dev/null
+[[ -f $CLI_CONFIG ]]
+echo "ok   CLI configure applies the saved local model"
+
+out=$(PATH="$T/bin:$PATH" bash "$ROOT/bin/stackalign" llm models)
+[[ $out == *"local-model:latest"* ]]
+echo "ok   CLI exposes local model inventory"
