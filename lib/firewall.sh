@@ -79,8 +79,8 @@ sa_fw_apply_nft() {
 sa_fw_install_intrusion() {
     case ${1:-} in
         none) return 0 ;;
-        crowdsec) sa_exec dnf -- -y install -- crowdsec crowdsec-firewall-bouncer-nftables ;;
-        fail2ban) sa_exec dnf -- -y install -- fail2ban ;;
+        crowdsec) sa_exec dnf --timeout 1800 -- -y install -- crowdsec crowdsec-firewall-bouncer-nftables ;;
+        fail2ban) sa_exec dnf --timeout 1800 -- -y install -- fail2ban ;;
         *) echo "firewall: bad intrusion: ${1:-}" >&2; return 64 ;;
     esac
 }
