@@ -55,17 +55,18 @@ grep -rqF -- "$val" "$SA_SECRETS_DIR" && bad "value NOT on disk" || ok "value ne
 { [ ! -s "$FAKE_LOG" ] && [ ! -s "$FAKE_ARGV" ]; } && ok "machine: no HIBP call, no argon2 (primitives not confused)" || bad "machine: no HIBP/argon2"
 val2=$(sa_secret_gen dbroot2 machine 2>/dev/null); [ "$val" != "$val2" ] && ok "two machine secrets differ" || bad "two machine secrets differ"
 
-# Xtrace inherited by a caller must not expose the generated value.
+# Secret generation must refuse under xtrace before creating or returning a value.
 (
   exec 3>&2
   exec 2>"$T/xtrace.log"
   set -x
   traced_value=$(sa_secret_gen tracecheck machine)
+  rc=$?
   set +x
   exec 2>&3
-  [ -n "$traced_value" ] || exit 1
-  if grep -Fq -- "$traced_value" "$T/xtrace.log"; then exit 1; fi
-) && ok "xtrace cannot record generated secret" || bad "xtrace leaked generated secret"
+  [ "$rc" -eq 64 ] && [ -z "$traced_value" ] && [ ! -e "$SA_SECRETS_DIR/tracecheck.hash" ] || exit 1
+  if grep -Fq -- "secret value" "$T/xtrace.log"; then exit 1; fi
+) && ok "xtrace causes secret generation to fail closed" || bad "xtrace secret generation gate"
 
 # --- never overwrite
 before=$(cat "$f"); sa_secret_gen dbroot machine >/dev/null 2>&1; rc=$?
