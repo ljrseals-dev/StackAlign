@@ -110,21 +110,21 @@ sa_sftp_enable() {
     _sa_sftp_group || return 1
     sa_exec install -- -d -m 0755 -o root -g root -- "$SA_SFTP_BASE" "$SA_SFTP_KEYDIR" || return 1
     new="$(/usr/bin/mktemp "$dir/.sa-sftp.XXXXXX")" || return 1
-    sa_sftp_render > "$new" && /usr/bin/chmod 0644 -- "$new" || { /usr/bin//usr/bin/rm -f -- "$new"; return 1; }
+    sa_sftp_render > "$new" && /usr/bin/chmod 0644 -- "$new" || { /usr/bin/rm -f -- "$new"; return 1; }
     if [ -f "$SA_SFTP_DROPIN" ]; then
         backup="$(/usr/bin/mktemp "$dir/.sa-sftp-bak.XXXXXX")" || { /usr/bin/rm -f -- "$new"; return 1; }
-        /usr/bin/cp -p -- "$SA_SFTP_DROPIN" "$backup" || { /usr/bin//usr/bin/rm -f -- "$new" "$backup"; return 1; }
+        /usr/bin/cp -p -- "$SA_SFTP_DROPIN" "$backup" || { /usr/bin/rm -f -- "$new" "$backup"; return 1; }
     fi
     /usr/bin/mv -f -- "$new" "$SA_SFTP_DROPIN" || { /usr/bin/rm -f -- "$new" "$backup"; return 1; }
     if ! sa_exec sshd -- -t >&2; then
-        if [ -n "$backup" ]; then /usr/bin//usr/bin/mv -f -- "$backup" "$SA_SFTP_DROPIN"; else /usr/bin/rm -f -- "$SA_SFTP_DROPIN"; fi
+        if [ -n "$backup" ]; then /usr/bin/mv -f -- "$backup" "$SA_SFTP_DROPIN"; else /usr/bin/rm -f -- "$SA_SFTP_DROPIN"; fi
         echo "sftp: sshd -t failed; previous configuration restored" >&2; return 1
     fi
     if ! sa_exec systemctl -- reload sshd; then
-        if [ -n "$backup" ]; then /usr/bin/mv -f -- "$backup" "$SA_SFTP_DROPIN"; else rm -f -- "$SA_SFTP_DROPIN"; fi
+        if [ -n "$backup" ]; then /usr/bin/mv -f -- "$backup" "$SA_SFTP_DROPIN"; else /usr/bin/rm -f -- "$SA_SFTP_DROPIN"; fi
         echo "sftp: reload failed; previous configuration restored" >&2; return 1
     fi
-    [ -z "$backup" ] || /usr/bin//usr/bin/rm -f -- "$backup"
+    [ -z "$backup" ] || /usr/bin/rm -f -- "$backup"
 }
 
 sa_sftp_add_user() {
