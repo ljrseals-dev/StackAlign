@@ -105,6 +105,18 @@ sudo SA_MYSQL_DEFAULTS_FILE=/root/stackalign-mysql-admin.cnf bash bin/stackalign
 
 Names must start with a letter and contain only letters, digits, and underscores (maximum 64 characters); system database names are reserved. Creation uses `utf8mb4_unicode_ci` and is plan-only unless `--apply` is explicit. `db user list` reports account names and hosts only; it never selects password hashes. This does not create a database user or grant privileges. `db drop` remains blocked until pre-drop backup, dependency checks, and verified recovery are implemented.
 
+### StackAlign's own state database and task records
+
+StackAlign has a local SQLite state database separate from customer MariaDB databases. Install the SQLite CLI, create the protected directory, and initialize explicitly:
+
+```bash
+sudo install -d -o root -g root -m 0700 /var/lib/stackalign
+sudo bash bin/stackalign state init --apply
+sudo bash bin/stackalign state status
+```
+
+The first task ledger records allowlisted task types and enforces pending -> running -> succeeded/failed transitions. It records accepted transitions. This is task tracking, not yet an executor for website deployments, backups, or migrations. See [Local State Database and Task Lifecycle](docs/STATE-DATABASE.md).
+
 ### Inspect TLS certificates
 
 Read-only diagnostics inspect locally managed certificate lineages, expiry, hostname coverage, private-key match, key-file permissions, and the 30-day renewal window:
