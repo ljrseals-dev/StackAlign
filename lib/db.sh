@@ -58,13 +58,13 @@ sa_db_status() {
 # sa_db_list -- read-only schema inventory.
 sa_db_list() {
     _sa_db_require_client || return $?
-    mysql --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SHOW DATABASES;'
+    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SHOW DATABASES;'
 }
 
 # sa_db_user_list -- read-only database account inventory; never selects password hashes.
 sa_db_user_list() {
     _sa_db_require_client || return $?
-    mysql --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT User, Host FROM mysql.user ORDER BY User, Host;'
+    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT User, Host FROM mysql.user ORDER BY User, Host;'
 }
 
 # sa_db_create <database-name> -- idempotent utf8mb4 database creation.
@@ -73,7 +73,7 @@ sa_db_create() {
     sa_db_validate_name "$name" || return $?
     _sa_db_require_client || return $?
     query="SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$name' LIMIT 1;"
-    existing=$(mysql --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query") || {
+    existing=$(sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query") || {
         echo "db: could not check whether database exists" >&2
         return 1
     }
@@ -82,7 +82,7 @@ sa_db_create() {
         return 0
     fi
     query="CREATE DATABASE IF NOT EXISTS \`$name\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    mysql --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query" || {
+    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query" || {
         echo "db: create failed for $name" >&2
         return 1
     }
