@@ -24,6 +24,9 @@ Choose a model and tag compatible with your machine's RAM/VRAM budget and licens
 stackalign llm pull llama3.2:3b
 # Review the plan; this performs no network request.
 stackalign llm pull llama3.2:3b --apply
+stackalign llm configure llama3.2:3b
+# Review the local planner configuration plan.
+stackalign llm configure llama3.2:3b --apply
 ```
 
 The command validates the model identifier and invokes the installed `ollama pull` only when `--apply` is explicit. It does not select a model on the operator's behalf or claim a model will fit available hardware.
@@ -33,9 +36,6 @@ The command validates the model identifier and invokes the installed `ollama pul
 Ollama exposes an OpenAI-compatible endpoint. Point the existing constrained planner at it:
 
 ```sh
-export STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11434/v1
-export STACKALIGN_LLM_MODEL=llama3.2:3b
-unset STACKALIGN_LLM_API_KEY
 stackalign agent plan "Check whether my web server is healthy"
 ```
 
@@ -47,6 +47,8 @@ The planner continues to validate model output against StackAlign's strict schem
 - `stackalign llm models`: delegates read-only inventory to `ollama list`.
 - `stackalign llm pull MODEL`: displays a plan.
 - `stackalign llm pull MODEL --apply`: explicitly downloads the selected model.
+- `stackalign llm configure MODEL`: displays a plan for saving the local planner endpoint and model.
+- `stackalign llm configure MODEL --apply`: writes a mode-600, non-secret config file under `~/.config/stackalign/llm.env`; existing files are never overwritten.
 
 Not included: Ollama installation, service enablement, GPU driver setup, model quantization, model conversion through schema/Cmajor, remote exposure, automatic model selection, or production sizing guarantees. Those require separate implementation and host-specific validation.
 
