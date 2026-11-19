@@ -23,7 +23,12 @@ sa_task_transition "$id" succeeded 'All checks passed' >/dev/null
 if sa_task_transition "$id" running >/dev/null 2>&1; then echo "FAIL: terminal task restarted" >&2; exit 1; fi
 if sa_task_create shell_command 'arbitrary command' >/dev/null 2>&1; then echo "FAIL: unknown task type accepted" >&2; exit 1; fi
 if sa_task_create health_check '' >/dev/null 2>&1; then echo "FAIL: empty description accepted" >&2; exit 1; fi
-if sa_task_create health_check 
+tab=$(printf '\011')
+if sa_task_create health_check "bad${tab}field" >/dev/null 2>&1; then echo "FAIL: task description accepted terminal control characters" >&2; exit 1; fi
+pending_id=$(sa_task_create health_check "Control-character rejection test")
+newline=$(printf '\012')
+if sa_task_transition "$pending_id" running "bad${newline}field" >/dev/null 2>&1; then echo "FAIL: task event detail accepted terminal control characters" >&2; exit 1; fi
+[[ $(sqlite3 "$SA_STATE_DB" "SELECT status FROM tasks WHERE id='$pending_id';") == pending ]]
 
 # Every task operation must enforce the same owner-only database boundary.
 chmod 0644 "$SA_STATE_DB"
