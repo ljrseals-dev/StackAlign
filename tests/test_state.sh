@@ -24,4 +24,14 @@ if sa_task_transition "$id" running >/dev/null 2>&1; then echo "FAIL: terminal t
 if sa_task_create shell_command 'arbitrary command' >/dev/null 2>&1; then echo "FAIL: unknown task type accepted" >&2; exit 1; fi
 if sa_task_create health_check '' >/dev/null 2>&1; then echo "FAIL: empty description accepted" >&2; exit 1; fi
 [[ $(sqlite3 "$SA_STATE_DB" 'PRAGMA integrity_check;') == ok ]]
+
+# Every task operation must enforce the same owner-only database boundary.
+chmod 0644 "$SA_STATE_DB"
+if sa_task_list >/dev/null 2>&1; then echo "FAIL: task list accepted a world-readable database" >&2; exit 1; fi
+if sa_task_transition "$id" failed "must not write" >/dev/null 2>&1; then echo "FAIL: task transition accepted a world-readable database" >&2; exit 1; fi
+if sa_task_create health_check "must not write" >/dev/null 2>&1; then echo "FAIL: task create accepted a world-readable database" >&2; exit 1; fi
+chmod 0600 "$SA_STATE_DB"
+[[ $(sqlite3 "$SA_STATE_DB" "SELECT status FROM tasks WHERE id='$id';") == succeeded ]]
+echo "state database permissions enforced for list, transition, and create"
+
 echo "state database and task lifecycle tests: PASS"
