@@ -28,6 +28,14 @@ SH
   chmod +x "$T/bin/$tool"
 done
 source "$ROOT/lib/lemp.sh"
+# Explicit fixture-only executor; production executor never consults PATH.
+sa_exec() {
+  local tool=$1
+  shift
+  if [ "${1-}" = --timeout ]; then shift 2; fi
+  [ "${1-}" = -- ] && shift
+  "$T/bin/$tool" "$@"
+}
 pass=0 fail=0
 ok(){ pass=$((pass+1)); echo "ok   - $1"; }
 bad(){ fail=$((fail+1)); echo "FAIL - $1"; }
@@ -71,7 +79,7 @@ mkdir -p "$T/web/public"
 
 : > "$LOG"
 sa_lemp_apply >"$T/apply.out" 2>&1; rc=$?
-{ [ "$rc" -eq 0 ] && grep -q 'dnf -y install nginx mariadb-server php-fpm php-mysqlnd' "$LOG"; } && ok "uses only EL repository package names" || bad "package installation"
+{ [ "$rc" -eq 0 ] && grep -q 'dnf -y install -- nginx mariadb-server php-fpm php-mysqlnd' "$LOG"; } && ok "uses only EL repository package names" || bad "package installation"
 grep -q '^user = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^group = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^listen.owner = nginx$' "$T/etc/php-fpm.d/www.conf" &&
