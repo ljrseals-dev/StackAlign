@@ -80,6 +80,22 @@ if sa_llm_plan "check server" >/dev/null 2>&1; then
 fi
 echo "ok   LLM plan rejects malformed model output"
 
+# A response containing tool calls must never be treated as a normal plan.
+cat > "$LLM_TEST_RESPONSE" <<'JSON'
+{"choices":[{"message":{"role":"assistant","content":"{\\"summary\\":\\"A safe plan.\\",\\"tasks\\":[],\\"questions\\":[],\\"warnings\\":[],\\"unsupported_requests\\":[]}","tool_calls":[{"type":"function","function":{"name":"dangerous_action","arguments":"{}"}}]},"finish_reason":"stop"}]}
+JSON
+if sa_llm_plan "check server" >/dev/null 2>&1; then
+  echo "FAIL: tool-call response accepted" >&2; exit 1
+fi
+echo "ok   LLM plan rejects tool-call responses even when content is valid"
+
+# Duplicate JSON keys are ambiguous and must not be normalized by last-key-wins parsing.
+printf '%s\\n' '{"summary":"first","summary":"second","tasks":[],"questions":[],"warnings":[],"unsupported_requests":[]}' > "$LLM_TEST_RESPONSE"
+if python3 "$ROOT/scripts/validate_llm_plan.py" "$LLM_TEST_RESPONSE" >/dev/null 2>&1; then
+  echo "FAIL: duplicate JSON keys accepted" >&2; exit 1
+fi
+echo "ok   plan validator rejects duplicate JSON keys"
+
 unset STACKALIGN_LLM_API_KEY
 cp "$TMP/valid-response.json" "$LLM_TEST_RESPONSE"
 OUT=$(sa_llm_plan "Explain the local health-check capability")
