@@ -17,6 +17,7 @@ _sa_exec_binary() {
         dnf)        printf '%s\n' /usr/bin/dnf ;;
         rpm)        printf '%s\n' /usr/bin/rpm ;;
         openssl)    printf '%s\n' /usr/bin/openssl ;;
+        argon2)     printf '%s\n' /usr/bin/argon2 ;;
         curl)       printf '%s\n' /usr/bin/curl ;;
         gpg)        printf '%s\n' /usr/bin/gpg ;;
         *) return 64 ;;
