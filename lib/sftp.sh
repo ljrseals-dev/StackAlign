@@ -9,6 +9,7 @@
 # ASSUMPTIONS to verify on a throwaway host: your sshd includes sshd_config.d/*.conf
 # and a Match block in that drop-in does not leak into later directives (check with
 # `sshd -T -C user=alice,addr=127.0.0.1`); sshd -t passes before every reload.
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
 . "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/common.sh"
 
 : "${SA_SFTP_GROUP:=sftponly}"
@@ -21,7 +22,7 @@
 _sa_sftp_safe_config_path() {
     local path=${1:-} resolved
     [[ $path == /* && $path != / && $path != */ && $path != *..* && $path =~ ^/[A-Za-z0-9._/-]+$ ]] || return 1
-    resolved=$(realpath -m -- "$path" 2>/dev/null) || return 1
+    resolved=$(/usr/bin/realpath -m -- "$path" 2>/dev/null) || return 1
     [[ $resolved == "$path" ]]
 }
 
@@ -40,7 +41,7 @@ _sa_sftp_config_ok() {
     [ -d "$dir" ] && [ ! -L "$dir" ] || {
         echo "sftp: sshd configuration directory is missing or symlinked" >&2; return 1;
     }
-    resolved=$(realpath -e -- "$dir" 2>/dev/null) || return 1
+    resolved=$(/usr/bin/realpath -e -- "$dir" 2>/dev/null) || return 1
     [ "$resolved" = "$dir" ] || {
         echo "sftp: sshd configuration directory resolves through a symlink" >&2; return 1;
     }
@@ -91,25 +92,25 @@ sa_sftp_render() {
 sa_sftp_enable() {
     local dir new backup=""
     _sa_sftp_config_ok || return $?
-    dir="$(dirname "$SA_SFTP_DROPIN")"
+    dir="$(/usr/bin/dirname -- "$SA_SFTP_DROPIN")"
     _sa_sftp_group || return 1
     sa_exec install -- -d -m 0755 -o root -g root -- "$SA_SFTP_BASE" "$SA_SFTP_KEYDIR" || return 1
-    new="$(mktemp "$dir/.sa-sftp.XXXXXX")" || return 1
-    sa_sftp_render > "$new" && chmod 0644 -- "$new" || { rm -f -- "$new"; return 1; }
+    new="$(/usr/bin/mktemp "$dir/.sa-sftp.XXXXXX")" || return 1
+    sa_sftp_render > "$new" && /usr/bin/chmod 0644 -- "$new" || { /usr/bin/rm -f -- "$new"; return 1; }
     if [ -f "$SA_SFTP_DROPIN" ]; then
-        backup="$(mktemp "$dir/.sa-sftp-bak.XXXXXX")" || { rm -f -- "$new"; return 1; }
-        cp -p -- "$SA_SFTP_DROPIN" "$backup" || { rm -f -- "$new" "$backup"; return 1; }
+        backup="$(/usr/bin/mktemp "$dir/.sa-sftp-bak.XXXXXX")" || { rm -f -- "$new"; return 1; }
+        /usr/bin/cp -p -- "$SA_SFTP_DROPIN" "$backup" || { /usr/bin/rm -f -- "$new" "$backup"; return 1; }
     fi
-    mv -f -- "$new" "$SA_SFTP_DROPIN" || { rm -f -- "$new" "$backup"; return 1; }
+    /usr/bin/mv -f -- "$new" "$SA_SFTP_DROPIN" || { rm -f -- "$new" "$backup"; return 1; }
     if ! sa_exec sshd -- -t >&2; then
-        if [ -n "$backup" ]; then mv -f -- "$backup" "$SA_SFTP_DROPIN"; else rm -f -- "$SA_SFTP_DROPIN"; fi
+        if [ -n "$backup" ]; then /usr/bin/mv -f -- "$backup" "$SA_SFTP_DROPIN"; else /usr/bin/rm -f -- "$SA_SFTP_DROPIN"; fi
         echo "sftp: sshd -t failed; previous configuration restored" >&2; return 1
     fi
     if ! sa_exec systemctl -- reload sshd; then
         if [ -n "$backup" ]; then mv -f -- "$backup" "$SA_SFTP_DROPIN"; else rm -f -- "$SA_SFTP_DROPIN"; fi
         echo "sftp: reload failed; previous configuration restored" >&2; return 1
     fi
-    [ -z "$backup" ] || rm -f -- "$backup"
+    [ -z "$backup" ] || /usr/bin/rm -f -- "$backup"
 }
 
 sa_sftp_add_user() {
@@ -133,11 +134,11 @@ sa_sftp_add_user() {
         sa_exec useradd -- -g "$SA_SFTP_GROUP" -M -d "$chroot" -s /sbin/nologin -- "$user" || return 1
         _sa_sftp_set_random_password "$user" || { sa_exec userdel -- -- "$user" || true; return 1; }
     fi
-    install -d -m 0755 -o root -g root -- "$SA_SFTP_BASE" "$SA_SFTP_KEYDIR" "$chroot" || return 1
+    sa_exec install -- -d -m 0755 -o root -g root -- "$SA_SFTP_BASE" "$SA_SFTP_KEYDIR" "$chroot" || return 1
     sa_exec install -- -d -m 0700 -o "$user" -g "$SA_SFTP_GROUP" -- "$chroot/files" || return 1
-    tmp="$(mktemp "$SA_SFTP_KEYDIR/.k.XXXXXX")" || return 1
-    printf '%s\n' "$key" > "$tmp" && chmod 0644 -- "$tmp" && sa_exec chown -- root:root -- "$tmp" &&
-        mv -fT -- "$tmp" "$keytarget" || { rm -f -- "$tmp"; return 1; }
+    tmp="$(/usr/bin/mktemp "$SA_SFTP_KEYDIR/.k.XXXXXX")" || return 1
+    printf '%s\n' "$key" > "$tmp" && /usr/bin/chmod 0644 -- "$tmp" && sa_exec chown -- root:root -- "$tmp" &&
+        /usr/bin/mv -fT -- "$tmp" "$keytarget" || { /usr/bin/rm -f -- "$tmp"; return 1; }
     log "sftp: $user ready (chroot $chroot, upload dir /files)"
 }
 
@@ -151,8 +152,8 @@ sa_sftp_remove_user() {
         echo "sftp: refusing unsafe authorized-keys target" >&2
         return 1
     fi
-    userdel -- "$user" || return 1
-    [ ! -e "$keytarget" ] || rm -fT -- "$keytarget" || return 1
+    sa_exec userdel -- -- "$user" || return 1
+    [ ! -e "$keytarget" ] || /usr/bin/rm -fT -- "$keytarget" || return 1
     log "sftp: removed login for $user; data kept in $SA_SFTP_BASE/$user"
 }
 
