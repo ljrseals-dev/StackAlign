@@ -9,9 +9,9 @@ _sa_exec_binary() {
     # non-mutating diagnostic adapters only. Privileged execution always uses
     # the fixed absolute mapping below; the CLI also sanitizes privileged PATH.
     if [ "${EUID:-1}" -ne 0 ]; then
-        case "$tool" in curl|rpm|gpgv|httpd|nft|systemctl|systemd-run|logger)
+        case "$tool" in curl|rpm|gpgv|httpd)
             candidate=$(type -P -- "$tool" 2>/dev/null) || candidate=""
-            if [ -n "$candidate" ] && [ -x "$candidate" ]; then printf '%s\\n' "$candidate"; return 0; fi
+            if [ -n "$candidate" ] && [ -x "$candidate" ]; then printf '%s\n' "$candidate"; return 0; fi
             ;;
         esac
     fi
