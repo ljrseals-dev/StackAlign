@@ -29,33 +29,6 @@ pending_id=$(sa_task_create health_check "Control-character rejection test")
 newline=$(printf '\012X'); newline=${newline%X}
 if sa_task_transition "$pending_id" running "bad${newline}field" >/dev/null 2>&1; then echo "FAIL: task event detail accepted terminal control characters" >&2; exit 1; fi
 [[ $(sqlite3 "$SA_STATE_DB" "SELECT status FROM tasks WHERE id='$pending_id';") == pending ]]
-
-# Every task operation must enforce the same owner-only database boundary.
-chmod 0644 "$SA_STATE_DB"
-if sa_task_list >/dev/null 2>&1; then echo "FAIL: task list accepted a world-readable database" >&2; exit 1; fi
-if sa_task_transition "$id" failed "must not write" >/dev/null 2>&1; then echo "FAIL: task transition accepted a world-readable database" >&2; exit 1; fi
-if sa_task_create health_check "must not write" >/dev/null 2>&1; then echo "FAIL: task create accepted a world-readable database" >&2; exit 1; fi
-chmod 0600 "$SA_STATE_DB"
-[[ $(sqlite3 "$SA_STATE_DB" "SELECT status FROM tasks WHERE id='$id';") == succeeded ]]
-echo "state database permissions enforced for list, transition, and create"
-
-echo "state database and task lifecycle tests: PASS"
-bad\tfield' >/dev/null 2>&1; then echo "FAIL: task description accepted terminal control characters" >&2; exit 1; fi
-pending_id=$(sa_task_create health_check "Control-character rejection test")
-if sa_task_transition "$pending_id" running 
-
-# Every task operation must enforce the same owner-only database boundary.
-chmod 0644 "$SA_STATE_DB"
-if sa_task_list >/dev/null 2>&1; then echo "FAIL: task list accepted a world-readable database" >&2; exit 1; fi
-if sa_task_transition "$id" failed "must not write" >/dev/null 2>&1; then echo "FAIL: task transition accepted a world-readable database" >&2; exit 1; fi
-if sa_task_create health_check "must not write" >/dev/null 2>&1; then echo "FAIL: task create accepted a world-readable database" >&2; exit 1; fi
-chmod 0600 "$SA_STATE_DB"
-[[ $(sqlite3 "$SA_STATE_DB" "SELECT status FROM tasks WHERE id='$id';") == succeeded ]]
-echo "state database permissions enforced for list, transition, and create"
-
-echo "state database and task lifecycle tests: PASS"
-bad\nfield' >/dev/null 2>&1; then echo "FAIL: task event detail accepted terminal control characters" >&2; exit 1; fi
-[[ $(sqlite3 "$SA_STATE_DB" "SELECT status FROM tasks WHERE id='$pending_id';") == pending ]]
 [[ $(sqlite3 "$SA_STATE_DB" 'PRAGMA integrity_check;') == ok ]]
 
 # Every task operation must enforce the same owner-only database boundary.
