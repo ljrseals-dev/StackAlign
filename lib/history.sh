@@ -74,6 +74,7 @@ sa_history_snapshot() {
     ( umask 077; printf '0\t%s\n' "$path" >> "$dir/manifest" )
   fi
   _sa_hist_write_undo "$dir"
+  printf "stackalign: snapshot created (%s)\n" "$id" >&2
   printf '%s\n' "$id"
 }
 
@@ -142,5 +143,7 @@ sa_history_rollback() {
       echo "sa_history_rollback: snapshot is missing or unsafe" >&2
       return 1
     }
+  printf "stackalign: executing history rollback (%s)\n" "$id" >&2
+  if [ -x /usr/bin/logger ]; then /usr/bin/logger -t stackalign "history rollback $id" 2>/dev/null || true; fi
   /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C /usr/bin/bash -p "$dir/undo.sh"
 }
