@@ -1,73 +1,82 @@
 # Quantized LLM footprint and StackAlign deployment boundary
 
-**Status: engineering guidance; no model artifact is included or deployed by this change.**
+**Status: engineering assessment. No model artifact is included or deployed by this change.**
 
-This document evaluates whether `ljrseals-dev/schema` can reduce the storage footprint of the model described in `ljrseals-dev/shadowy-spooky-poltergeist`, and defines a safe path for using a smaller model with StackAlign.
+This document evaluates the ONNX-to-Cmajor emitter in `ljrseals-dev/schema`, including the merged ONNX patch and modified emitter script, as a possible route to reducing the model footprint used by StackAlign.
 
-## Executive finding
+## Corrected repository finding
 
-The current `schema-review` package is **not a model quantizer**. Its `execute_and_validate` runtime accepts already-decoded tensor payloads and performs these transforms:
+The schema repository does contain an ONNX-to-Cmajor conversion path. PRs #7 and #8 added the repository-local emitter at `tools/onnx/onnxToCmajor.py`, a Cmajor patch template, fallback rewrite logic, focused synthetic ONNX tests, requirements, documentation, and CI coverage. PR #8's main-branch merge commit is `fce779ea30a098794e298e39ae3fd8c96e80bd85`. This is more than the package-level tensor decoder alone; the earlier description that schema had no ONNX reader or Cmajor emitter was incorrect.
 
-- FLOAT16 words -> float32-valued Python floats;
-- signed INT8 values -> dequantized float32-valued Python floats;
-- explicitly packed two-bit ternary values -> decoded float32-valued Python floats.
+The converter loads and checks an ONNX model, applies supported initializer rewrites, performs shape inference and ONNX validation, inventories a deliberately limited operator set, and emits Cmajor source/patch files. It is a repository-local modified copy of the Cmajor Toolkit emitter, not an upstream-accepted Cmajor change.
 
-Those operations decode or expand an already-quantized representation. They do not take a full-precision model and emit a smaller quantized checkpoint. The package also does not parse ONNX protobufs, discover initializer tensors, quantize weights, rewrite a graph, or produce a runnable model file.
+## What the emitter currently does with quantized weights
 
-The schema package can become a **validation component** in a future quantization pipeline, but it cannot by itself shrink the model today. Its independent reference calculations check the numeric decoding implementation; they do not establish end-to-end model quality, ONNX Runtime parity, or task-quality retention.
+The current fallback support is deliberately narrow:
 
-## What the current model specification implies
+- **FLOAT16:** finite FLOAT16 initializers and FLOAT16 Constant tensor attributes are promoted to FLOAT32. FLOAT16 graph inputs/outputs are rejected because an explicit runtime cast adapter is not implemented.
+- **INT8:** signed INT8 initializer weights are folded through an initializer-backed ONNX `DequantizeLinear` node into FLOAT32 weights. Scale and optional zero point must be initializers; scalar or one-dimensional scale layouts are supported. Dynamic scales, UINT8, graph-boundary quantization, ambiguous consumers, and unsupported layouts are rejected.
+- **Ternary:** UINT8 initializers are decoded from explicitly annotated packed two-bit ternary codes using the declared logical shape, bit order, and codebook. Missing/ambiguous metadata, reserved symbols, invalid padding, or malformed payloads are rejected.
+- **Other quantized forms:** rejected rather than guessed.
 
-The `shadowy-spooky-poltergeist` specification describes 550–760 billion total parameters, with approximately 8B active during prefill and 16B during decode. Active parameters are not the same as stored parameters: an MoE runtime still needs access to the expert weights selected over time. The repository is a static specification, not a checkpoint or runnable implementation.
+**Critical size implication:** these fallbacks decode/promote the compressed values into FLOAT32 initializers before Cmajor emission. They are compatibility/lowering fallbacks, not a compact-weight-preserving quantizer. FLOAT16 becomes 32-bit storage; INT8 becomes 32-bit values; packed two-bit ternary becomes 32-bit values. Consequently, this current path does not itself reduce the emitted model's weight storage and may expand it substantially. It can make certain quantized ONNX tensors consumable by the existing emitter, but that is different from keeping weights compressed at inference time.
+
+## Cmajor operator coverage and model suitability
+
+The emitter's operator endpoint table is small: Tanh, Reshape, MatMul, Gemm, Add, Unsqueeze, Squeeze, Conv, GRU, Pad, Transpose, Constant, LSTM, Slice, Gather, and Concat. The script rejects operators outside that allowlist before code generation.
+
+A modern transformer LLM normally needs operators and semantics beyond this list, commonly including Softmax, normalization (LayerNorm/RMSNorm), rotary-position operations, attention/cache handling, embedding/gather variants, and model-specific fused operators. Those are not made supported merely because MatMul and Add are present. Therefore the current emitter cannot be assumed to convert the proposed 550–760B MoE LLM. It needs a real model-specific ONNX export, an operator coverage report, graph/shape validation, Cmajor compilation, and runtime parity before suitability can be established.
+
+The focused tests in `tools/onnx/test_fallback.py` exercise synthetic initializer rewrite and refusal cases. The PR descriptions and README explicitly do not claim Cmajor compilation, complete operator semantic parity, ONNX Runtime parity, or audio/model quality validation. Those remain separate acceptance gates.
+
+## Storage estimates
+
+The model specification describes 550–760 billion total parameters, with approximately 8B active during prefill and 16B during decode. Active parameters are not the same as stored parameters: the expert weights still need to be available to the runtime.
 
 Raw weight storage lower bounds, using decimal GB/TB and excluding scales, metadata, alignment, tokenizer, runtime, KV cache, and allocator overhead:
 
-| Representation | Bytes per parameter | 550B parameters | 760B parameters |
+| Representation retained at runtime | Bytes per parameter | 550B parameters | 760B parameters |
 |---|---:|---:|---:|
 | BF16 / FP16 | 2 | 1.10 TB | 1.52 TB |
 | INT8 | 1 | 550 GB | 760 GB |
 | packed 2-bit | 0.25 | 137.5 GB | 190 GB |
+| FLOAT32 emitted by current schema fallback | 4 | 2.20 TB | 3.04 TB |
 
-These are arithmetic lower bounds, not measured artifact sizes. The schema package's ternary decoder uses two bits per stored symbol; do not substitute the theoretical entropy of ternary symbols for the actual packed format.
+These are arithmetic lower bounds, not measured artifact sizes. The final row illustrates why decoding into FLOAT32 is not a compression path.
 
-For comparison, an independently trained or distilled **dense 8B model** would have raw weight lower bounds of about 16 GB at BF16, 8 GB at INT8, or 2 GB at packed 2-bit. A 4-bit representation would be about 4 GB, but the current schema package does not implement 4-bit quantization or a 4-bit decoder. These figures still exclude runtime memory and context/KV cache.
+For comparison, a genuine dense 8B model retained as INT8 would require about 8 GB of raw weights; 4-bit would be about 4 GB. The schema emitter does not currently preserve a 4-bit representation. These figures still exclude runtime memory and context/KV cache.
 
-Reducing the proposed 550–760B MoE to a practical single-server model is therefore not a matter of changing the active-parameter setting. It requires selecting an existing smaller model or training/distilling a new smaller architecture, then quantizing and validating that model.
+## What would actually reduce StackAlign's model footprint
 
-## Safe integration plan
+There are two distinct engineering paths:
 
-1. **Choose an actual source checkpoint.** Record its exact model ID/revision, license, architecture, tokenizer, tensor shapes, and SHA-256. Do not treat the static model specification as a checkpoint.
-2. **Choose a supported quantizer/runtime.** Use a model-format-specific tool that can read the source architecture and emit a documented deployment artifact. Record quantizer version, method, calibration corpus, and output format. The schema package is not that tool.
-3. **Preserve the original checkpoint.** Quantize into a separate output directory. Never overwrite the source weights.
-4. **Validate tensor decoding with schema-review where applicable.** Supply already-decoded tensor payloads plus exact shape/scale/zero-point/axis or ternary codebook/bit-order metadata to `schema_review.execute_and_validate`. Treat its report as a numeric transform check only. Do not claim it has discovered or preserved metadata from the original ONNX graph unless a separately verified extractor supplies that evidence.
-5. **Run independent model-level tests.** Compare the quantized model against the original in the actual inference runtime using a fixed evaluation corpus. Record task-quality metrics, output regressions, latency, peak resident memory, GPU/CPU memory, and context-length behavior. Reject the artifact if the declared acceptance thresholds fail.
-6. **Deploy through StackAlign's configured model endpoint.** Keep model weights in a separately managed inference runtime and configure StackAlign to call its OpenAI-compatible endpoint. Do not copy hundreds of gigabytes of weights into the StackAlign source repository or silently install a model on a production host.
+1. **Use an already-small checkpoint.** Select a real 1–8B-class model with a compatible inference runtime and supported quantization format. Quantize it with a model-specific quantizer, measure the resulting artifact, and connect StackAlign's constrained planner to that runtime's OpenAI-compatible endpoint.
+2. **Extend the schema/Cmajor path for compact inference.** Add quantized storage types and Cmajor operations that consume packed INT8/ternary weights directly without expanding them into FLOAT32 arrays. This requires verified Cmajor type/layout support or explicit packed-byte kernels, correct scale/zero-point/codebook handling, and operator lowering for the target model. It is a substantial compiler/runtime project, not just an emitter flag.
 
-## Required artifact manifest
+Do not claim path 2 is available until the generated Cmajor patch demonstrably retains the compressed representation and executes it correctly.
 
-A deployable candidate should carry a machine-readable manifest containing at least:
+## Required validation before deployment
 
-- source model identity, revision, license, and source hash;
-- output artifact format, quantization method, bit width, and artifact hash;
-- total parameter count and measured artifact bytes;
-- quantizer and inference-runtime versions;
-- calibration/evaluation corpus identifiers and hashes;
-- per-model quality metrics and explicit acceptance thresholds;
-- measured peak host RAM, VRAM, KV-cache use, and tested context length;
-- schema-review version and per-tensor validation report references, when used;
-- known unsupported operators, tensor types, and runtime limitations.
+1. Identify the exact ONNX source checkpoint, revision, license, architecture, tokenizer, and SHA-256. The `shadowy-spooky-poltergeist` repository is a static specification/manual, not the checkpoint.
+2. Run the emitter on a copy of the actual ONNX file. Capture the exact refusal or generated output; do not infer compatibility from model family or parameter count.
+3. Record source ONNX bytes, emitted Cmajor source/patch bytes, initializer dtypes and byte counts before/after conversion, and generated artifact hashes.
+4. Compile with a pinned Cmajor toolchain. Record compiler version, command, stdout/stderr, and exit status.
+5. Execute the converted model and compare against the original ONNX Runtime outputs using fixed prompts/inputs and a reproducible evaluation corpus.
+6. Measure task quality, latency, peak RAM/VRAM, KV-cache use, tested context length, and actual on-disk artifact size.
+7. Reject the candidate if any required operator is unsupported, compilation fails, runtime parity/quality misses its predeclared threshold, or measured resource use exceeds the target server budget.
 
-A candidate is **not deployable** while any required field is unknown or while model-level parity/quality validation is missing.
+A deployable manifest should record source and output hashes, model/license/revision, quantizer/emitter/compiler/runtime versions, quantization scheme, operator coverage, evaluation corpus, numerical/task metrics, resource measurements, and all known limitations.
 
-## StackAlign deployment boundary
+## StackAlign integration boundary
 
-StackAlign's planner is a constrained request planner, not a model server. It should send a bounded request to a configured inference endpoint, validate the returned plan, and retain deterministic execution authority locally. The model must not receive shell, root, Docker, database, or host-filesystem authority. No model installation, package change, service change, firewall change, or production-host mutation is authorized by this document.
+StackAlign's LLM planner is a constrained client, not an inference server. It sends a bounded planning request to an operator-configured OpenAI-compatible endpoint and validates the response locally. Model output does not receive shell, root, Docker, database, or host-filesystem authority.
+
+Keep model weights in a separately managed inference runtime; do not commit them to StackAlign or silently install them on a production host. No package, service, firewall, production-host, or provider-egress changes are authorized by this documentation PR.
 
 ## Current conclusion
 
-- **Can schema-review shrink the current model? No.** Its current transforms decode/expand quantized payloads; they do not quantize a checkpoint.
-- **Can it help validate a future quantization pipeline? Yes, narrowly.** It can validate specified FLOAT16, INT8, and two-bit ternary decoded-payload transforms against its independent standard-library references, subject to the documented metadata and model-level validation limits.
-- **Can the specified 550–760B model fit an ordinary single server by setting active parameters to 8B? No.** The total stored weights remain the governing weight-storage problem.
-- **Practical route:** select or distill a genuine 1–8B-class checkpoint, quantize it with a compatible model quantizer, benchmark it, and connect StackAlign to the separately hosted inference endpoint.
-
-No checkpoint was downloaded, no model was quantized, no host was changed, and no inference service was started as part of this work.
+- The schema repository **does have** the ONNX-to-Cmajor emitter and the merged FLOAT16/INT8/ternary fallback patch. PR #7 and PR #8 are part of the current mainline.
+- The existing fallback rewrites **expand quantized values to FLOAT32** before emission. They do not preserve compact weights and therefore do not currently reduce model storage.
+- The emitter's limited operator set does not establish support for a modern transformer/MoE LLM.
+- A real smaller deployment should begin with a genuine small checkpoint and an inference runtime that retains its quantized format. A direct schema/Cmajor route is a separate development track requiring packed-weight kernels, transformer operator coverage, compilation, and runtime parity.
+- No checkpoint was downloaded, converted, compiled, benchmarked, or deployed. No server was changed.
