@@ -58,16 +58,20 @@ sa_history_snapshot() {
   if [ -f "$dir/manifest" ] && /usr/bin/grep -qxF "$(printf '1\t%s' "$path")" "$dir/manifest" 2>/dev/null; then
     printf '%s\n' "$id"; return 0
   fi
-  if [ -f "$dir/manifest" ] && grep -qxF "$(printf '0\t%s' "$path")" "$dir/manifest" 2>/dev/null; then
+  if [ -f "$dir/manifest" ] && /usr/bin/grep -qxF "$(printf '0\t%s' "$path")" "$dir/manifest" 2>/dev/null; then
     printf '%s\n' "$id"; return 0
   fi
+  [ ! -L "$dir" ] && [ ! -L "$dir/manifest" ] && [ ! -L "$dir/undo.sh" ] || {
+    echo "sa_history_snapshot: refusing symlinked snapshot controls" >&2
+    return 1
+  }
   ( umask 077; /usr/bin/mkdir -p -- "$dir/snapshot" ) || return 1
   if [ -e "$path" ] || [ -L "$path" ]; then
     ( umask 077; /usr/bin/mkdir -p -- "$dir/snapshot$(/usr/bin/dirname -- "$path")" ) || return 1
     /usr/bin/cp -a -- "$path" "$dir/snapshot$path" || return 1
-    printf '1\t%s\n' "$path" >> "$dir/manifest"
+    ( umask 077; printf '1\t%s\n' "$path" >> "$dir/manifest" )
   else
-    printf '0\t%s\n' "$path" >> "$dir/manifest"
+    ( umask 077; printf '0\t%s\n' "$path" >> "$dir/manifest" )
   fi
   _sa_hist_write_undo "$dir"
   printf '%s\n' "$id"
@@ -99,7 +103,7 @@ _sa_hist_write_undo() {
         printf 'fi\n'
         printf 'if [ "$had_old" -eq 1 ]; then rm -rf -- "$backup"; fi\n'
       else
-        printf 'rm -rf %q\n' "$p"
+        printf 'rm -rf -- %q\n' "$p"
       fi
     done < "$dir/manifest"
   } > "$dir/undo.sh"
@@ -116,6 +120,7 @@ sa_history_path() {
 
 sa_history_list() {
   [ -d "$SA_HISTORY_ROOT" ] || return 0
+  _sa_hist_root_validate || { echo "sa_history_list: history root is unsafe" >&2; return 1; }
   local d
   for d in "$SA_HISTORY_ROOT"/*/; do
     [ -f "${d}manifest" ] && basename "$d"
@@ -129,6 +134,7 @@ sa_history_rollback() {
     return 64
   }
   local id=$1 dir
+  _sa_hist_root_validate || { echo "sa_history_rollback: history root is unsafe" >&2; return 1; }
   dir=$(sa_history_path "$id") || return $?
   [ -d "$dir" ] && [ ! -L "$dir" ] &&
     [ -f "$dir/manifest" ] && [ ! -L "$dir/manifest" ] &&
@@ -136,5 +142,5 @@ sa_history_rollback() {
       echo "sa_history_rollback: snapshot is missing or unsafe" >&2
       return 1
     }
-  bash "$dir/undo.sh"
+  /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C /usr/bin/bash -p "$dir/undo.sh"
 }
