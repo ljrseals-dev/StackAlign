@@ -72,7 +72,8 @@ sa_config_load() {  # <file>
     esac
   fi
   if [ -n "${SA_CONF[security.passphrase_wordlist]-}" ]; then
-    local wl=${SA_CONF[security.passphrase_wordlist]} resolved
+    local wl resolved
+    wl=${SA_CONF[security.passphrase_wordlist]}
     [[ $wl == /* && $wl != *..* && $wl != *$'\n'* && $wl != *$'\r'* ]] || {
       _sa_config_error "config: security.passphrase_wordlist must be an absolute canonical path"; return 1
     }
