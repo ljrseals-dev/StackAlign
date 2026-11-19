@@ -11,7 +11,7 @@ _sa_eg_unit_ok() { [[ $SA_EGRESS_REVERT_UNIT =~ ^[A-Za-z0-9_.@-]+$ ]]; }
 
 _sa_eg_audit() {
     log "egress: $*"
-    if command -v logger >/dev/null 2>&1; then logger -t stackalign-egress -- "$*"; fi
+    if [ -x /usr/bin/logger ]; then /usr/bin/logger -t stackalign-egress -- "$*"; fi
     return 0
 }
 _sa_eg_cancel_revert() {
@@ -19,8 +19,8 @@ _sa_eg_cancel_revert() {
     # A timer may already have fired and its service may be deleting the table.
     # Stop both units before loading a new table generation.
     for unit in timer service; do
-        if systemctl is-active --quiet "$SA_EGRESS_REVERT_UNIT.$unit" 2>/dev/null; then
-            systemctl stop "$SA_EGRESS_REVERT_UNIT.$unit" || return 1
+        if sa_exec systemctl -- is-active --quiet "$SA_EGRESS_REVERT_UNIT.$unit" 2>/dev/null; then
+            sa_exec systemctl -- stop "$SA_EGRESS_REVERT_UNIT.$unit" || return 1
         fi
     done
     return 0
@@ -157,24 +157,24 @@ sa_egress_apply() {
     tmp="$(mktemp)" || return 1
     sa_egress_render "$1" "$2" "${3:-none}" > "$tmp" || { rc=$?; rm -f "$tmp"; return "$rc"; }
     # Build a single atomic replacement transaction. Never emit add-then-delete.
-    if nft list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
+    if sa_exec nft -- list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
         sed -i "1i delete table inet $SA_EGRESS_TABLE" "$tmp" || { rm -f "$tmp"; return 1; }
     fi
-    if ! nft -c -f "$tmp"; then rm -f "$tmp"; echo "egress: ruleset failed nft -c; nothing loaded" >&2; return 1; fi
+    if ! sa_exec nft -- -c -f "$tmp"; then rm -f "$tmp"; echo "egress: ruleset failed nft -c; nothing loaded" >&2; return 1; fi
     # Cancel any previous timer before a new generation can be loaded, including secs=0.
     if ! _sa_eg_cancel_revert; then
         rm -f "$tmp"; echo "egress: could not stop the previous revert timer/service; refusing to load" >&2
         _sa_eg_audit "apply refused: previous revert could not be cancelled"; return 1
     fi
     if [ "$secs" -gt 0 ]; then
-        nftbin="$(command -v nft)" || { rm -f "$tmp"; echo "egress: nft not found" >&2; return 1; }
-        if ! systemd-run --quiet --replace --unit="$SA_EGRESS_REVERT_UNIT" --on-active="${secs}s" \
+        nftbin="$(type -P nft)" || { rm -f "$tmp"; echo "egress: nft not found" >&2; return 1; }
+        if ! sa_exec systemd-run -- --quiet --replace --unit="$SA_EGRESS_REVERT_UNIT" --on-active="${secs}s" \
                 "$nftbin" delete table inet "$SA_EGRESS_TABLE"; then
             rm -f "$tmp"; echo "egress: could not schedule auto-revert; NOTHING was loaded" >&2
             _sa_eg_audit "apply refused: revert timer could not be scheduled"; return 1
         fi
     fi
-    if ! nft -f "$tmp"; then
+    if ! sa_exec nft -- -f "$tmp"; then
         rm -f "$tmp"
         if [ "$secs" -gt 0 ] && ! _sa_eg_cancel_revert; then
             echo "egress: WARNING could not cancel revert timer/service" >&2
@@ -189,8 +189,8 @@ sa_egress_apply() {
 }
 
 sa_egress_confirm() {
-    if systemctl is-active --quiet "$SA_EGRESS_REVERT_UNIT.timer" 2>/dev/null ||
-       systemctl is-active --quiet "$SA_EGRESS_REVERT_UNIT.service" 2>/dev/null; then
+    if sa_exec systemctl -- is-active --quiet "$SA_EGRESS_REVERT_UNIT.timer" 2>/dev/null ||
+       sa_exec systemctl -- is-active --quiet "$SA_EGRESS_REVERT_UNIT.service" 2>/dev/null; then
         _sa_eg_cancel_revert || {
             echo "egress: could not cancel revert timer/service; rules may still revert" >&2; return 1; }
         if ! nft list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
@@ -200,7 +200,7 @@ sa_egress_confirm() {
         _sa_eg_audit "revert timer/service cancelled; rules confirmed"
         echo "egress: confirmed; auto-revert cancelled."; return 0
     fi
-    if nft list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
+    if sa_exec nft -- list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
         echo "egress: no revert timer pending; rules remain loaded."; return 0
     fi
     echo "egress: no revert timer pending and table is absent" >&2; return 1
