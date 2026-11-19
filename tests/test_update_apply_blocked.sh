@@ -22,13 +22,13 @@ done
 
 source "$ROOT/lib/update.sh"
 set +e
-output=$(sa_update_apply 'nginx;touch /tmp/stackalign-pwned' 'bad target' 'nginx;id' '/tmp/../etc' 2>&1)
+output=$(sa_update_apply 'nginx;touch $T/stackalign-pwned' 'bad target' 'nginx;id' '/tmp/../etc' 2>&1)
 rc=$?
 set -e
 
 [ "$rc" -eq 2 ]
 [[ "$output" == *"APPLY BLOCKED"* ]]
 [ ! -s "$SA_TEST_LOG" ]
-[ ! -e /tmp/stackalign-pwned ]
+[ ! -e "$T/stackalign-pwned" ]
 
 echo "update apply gate: PASS"
