@@ -87,7 +87,9 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   _sa_repo_valid url "$keyurl" || { _sa_repo_bad key_url "$keyurl"; return 64; }
   fpr=${fpr^^}
 
-  _sa_repo_path_policy || return $?\n\n  local tmpd key\n  tmpd=$(/usr/bin/mktemp -d) || return 1
+  _sa_repo_path_policy || return $?
+
+  local tmpd key\n  tmpd=$(/usr/bin/mktemp -d) || return 1
   key="$tmpd/key.asc"
   if ! sa_fetch_gpg_key "$keyurl" "$fpr" "$key"; then
     /usr/bin/rm -rf -- "$tmpd"
