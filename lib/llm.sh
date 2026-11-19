@@ -5,7 +5,7 @@
 
 _sa_llm_url_valid() {
   local url=$1 port
-  [[ $url =~ ^http://(127\\.0\\.0\\.1|localhost)(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$ ]] ||
+  [[ $url =~ ^http://(127[.]0[.]0[.]1|localhost)(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$ ]] ||
     [[ $url =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$ ]] || return 1
   if [[ $url =~ :([0-9]{1,5})(/|$) ]]; then
     port=${BASH_REMATCH[1]}
