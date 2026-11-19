@@ -140,10 +140,7 @@ PY
     else
       printf 'Content-Type: application/json\n' > "$headers" || exit 1
     fi
-    if curl --silent --show-error --fail --connect-timeout 5 --max-time 60 \\
-        --max-filesize 1048576 --max-redirs 0 \\
-        --header "@$headers" --data-binary "@$body" \\
-        --output "$response" "$base_url/chat/completions"; then
+    if curl --silent --show-error --fail --connect-timeout 5 --max-time 60 --max-filesize 1048576 --max-redirs 0 --header "@$headers" --data-binary "@$body" --output "$response" "$base_url/chat/completions"; then
       :
     else
       rc=$?
