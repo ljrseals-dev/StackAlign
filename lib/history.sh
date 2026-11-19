@@ -11,6 +11,12 @@
 
 _sa_hist_abs() { local p=$1; case $p in /*) printf '%s' "$p" ;; *) printf '%s/%s' "$PWD" "$p" ;; esac; }
 
+# Snapshot IDs are generated as UTC timestamp + validated slug. Never accept
+# path separators or traversal components from CLI/library callers.
+_sa_hist_id_valid() {
+  [[ ${1-} =~ ^[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9_.-]+$ ]]
+}
+
 # sa_history_snapshot <path> [slug] -> prints snapshot id
 sa_history_snapshot() {
   local path slug=${2:-snap} ts id dir
@@ -27,7 +33,6 @@ sa_history_snapshot() {
   ts=$(date -u +%Y%m%dT%H%M%SZ)
   id="$ts-$slug"
   dir="$SA_HISTORY_ROOT/$id"
-  # Idempotent within the same second for the same path+slug.
   if [ -f "$dir/manifest" ] && grep -qxF "$(printf '1\t%s' "$path")" "$dir/manifest" 2>/dev/null; then
     printf '%s\n' "$id"; return 0
   fi
@@ -55,8 +60,6 @@ _sa_hist_write_undo() {
     local existed p
     while IFS=$'\t' read -r existed p; do
       if [ "$existed" = 1 ]; then
-        # Stage beside the target so the final rename stays on one filesystem.
-        # Keep the old target until the staged snapshot has been installed.
         printf 'target=%q\n' "$p"
         printf 'snapshot=%q\n' "$dir/snapshot$p"
         printf 'parent=$(dirname -- "$target")\n'
@@ -81,7 +84,13 @@ _sa_hist_write_undo() {
   chmod 0700 "$dir/undo.sh"
 }
 
-sa_history_path() { printf '%s/%s\n' "$SA_HISTORY_ROOT" "$1"; }
+sa_history_path() {
+  [ $# -eq 1 ] && _sa_hist_id_valid "$1" || {
+    echo "sa_history_path: invalid snapshot id" >&2
+    return 64
+  }
+  printf '%s/%s\n' "$SA_HISTORY_ROOT" "$1"
+}
 
 sa_history_list() {
   [ -d "$SA_HISTORY_ROOT" ] || return 0
@@ -93,8 +102,17 @@ sa_history_list() {
 }
 
 sa_history_rollback() {
+  [ $# -eq 1 ] && _sa_hist_id_valid "$1" || {
+    echo "sa_history_rollback: invalid snapshot id" >&2
+    return 64
+  }
   local id=$1 dir
-  dir=$(sa_history_path "$id")
-  [ -f "$dir/manifest" ] || { echo "sa_history_rollback: unknown id $id" >&2; return 1; }
+  dir=$(sa_history_path "$id") || return $?
+  [ -d "$dir" ] && [ ! -L "$dir" ] &&
+    [ -f "$dir/manifest" ] && [ ! -L "$dir/manifest" ] &&
+    [ -f "$dir/undo.sh" ] && [ ! -L "$dir/undo.sh" ] || {
+      echo "sa_history_rollback: snapshot is missing or unsafe" >&2
+      return 1
+    }
   bash "$dir/undo.sh"
 }
