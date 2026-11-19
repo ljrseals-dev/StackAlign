@@ -5,6 +5,8 @@
 # Usage: sa_cache_get <nevra>   -> prints cached rpm path (only) on stdout.
 # Every path returns non-zero on failure; dnf output goes to stderr.
 
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+
 : "${SA_RPM_CACHE:=/var/cache/stackalign/rpms}"
 
 # NEVRA charset only; no slashes, globs, spaces, or leading '-'/'.'.
