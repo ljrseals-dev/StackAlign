@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 #
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+
 # lib/agent.sh -- planning-only client for the Pinecone Neural sidecar.
 # The sidecar is never given shell, root, Docker, or host filesystem authority.
 
