@@ -92,13 +92,40 @@ _sa_secret_gen_impl() {  # <name> [mode]
   esac
   [ -n "$hash" ] || { echo "secret: empty hash; nothing stored" >&2; return 1; }
 
-  ( umask 077
-    mkdir -p -- "$SA_SECRETS_DIR" && chmod 0700 "$SA_SECRETS_DIR" || exit 1
-    set -o noclobber
-    printf '%s\n' "$hash" > "$file" ) || { echo "secret: could not store hash (exists or unwritable)" >&2; return 3; }
+  _sa_secret_dir_prepare || { echo "secret: secrets directory is unsafe or not privately owned" >&2; return 1; }
+  local tmp
+  tmp=$(umask 077; /usr/bin/mktemp "$SA_SECRETS_DIR/.\${name}.XXXXXX") || {
+    echo "secret: cannot create private temporary file" >&2
+    return 1
+  }
+  if ! ( umask 077; printf '%s\n' "$hash" > "$tmp" && /usr/bin/chmod 0600 -- "$tmp" ); then
+    /usr/bin/rm -f -- "$tmp"
+    echo "secret: cannot write private hash file" >&2
+    return 1
+  fi
+  if ! /usr/bin/ln -T -- "$tmp" "$file"; then
+    /usr/bin/rm -f -- "$tmp"
+    echo "secret: cannot publish hash (name already exists or directory unsafe)" >&2
+    return 3
+  fi
+  /usr/bin/rm -f -- "$tmp" || return 1
 
   echo "secret: $name stored as hash at $file; value below is shown ONCE" >&2
   printf '%s\n' "$val"
+}
+
+_sa_secret_dir_prepare() {
+  local dir=\${SA_SECRETS_DIR:-} normalized resolved mode owner
+  [[ $dir == /* && $dir != *..* && $dir != *$'\n'* && $dir != *$'\r'* ]] || return 1
+  normalized=$(/usr/bin/realpath -m -- "$dir" 2>/dev/null) || return 1
+  [[ $normalized == "$dir" ]] || return 1
+  ( umask 077; /usr/bin/mkdir -p -m 0700 -- "$dir" ) || return 1
+  [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
+  resolved=$(/usr/bin/realpath -e -- "$dir" 2>/dev/null) || return 1
+  [[ $resolved == "$dir" ]] || return 1
+  /usr/bin/chmod 0700 -- "$dir" || return 1
+  read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$dir" 2>/dev/null) || return 1
+  [[ $mode == 700 && $owner == "$(/usr/bin/id -u)" ]]
 }
 
 sa_secret_list() {
