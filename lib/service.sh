@@ -6,6 +6,7 @@
 # Needs lib/history.sh (sa_history_rollback) for reload_safe.
 #
 . "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/validate.sh"
 
 # ASSUMPTIONS (spec is silent; unmeasured design choices):
 #   * a FAILED PRE-reload health check is treated like a failed post-check:
@@ -17,7 +18,7 @@
 #     requested change did NOT take effect); 99 only if still unhealthy.
 
 _sa_service_name_ok() {
-  case ${1-} in nginx|httpd|php-fpm|mariadb|mysql|sshd) return 0 ;; *) return 1 ;; esac
+  sa_validate_service_name "${1-}"
 }
 
 sa_service_check() {
