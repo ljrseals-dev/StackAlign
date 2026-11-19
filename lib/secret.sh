@@ -37,7 +37,7 @@ _sa_secret_breached() {
   sha=$(printf '%s' "$1" | /usr/bin/sha1sum | /usr/bin/awk '{print toupper($1)}')
   prefix=${sha:0:5}; suffix=${sha:5}
   body=$(sa_exec curl -- --fail --silent --show-error --connect-timeout 5 --max-time 20 --proto '=https' --tlsv1.2 -- "https://api.pwnedpasswords.com/range/$prefix") || return 2
-  if tr -d '\r' <<<"$body" | grep -qiE "^${suffix}:"; then return 0; fi
+  if /usr/bin/tr -d '\r' <<<"$body" | /usr/bin/grep -qiE "^${suffix}:"; then return 0; fi
   return 1
 }
 
@@ -49,16 +49,27 @@ _sa_secret_argon2() {  # <password> -> encoded hash on stdout; password via stdi
   printf '%s' "$1" | sa_exec argon2 -- "$salt" -id -t 2 -m 14 -p 1 -e   # m=14 -> 2^14 KiB = 16 MiB
 }
 
+_sa_secret_wordlist_ok() {
+  local wl=${SA_WORDLIST:-} resolved mode owner
+  [[ $wl == /* && $wl != *..* && $wl != *$'\n'* && $wl != *$'\r'* ]] || return 1
+  [ -f "$wl" ] && [ ! -L "$wl" ] || return 1
+  resolved=$(/usr/bin/realpath -e -- "$wl" 2>/dev/null) || return 1
+  [[ $resolved == "$wl" ]] || return 1
+  read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$wl" 2>/dev/null) || return 1
+  [[ $mode =~ ^[0-7]{3,4}$ ]] || return 1
+  (( (8#$mode & 004) != 0 && (8#$mode & 022) == 0 )) || return 1
+  [[ $owner == 0 || $owner == "$(/usr/bin/id -u)" ]]
+}
 _sa_secret_passphrase() {  # -> passphrase on stdout
   local wl=${SA_WORDLIST:-} n=$SA_PASSPHRASE_WORDS lines
-  [ -n "$wl" ] && [ -f "$wl" ] || { echo "secret: SA_WORDLIST not set or not a file (no wordlist is shipped)" >&2; return 5; }
+  _sa_secret_wordlist_ok || { echo "secret: SA_WORDLIST must be a canonical, non-symlink, world-readable wordlist (no wordlist is shipped)" >&2; return 5; }
   [[ $n =~ ^[0-9]+$ ]] && [ "$n" -ge 6 ] || { echo "secret: passphrase needs >= 6 words" >&2; return 64; }
-  lines=$(grep -c . "$wl")
+  lines=$(/usr/bin/grep -c . "$wl")
   [ "$lines" -ge "$SA_WORDLIST_MIN" ] || { echo "secret: wordlist has $lines words, need >= $SA_WORDLIST_MIN" >&2; return 5; }
-  grep . "$wl" | shuf --random-source=/dev/urandom -r -n "$n" | paste -sd- -
+  /usr/bin/grep . "$wl" | /usr/bin/shuf --random-source=/dev/urandom -r -n "$n" | /usr/bin/paste -sd- -
 }
 
-_sa_secret_legacy() { LC_ALL=C tr -dc 'A-Za-z0-9_-' </dev/urandom | head -c "$SA_LEGACY_LEN"; }
+_sa_secret_legacy() { LC_ALL=C /usr/bin/tr -dc 'A-Za-z0-9_-' </dev/urandom | /usr/bin/head -c "$SA_LEGACY_LEN"; }
 
 _sa_secret_gen_impl() {  # <name> [mode]
   local name=${1:-} mode=${2:-machine} file val hash
