@@ -587,6 +587,12 @@ cmd_llm() {
       shift
       [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = --apply ] || _sa_die "usage: stackalign llm pull <model> [--apply]"; apply=1; }
       sa_llm_host_pull "$model" "$apply" ;;
+    configure)
+      local model=${1:-} apply=0
+      [ -n "$model" ] || _sa_die "usage: stackalign llm configure <model> [--apply]"
+      shift
+      [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = --apply ] || _sa_die "usage: stackalign llm configure <model> [--apply]"; apply=1; }
+      sa_llm_host_configure "$model" "$apply" ;;
     *) sa_llm_host_help; return 64 ;;
   esac
 }
