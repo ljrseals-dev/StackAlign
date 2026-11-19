@@ -16,8 +16,14 @@ sa_lemp_die() { echo "stackalign install: $*" >&2; return 1; }
 # The web root is interpolated into an Nginx directive by sed. Restrict it to
 # an absolute, normalized path alphabet so delimiters, replacement operators,
 # whitespace, and Nginx syntax cannot alter the generated configuration.
+_sa_lemp_path_policy() {
+  [ "${SA_LEMP_ETC_ROOT:-/etc}" = /etc ] &&
+    [[ ${SA_LEMP_WEB_ROOT:-/var/www/stackalign} == /var/www/* ]]
+}
+
 sa_lemp_web_root_valid() {
   local web=${SA_LEMP_WEB_ROOT:-} resolved
+  _sa_lemp_path_policy || { echo "stackalign install: configuration and web roots must remain under /etc and /var/www" >&2; return 64; }
   [[ $web == /* && $web =~ ^/[A-Za-z0-9._/-]+$ ]] || {
     echo "stackalign install: web root must be an absolute path containing only letters, digits, dot, underscore, slash, and hyphen" >&2
     return 64
