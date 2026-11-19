@@ -53,6 +53,50 @@ real-host acceptance evidence.
 - Treat adapter output and plan files as untrusted data.
 - Review every privileged operation and its failure/rollback behavior.
 
+
+## Repair-branch implementation notes
+
+The current security repair branch adds a narrow allowlisted command executor
+(`lib/exec.sh`). It resolves selected system-management executables to fixed
+absolute paths, passes arguments as distinct Bash array elements, starts them
+with a minimal environment, and applies a timeout. It deliberately does not
+log argument vectors. The executor is integrated into the CLI update planner,
+LEMP package/service operations, repository package operations, database
+clients, site diagnostics, secret helpers, and selected SFTP account/sshd
+operations.
+
+Shared semantic validators now cover package identifiers, database
+identifiers, site slugs, DNS names, service names, ports, and canonical paths
+beneath an approved root. The runtime INI parser accepts only the documented
+version-1 `meta` and `security` keys and rejects unknown keys and invalid
+types. Secret hash files are created through private same-directory temporary
+files and atomic no-overwrite publication; secret generation disables
+inherited xtrace inside its worker subshell.
+
+These measures are not a complete command-execution migration. Other modules
+still contain direct external-command calls and require individual review.
+The executor currently streams command output rather than capturing and
+redacting arbitrary child output; callers must not pass secrets in argv or
+permit secrets to be emitted by child processes. The shell-level path checks
+cannot eliminate every filesystem race; high-assurance operations need
+directory-descriptor/openat-style implementations outside plain Bash.
+
+Test fixture overrides are defined inside test scripts after sourcing the
+production modules. Do not add a production environment variable that allows
+arbitrary PATH-based executable substitution.
+
+## Breaking and compatibility notes
+
+- Unknown runtime configuration keys are now rejected. Only `meta.config_version`,
+  `meta.allow_override`, `security.password_mode`, and
+  `security.passphrase_wordlist` are accepted in schema version 1. The
+  server/PHP/Redis/site examples in `docs/CONFIG-SCHEMA.md` remain proposals.
+- The privileged CLI entrypoints use an absolute Bash interpreter in
+  privileged mode and establish a predictable PATH before module dispatch.
+- The update apply function now returns exit code 2 without invoking package
+  or service tools. Update planning remains read-only and does not authorize
+  apply.
+
 ## Operational mitigations
 
 1. Do not run StackAlign on production hosts.
