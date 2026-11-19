@@ -9,7 +9,7 @@ status=0
 while IFS= read -r -d '' file; do
     # Ignore full-line comments; report source locations for review.
     hits=$(grep -nE \
-        '(^|[;&|[:space:]])eval([[:space:]]|$)|(^|[;&|[:space:]])(bash|sh)[[:space:]]+-c([[:space:]]|$)|curl[^#]*\|[[:space:]]*(bash|sh)|chmod[[:space:]]+(-R[[:space:]]+)?777([[:space:]]|$)|(^|[[:space:]])set[[:space:]]+-x([[:space:]]|$)' \
+        '(^|[;&|[:space:]])eval([[:space:]]|$)|(^|[;&|[:space:]])(bash|sh)[[:space:]]+-c([[:space:]]|$)|curl[^#]*[|][[:space:]]*(bash|sh)|chmod[[:space:]]+(-R[[:space:]]+)?777([[:space:]]|$)|(^|[[:space:]])set[[:space:]]+-x([[:space:]]|$)' \
         "$file" | grep -vE '^[[:space:]]*[0-9]+:[[:space:]]*#' || true)
     if [ -n "$hits" ]; then
         printf 'security-lint: review banned shell construct in %s:\n%s\n' "$file" "$hits" >&2
