@@ -59,6 +59,7 @@ sa_fw_render_nft() {
 # Validates with nft -c first; replaces only our table in one nft transaction.
 # WARNING: policy drop + a wrong ssh_port locks you out. Use a console initially.
 sa_fw_apply_nft() {
+    [ "${EUID:-1}" -eq 0 ] || { echo "firewall: apply requires root" >&2; return 1; }
     local tmp rc=0
     tmp="$(mktemp)" || return 1
     if sa_exec nft -- list table inet stackalign >/dev/null 2>&1; then
@@ -77,6 +78,7 @@ sa_fw_apply_nft() {
 
 # sa_fw_install_intrusion <crowdsec|fail2ban|none> -- DNF only, never vendored.
 sa_fw_install_intrusion() {
+    [ "${EUID:-1}" -eq 0 ] || { echo "firewall: package installation requires root" >&2; return 1; }
     case ${1:-} in
         none) return 0 ;;
         crowdsec) sa_exec dnf --timeout 1800 -- -y install -- crowdsec crowdsec-firewall-bouncer-nftables ;;
