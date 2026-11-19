@@ -62,7 +62,7 @@ sa_fetch_url() {
     if sa_exec curl -- --fail --silent --show-error --location \
         --proto '=https' --proto-redir '=https' \
         --connect-timeout 10 --max-time 300 \
-        --output "$tmp" -- "$url"; then
+        --output "$tmp" -- "$url" 2>/dev/null; then
       if [ ! -f "$tmp" ] || [ -L "$tmp" ]; then
         echo "fetch: downloader did not produce a regular file" >&2
         rm -rf -- "$tmpdir"
@@ -78,7 +78,7 @@ sa_fetch_url() {
       return 0
     else
       rc=$?
-      echo "fetch: source failed (exit $rc): $url" >&2
+      echo "fetch: HTTPS source failed (exit $rc); source URL redacted" >&2
     fi
   done
 
@@ -135,7 +135,7 @@ sa_fetch_gpg_key() {
   expected_fpr=${expected_fpr^^}
 
   if ! sa_fetch_url "$url" "$out"; then
-    echo "error=gpg_key_fetch_failed:$url" >&2
+    echo "error=gpg_key_fetch_failed (source URL redacted)" >&2
     return 1
   fi
 
