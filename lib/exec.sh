@@ -25,6 +25,8 @@ _sa_exec_binary() {
         install)    printf '%s\n' /usr/bin/install ;;
         sshd)       printf '%s\n' /usr/sbin/sshd ;;
         getent)     printf '%s\n' /usr/bin/getent ;;
+        id)         printf '%s\n' /usr/bin/id ;;
+        chown)      printf '%s\n' /usr/bin/chown ;;
         curl)       printf '%s\n' /usr/bin/curl ;;
         gpg)        printf '%s\n' /usr/bin/gpg ;;
         *) return 64 ;;
