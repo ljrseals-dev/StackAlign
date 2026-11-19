@@ -25,6 +25,13 @@ mkfake systemctl 'echo "systemctl $*" >> "$CALLS"; [ "$1" = reload ] && exit "${
 
 export SA_SFTP_BASE="$T/sftp" SA_SFTP_KEYDIR="$T/keys" SA_SFTP_DROPIN="$T/sshd_config.d/50-stackalign-sftp.conf"
 . "$ROOT/lib/sftp.sh"
+# Test-only executor routes approved tool IDs to explicit fixture binaries.
+sa_exec() {
+  local tool=$1
+  shift
+  [ "${1-}" = -- ] && shift
+  "$T/bin/$tool" "$@"
+}
 
 
 # sshd_config interpolation must reject directive injection and symlinked paths.
