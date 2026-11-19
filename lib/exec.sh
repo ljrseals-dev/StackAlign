@@ -6,14 +6,12 @@
 
 _sa_exec_binary() {
     case ${1-} in
-        env)        printf '%s\n' /usr/bin/env ;;
-        timeout)    printf '%s\n' /usr/bin/timeout ;;
         systemctl)  printf '%s\n' /usr/bin/systemctl ;;
         nginx)      printf '%s\n' /usr/sbin/nginx ;;
         httpd)      printf '%s\n' /usr/sbin/httpd ;;
         apachectl)  printf '%s\n' /usr/sbin/apachectl ;;
         php-fpm)    printf '%s\n' /usr/sbin/php-fpm ;;
-        mysql)      printf '%s\n' /usr/bin/mysql ;;
+        mysql)      if [ -x /usr/bin/mysql ]; then printf '%s\n' /usr/bin/mysql; else printf '%s\n' /usr/bin/mariadb; fi ;;
         mariadb)    printf '%s\n' /usr/bin/mariadb ;;
         mysqladmin) printf '%s\n' /usr/bin/mysqladmin ;;
         dnf)        printf '%s\n' /usr/bin/dnf ;;
