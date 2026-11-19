@@ -38,6 +38,7 @@ EOF
 chmod 700 "$TMP/bin/mysql"
 
 source "$ROOT/lib/db.sh"
+_sa_db_client_available() { [ -x "$TMP/bin/mysql" ]; }
 
 # Test-only dependency injection: production sa_exec remains absolute-path only.
 sa_exec() {
