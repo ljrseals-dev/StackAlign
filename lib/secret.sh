@@ -121,7 +121,7 @@ _sa_secret_dir_prepare() {
   [[ $dir == /* && $dir != *..* && $dir != *$'\n'* && $dir != *$'\r'* ]] || return 1
   normalized=$(/usr/bin/realpath -m -- "$dir" 2>/dev/null) || return 1
   [[ $normalized == "$dir" ]] || return 1
-  ( umask 077; /usr/bin/mkdir -p -m 0700 -- "$dir" ) || return 1
+  ( umask 077; /usr/bin/mkdir -p -- "$dir" ) || return 1
   [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
   resolved=$(/usr/bin/realpath -e -- "$dir" 2>/dev/null) || return 1
   [[ $resolved == "$dir" ]] || return 1
