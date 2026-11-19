@@ -136,9 +136,9 @@ with open(path, "w", encoding="utf-8") as f:
     json.dump(payload, f, ensure_ascii=True)
 PY
     if [[ -n $key ]]; then
-      printf 'Authorization: Bearer %s\\nContent-Type: application/json\\n' "$key" > "$headers" || exit 1
+      printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$key" > "$headers" || exit 1
     else
-      printf 'Content-Type: application/json\\n' > "$headers" || exit 1
+      printf 'Content-Type: application/json\n' > "$headers" || exit 1
     fi
     if curl --silent --show-error --fail --connect-timeout 5 --max-time 60 \\
         --max-filesize 1048576 --max-redirs 0 \\
