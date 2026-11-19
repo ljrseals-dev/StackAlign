@@ -28,15 +28,15 @@ SH
   chmod +x "$T/bin/$tool"
 done
 source "$ROOT/lib/lemp.sh"
+_sa_lemp_path_policy >/dev/null 2>&1; policy_rc=$?
+[ "$policy_rc" -ne 0 ] && echo "ok   production LEMP roots restricted" || { echo "FAIL production LEMP roots restricted"; exit 1; }
+_sa_lemp_path_policy() { [ "$SA_LEMP_ETC_ROOT" = "$T/etc" ] && [[ "$SA_LEMP_WEB_ROOT" == "$T/"* ]]; }
 # Legacy environment flag must not bypass root checks on non-root callers.
 if [ "$EUID" -ne 0 ]; then
   SA_LEMP_TESTING=1 sa_lemp_host_check >/dev/null 2>&1
   rc=$?
   [ "$rc" -ne 0 ] || { echo "FAIL: SA_LEMP_TESTING bypassed host gate" >&2; exit 1; }
 fi
-_sa_lemp_path_policy >/dev/null 2>&1; policy_rc=$?
-[ "$policy_rc" -ne 0 ] && echo "ok   production LEMP roots restricted" || { echo "FAIL production LEMP roots restricted"; exit 1; }
-_sa_lemp_path_policy() { [ "$SA_LEMP_ETC_ROOT" = "$T/etc" ] && [[ "$SA_LEMP_WEB_ROOT" == "$T/"* ]]; }
 # Fixture-only host check override; production has no environment bypass.
 sa_lemp_host_check() { sa_lemp_web_root_valid; }
 # Explicit fixture-only executor; production executor never consults PATH.
