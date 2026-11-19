@@ -30,6 +30,29 @@ source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}
 source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
 
 
+_sa_repo_path_policy() {
+  local resolved owner mode
+  if [ "${EUID:-1}" -eq 0 ]; then
+    [ "$SA_YUM_REPOS_DIR" = /etc/yum.repos.d ] || {
+      echo "repo: privileged repository directory is fixed at /etc/yum.repos.d" >&2; return 64;
+    }
+    [ -d "$SA_YUM_REPOS_DIR" ] && [ ! -L "$SA_YUM_REPOS_DIR" ] || return 1
+    resolved=$(/usr/bin/realpath -e -- "$SA_YUM_REPOS_DIR") || return 1
+    [ "$resolved" = /etc/yum.repos.d ] || return 1
+    read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$SA_YUM_REPOS_DIR") || return 1
+    [ "$owner" = 0 ] && [[ $mode =~ ^[0-7]{3,4}$ ]] && (( (8#$mode & 022) == 0 )) || {
+      echo "repo: repository directory must be root-owned and not group/world writable" >&2; return 1;
+    }
+  else
+    [[ $SA_YUM_REPOS_DIR == /* && $SA_YUM_REPOS_DIR != *..* ]] || return 64
+    [ -d "$SA_YUM_REPOS_DIR" ] && [ ! -L "$SA_YUM_REPOS_DIR" ] || return 1
+    resolved=$(/usr/bin/realpath -e -- "$SA_YUM_REPOS_DIR") || return 1
+    [ "$resolved" = "$SA_YUM_REPOS_DIR" ] || return 1
+    read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$SA_YUM_REPOS_DIR") || return 1
+    [ "$owner" = "$(/usr/bin/id -u)" ] && [[ $mode =~ ^[0-7]{3,4}$ ]] && (( (8#$mode & 022) == 0 )) || return 1
+  fi
+}
+
 _sa_repo_valid() {  # <kind> <value>
   case $1 in
     name)    [[ $2 =~ ^[a-z0-9][a-z0-9_-]*$ ]] ;;
@@ -64,11 +87,10 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   _sa_repo_valid url "$keyurl" || { _sa_repo_bad key_url "$keyurl"; return 64; }
   fpr=${fpr^^}
 
-  local tmpd key
-  tmpd=$(mktemp -d) || return 1
+  _sa_repo_path_policy || return $?\n\n  local tmpd key\n  tmpd=$(/usr/bin/mktemp -d) || return 1
   key="$tmpd/key.asc"
   if ! sa_fetch_gpg_key "$keyurl" "$fpr" "$key"; then
-    rm -rf -- "$tmpd"
+    /usr/bin/rm -rf -- "$tmpd"
     echo "repo: key fetch or primary fingerprint validation failed; nothing imported" >&2
     return 4
   fi
@@ -76,18 +98,18 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   local file="$SA_YUM_REPOS_DIR/stackalign-$name.repo" content
   content=$(printf '[stackalign-%s]\nname=StackAlign %s\nbaseurl=%s\nenabled=1\ngpgcheck=1\ngpgkey=%s\n' \
             "$name" "$name" "$url" "$keyurl"; printf x); content=${content%x}
-  mkdir -p -- "$SA_YUM_REPOS_DIR"
+  /usr/bin/mkdir -p -- "$SA_YUM_REPOS_DIR" || { /usr/bin/rm -rf -- "$tmpd"; return 1; }
   # Avoid process-substitution in cmp: under some environments /dev/fd compares
   # fail even when bytes are identical, which breaks setup idempotency.
   local cmpfile wrote=0
-  cmpfile=$(mktemp "$SA_YUM_REPOS_DIR/.sa-repo-cmp.XXXXXX") || { rm -rf -- "$tmpd"; return 1; }
-  printf '%s' "$content" > "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
-  if [ -f "$file" ] && cmp -s -- "$file" "$cmpfile"; then
-    rm -f -- "$cmpfile"
+  cmpfile=$(/usr/bin/mktemp "$SA_YUM_REPOS_DIR/.sa-repo-cmp.XXXXXX") || { rm -rf -- "$tmpd"; return 1; }
+  printf '%s' "$content" > "$cmpfile" || { /usr/bin/rm -rf -- "$tmpd" "$cmpfile"; return 1; }
+  if [ -f "$file" ] && /usr/bin/cmp -s -- "$file" "$cmpfile"; then
+    /usr/bin/rm -f -- "$cmpfile"
     echo "repo $name: unchanged"
   else
-    chmod 0644 -- "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
-    mv -f -- "$cmpfile" "$file" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
+    /usr/bin/chmod 0644 -- "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
+    /usr/bin/mv -f -- "$cmpfile" "$file" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
     echo "repo $name: written"
     wrote=1
   fi
