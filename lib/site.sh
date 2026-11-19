@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 # lib/site.sh -- read-only virtual-host inventory and syntax diagnostics.
-. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
-. "$(dirname "${BASH_SOURCE[0]}")/validate.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/validate.sh"
 sa_site_list() {
     local root=${SA_SITE_ETC_ROOT:-/etc}
     local dir entry found=0 target rel rc=0 entries
