@@ -9,6 +9,7 @@
 : "${SA_LEMP_ETC_ROOT:=/etc}"
 : "${SA_LEMP_WEB_ROOT:=/var/www/stackalign}"
 : "${SA_LEMP_OS_RELEASE_FILE:=/etc/os-release}"
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
 
 sa_lemp_die() { echo "stackalign install: $*" >&2; return 1; }
 
@@ -96,8 +97,8 @@ sa_lemp_host_check() {
     almalinux:9*:x86_64|rocky:9*:x86_64|rhel:9*:x86_64|ol:9*:x86_64|centos:9*:x86_64) ;;
     *) sa_lemp_die "supported apply target is EL9 x86_64 (AlmaLinux, Rocky, RHEL, Oracle Linux, or CentOS Stream); found $id $version $arch"; return 1 ;;
   esac
-  command -v dnf >/dev/null 2>&1 || { sa_lemp_die "dnf is required"; return 1; }
-  command -v systemctl >/dev/null 2>&1 || { sa_lemp_die "systemctl is required"; return 1; }
+  [ -x /usr/bin/dnf ] || { sa_lemp_die "dnf is required"; return 1; }
+  [ -x /usr/bin/systemctl ] || { sa_lemp_die "systemctl is required"; return 1; }
 }
 
 sa_lemp_plan() {
@@ -136,7 +137,7 @@ sa_lemp_apply() {
   local pool="$etc/php-fpm.d/www.conf" site="$etc/nginx/conf.d/stackalign.conf"
   local backup failed=0
   echo "Installing distro-provided LEMP packages (no third-party repositories added)"
-  dnf -y install nginx mariadb-server php-fpm php-mysqlnd || { sa_lemp_die "DNF package installation failed"; return 1; }
+  sa_exec dnf --timeout 1800 -- -y install -- nginx mariadb-server php-fpm php-mysqlnd || { sa_lemp_die "DNF package installation failed"; return 1; }
 
   backup=$(mktemp -d) || return 1
   mkdir -p "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d" "$backup$web/public"
@@ -194,25 +195,25 @@ PHP
     chmod 0644 "$site" "$web/public/index.php" || failed=1
   fi
 
-  if [ "$failed" -eq 0 ]; then php-fpm -t || failed=1; fi
-  if [ "$failed" -eq 0 ]; then nginx -t || failed=1; fi
+  if [ "$failed" -eq 0 ]; then sa_exec php-fpm -- -t || failed=1; fi
+  if [ "$failed" -eq 0 ]; then sa_exec nginx -- -t || failed=1; fi
   if [ "$failed" -eq 0 ]; then
-    systemctl enable --now mariadb || failed=1
-    systemctl enable --now php-fpm || failed=1
-    systemctl enable --now nginx || failed=1
+    sa_exec systemctl -- enable --now mariadb || failed=1
+    sa_exec systemctl -- enable --now php-fpm || failed=1
+    sa_exec systemctl -- enable --now nginx || failed=1
   fi
   if [ "$failed" -eq 0 ]; then
-    systemctl is-active --quiet mariadb || failed=1
-    systemctl is-active --quiet php-fpm || failed=1
-    systemctl is-active --quiet nginx || failed=1
+    sa_exec systemctl -- is-active --quiet mariadb || failed=1
+    sa_exec systemctl -- is-active --quiet php-fpm || failed=1
+    sa_exec systemctl -- is-active --quiet nginx || failed=1
   fi
 
   if [ "$failed" -ne 0 ]; then
     local recovery_failed=0
     echo "install: configuration or service activation failed; restoring prior StackAlign-managed config" >&2
     sa_lemp_restore "$backup" || recovery_failed=1
-    systemctl restart php-fpm >/dev/null 2>&1 || recovery_failed=1
-    systemctl restart nginx >/dev/null 2>&1 || recovery_failed=1
+    sa_exec systemctl -- restart php-fpm >/dev/null 2>&1 || recovery_failed=1
+    sa_exec systemctl -- restart nginx >/dev/null 2>&1 || recovery_failed=1
     if [ "$recovery_failed" -eq 0 ]; then
       rm -rf "$backup"
     else
