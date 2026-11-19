@@ -12,9 +12,9 @@ for tool in rpm dnf; do
   chmod 700 "$T/bin/$tool"
 done
 set +e
-out=$(bash "$ROOT/bin/stackalign" update plan 'nginx;touch /tmp/pwned' 1.2.3 2>&1)
+bash "$ROOT/bin/stackalign" update plan 'nginx;touch /tmp/pwned' 1.2.3 >/dev/null 2>&1
 r1=$?
-out2=$(bash "$ROOT/bin/stackalign" update plan nginx '$(id)' 2>&1)
+bash "$ROOT/bin/stackalign" update plan nginx '$(id)' >/dev/null 2>&1
 r2=$?
 set -e
 [ "$r1" -eq 64 ] && [ "$r2" -eq 64 ]
