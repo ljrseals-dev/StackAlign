@@ -41,8 +41,10 @@ _sa_secret_breached() {
   return 1
 }
 
+_sa_secret_argon2_available() { [ -x /usr/bin/argon2 ]; }
+
 _sa_secret_argon2() {  # <password> -> encoded hash on stdout; password via stdin only
-  [ -x /usr/bin/argon2 ] || { echo "secret: argon2 CLI not installed; refusing weaker fallback" >&2; return 5; }
+  _sa_secret_argon2_available || { echo "secret: argon2 CLI not installed; refusing weaker fallback" >&2; return 5; }
   local salt; salt=$(sa_exec openssl -- rand -hex 8) || return 5
   printf '%s' "$1" | sa_exec argon2 -- "$salt" -id -t 2 -m 14 -p 1 -e   # m=14 -> 2^14 KiB = 16 MiB
 }
