@@ -16,25 +16,64 @@ _sa_llm_url_valid() {
 
 
 _sa_llm_load_config() {
-  local config line key value
+  local config line key value owner mode canonical
+  local config_url="" config_model="" lines=0 seen_url=0 seen_model=0
   config=${STACKALIGN_LLM_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/stackalign/llm.env}
   [[ -e $config || -L $config ]] || return 0
   [[ -f $config && ! -L $config ]] || {
     echo "agent: local LLM config must be a regular non-symlink file" >&2
     return 2
   }
+  canonical=$(realpath -e -- "$config") || return 2
+  [[ $canonical == "$config" ]] || {
+    echo "agent: local LLM config path must not contain symlinked or non-canonical components" >&2
+    return 2
+  }
+  owner=$(stat -c '%u' -- "$config") || return 2
+  mode=$(stat -c '%a' -- "$config") || return 2
+  [[ $owner == "$(id -u)" ]] || {
+    echo "agent: local LLM config must be owned by the current user" >&2
+    return 2
+  }
+  (( (8#$mode & 077) == 0 )) || {
+    echo "agent: local LLM config permissions are too broad; require mode 600 or stricter" >&2
+    return 2
+  }
+
   while IFS= read -r line || [[ -n $line ]]; do
-    [[ $line == *=* ]] || { echo "agent: malformed local LLM config" >&2; return 2; }
+    ((lines += 1))
+    (( lines <= 2 )) || { echo "agent: local LLM config has too many entries" >&2; return 2; }
+    [[ $line == *=* && $line != *$'\\r'* ]] || {
+      echo "agent: malformed local LLM config" >&2
+      return 2
+    }
     key=${line%%=*}
     value=${line#*=}
+    [[ -n $value ]] || { echo "agent: empty value in local LLM config" >&2; return 2; }
     case "$key" in
       STACKALIGN_LLM_BASE_URL)
-        [[ -n ${STACKALIGN_LLM_BASE_URL:-} ]] || export STACKALIGN_LLM_BASE_URL=$value ;;
+        (( seen_url == 0 )) || { echo "agent: duplicate base URL in local LLM config" >&2; return 2; }
+        seen_url=1; config_url=$value ;;
       STACKALIGN_LLM_MODEL)
-        [[ -n ${STACKALIGN_LLM_MODEL:-} ]] || export STACKALIGN_LLM_MODEL=$value ;;
+        (( seen_model == 0 )) || { echo "agent: duplicate model in local LLM config" >&2; return 2; }
+        seen_model=1; config_model=$value ;;
       *) echo "agent: unsupported key in local LLM config: $key" >&2; return 2 ;;
     esac
   done < "$config"
+  (( seen_url == 1 && seen_model == 1 && lines == 2 )) || {
+    echo "agent: local LLM config must contain exactly one base URL and one model" >&2
+    return 2
+  }
+  _sa_llm_url_valid "$config_url" || {
+    echo "agent: invalid base URL in local LLM config" >&2
+    return 2
+  }
+  [[ $config_model =~ ^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,127}$ ]] || {
+    echo "agent: invalid model in local LLM config" >&2
+    return 2
+  }
+  [[ -n ${STACKALIGN_LLM_BASE_URL:-} ]] || export STACKALIGN_LLM_BASE_URL=$config_url
+  [[ -n ${STACKALIGN_LLM_MODEL:-} ]] || export STACKALIGN_LLM_MODEL=$config_model
 }
 
 sa_llm_plan() {
