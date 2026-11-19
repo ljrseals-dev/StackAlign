@@ -34,7 +34,7 @@ _sa_secret_name_ok() { [[ $1 =~ ^[a-z0-9][a-z0-9_-]{0,63}$ ]]; }
 # 0 = breached, 1 = not breached, 2 = lookup failed. Sends only a 5-hex prefix.
 _sa_secret_breached() {
   local sha prefix suffix body
-  sha=$(printf '%s' "$1" | sha1sum | awk '{print toupper($1)}')
+  sha=$(printf '%s' "$1" | /usr/bin/sha1sum | /usr/bin/awk '{print toupper($1)}')
   prefix=${sha:0:5}; suffix=${sha:5}
   body=$(sa_exec curl -- --fail --silent --show-error --connect-timeout 5 --max-time 20 --proto '=https' --tlsv1.2 -- "https://api.pwnedpasswords.com/range/$prefix") || return 2
   if tr -d '\r' <<<"$body" | grep -qiE "^${suffix}:"; then return 0; fi
@@ -42,9 +42,9 @@ _sa_secret_breached() {
 }
 
 _sa_secret_argon2() {  # <password> -> encoded hash on stdout; password via stdin only
-  command -v argon2 >/dev/null 2>&1 || { echo "secret: argon2 CLI not installed; refusing weaker fallback" >&2; return 5; }
+  [ -x /usr/bin/argon2 ] || { echo "secret: argon2 CLI not installed; refusing weaker fallback" >&2; return 5; }
   local salt; salt=$(sa_exec openssl -- rand -hex 8) || return 5
-  printf '%s' "$1" | argon2 "$salt" -id -t 2 -m 14 -p 1 -e   # m=14 -> 2^14 KiB = 16 MiB
+  printf '%s' "$1" | sa_exec argon2 -- "$salt" -id -t 2 -m 14 -p 1 -e   # m=14 -> 2^14 KiB = 16 MiB
 }
 
 _sa_secret_passphrase() {  # -> passphrase on stdout
@@ -70,9 +70,9 @@ _sa_secret_gen_impl() {  # <name> [mode]
 
   case $mode in
     machine)
-      command -v openssl >/dev/null 2>&1 || { echo "secret: openssl required" >&2; return 5; }
+      [ -x /usr/bin/openssl ] || { echo "secret: openssl required" >&2; return 5; }
       val=$(sa_exec openssl -- rand -base64 32) || return 5
-      hash="sha256:$(printf '%s' "$val" | sha256sum | awk '{print $1}')" ;;
+      hash="sha256:$(printf '%s' "$val" | /usr/bin/sha256sum | /usr/bin/awk '{print $1}')" ;;
     human-passphrase)
       for _ in 1 2 3 4 5; do
         val=$(_sa_secret_passphrase) || return $?
