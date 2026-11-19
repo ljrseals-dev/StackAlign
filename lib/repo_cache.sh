@@ -16,14 +16,14 @@ _sa_nevra_valid() {
 _sa_rpm_verify() {
     local f="$1" want="$2" got
     [ -f "$f" ] && [ ! -L "$f" ] || return 1
-    rpm --checksig "$f" >/dev/null 2>&1 || return 1
-    got="$(rpm -qp --qf '%{NEVRA}' "$f" 2>/dev/null)" || return 1
+    sa_exec rpm -- --checksig "$f" >/dev/null 2>&1 || return 1
+    got="$(sa_exec_capture rpm -- -qp --qf '%{NEVRA}' -- "$f" 2>/dev/null)" || return 1
     [ "$got" = "$want" ]
 }
 
 _sa_cache_fetch() {   # $1 nevra  $2 tmpdir  $3 final path
     local nevra="$1" tmp="$2" final="$3" rpms=()
-    dnf -y download --destdir "$tmp" "$nevra" >&2 || return 1
+    sa_exec dnf --timeout 1800 -- -y download --destdir "$tmp" "$nevra" >&2 || return 1
     shopt -s nullglob
     rpms=("$tmp"/*.rpm)
     shopt -u nullglob
