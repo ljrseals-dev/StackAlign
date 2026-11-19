@@ -51,3 +51,26 @@ if sa_llm_host_status >/dev/null 2>&1; then
   echo "FAIL: non-loopback Ollama endpoint accepted" >&2; exit 1
 fi
 echo "ok   non-loopback Ollama management endpoint rejected"
+
+export HOME="$T/home"
+export STACKALIGN_LLM_CONFIG="$T/config/llm.env"
+out=$(sa_llm_host_configure local-model:latest 0)
+[[ $out == *"would create local planner config"* && ! -e $STACKALIGN_LLM_CONFIG ]]
+echo "ok   local planner configuration defaults to plan"
+
+sa_llm_host_configure local-model:latest 1 >/dev/null
+[[ -f $STACKALIGN_LLM_CONFIG && ! -L $STACKALIGN_LLM_CONFIG ]]
+[[ $(stat -c '%a' "$STACKALIGN_LLM_CONFIG") == 600 ]]
+echo "ok   explicit configure writes a private config file"
+
+unset STACKALIGN_LLM_BASE_URL STACKALIGN_LLM_MODEL
+source "$ROOT/lib/llm.sh"
+_sa_llm_load_config
+[[ $STACKALIGN_LLM_BASE_URL == "http://127.0.0.1:11434/v1" ]]
+[[ $STACKALIGN_LLM_MODEL == "local-model:latest" ]]
+echo "ok   planner safely loads saved local endpoint and model"
+
+if sa_llm_host_configure another-model 1 >/dev/null 2>&1; then
+  echo "FAIL: existing local config overwritten" >&2; exit 1
+fi
+echo "ok   existing local planner config is not overwritten"
