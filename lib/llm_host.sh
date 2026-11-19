@@ -92,7 +92,7 @@ sa_llm_host_configure() {
   local config dir tmp
   _sa_llm_model_valid "$model" || { echo "llm: invalid model identifier" >&2; return 64; }
   config=${STACKALIGN_LLM_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/stackalign/llm.env}
-  [[ $config == /* && $config != *..* ]] || { echo "llm: config path must be an absolute path without '..'" >&2; return 64; }
+  [[ $config == /* && $config != *..* ]] || { echo "llm: config path must be absolute and contain no '..'" >&2; return 64; }
   dir=${config%/*}
   [[ ! -e $config && ! -L $config ]] || {
     echo "llm: config already exists; refusing to overwrite $config" >&2
@@ -105,8 +105,24 @@ sa_llm_host_configure() {
     echo "No file was written; rerun with --apply to save this configuration."
     return 0
   fi
-  mkdir -p -- "$dir" || return 1
-  chmod 700 "$dir" || return 1
+
+  # Never chmod an existing directory: it may contain unrelated user data.
+  # Resolve before and after creation to reject symlinked path components.
+  local canonical_dir owner mode
+  canonical_dir=$(realpath -m -- "$dir") || return 1
+  [[ $canonical_dir == "$dir" ]] || { echo "llm: config directory path must not contain symlinks or non-canonical components" >&2; return 64; }
+  if [[ ! -e $dir ]]; then
+    mkdir -p -- "$dir" || return 1
+    chmod 700 -- "$dir" || return 1
+  fi
+  [[ -d $dir && ! -L $dir ]] || { echo "llm: config parent must be a real directory" >&2; return 1; }
+  canonical_dir=$(realpath -e -- "$dir") || return 1
+  [[ $canonical_dir == "$dir" ]] || { echo "llm: config directory changed during creation" >&2; return 1; }
+  owner=$(stat -c '%u' -- "$dir") || return 1
+  mode=$(stat -c '%a' -- "$dir") || return 1
+  [[ $owner == "$(id -u)" ]] || { echo "llm: config directory is not owned by the current user" >&2; return 1; }
+  (( (8#$mode & 077) == 0 )) || { echo "llm: existing config directory must not grant group/other access (mode 700 or stricter)" >&2; return 1; }
+
   tmp=$(mktemp "$dir/.llm.env.XXXXXX") || return 1
   chmod 600 "$tmp" || { rm -f -- "$tmp"; return 1; }
   if ! {
@@ -116,10 +132,14 @@ sa_llm_host_configure() {
     rm -f -- "$tmp"
     return 1
   fi
-  if ! mv -- "$tmp" "$config"; then
+  # link(2) is atomic and fails if the destination appeared concurrently;
+  # unlike mv, it cannot silently replace an existing config.
+  if ! ln -- "$tmp" "$config"; then
     rm -f -- "$tmp"
-    return 1
+    echo "llm: config appeared during creation; refusing to overwrite $config" >&2
+    return 2
   fi
+  rm -f -- "$tmp" || return 1
   echo "llm: saved local planner configuration to $config (mode 600)"
 }
 
