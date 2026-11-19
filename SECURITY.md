@@ -78,10 +78,14 @@ refused unconditionally (the former environment override is ineffective).
 These measures are not a complete command-execution migration. Other modules
 still contain direct external-command calls and require individual review.
 The executor records the approved tool name and timeout to stderr and, when
-available, syslog; it deliberately does not log argv. It currently streams
-command output rather than capturing and redacting arbitrary child output;
-callers must not pass secrets in argv or permit secrets to be emitted by child
-processes. The shell-level path checks
+available, syslog; it deliberately does not log argv. Its opt-in capture helper
+stores combined output in a mode-0600 temporary file, rejects output above 1 MiB,
+removes its own audit banner, strips terminal control characters, and redacts
+common password/token/authorization/API-key/private-key assignments and URL
+credentials. This is a conservative diagnostic sanitizer, not a universal
+secret detector; callers must still avoid secret-bearing argv and must not treat
+captured output as trusted or executable. Some modules still stream child output
+and direct external-command call sites remain under review. The shell-level path checks
 cannot eliminate every filesystem race; high-assurance operations need
 directory-descriptor/openat-style implementations outside plain Bash.
 
