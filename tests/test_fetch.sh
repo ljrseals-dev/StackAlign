@@ -66,6 +66,14 @@ PATH="$T/bin:$PATH"
 export PATH
 # shellcheck disable=SC1091
 source "$ROOT/lib/fetch.sh"
+# Fixture-only executor routes fixed command IDs to private fake binaries.
+sa_exec() {
+  local tool=$1
+  shift
+  if [ "${1-}" = --timeout ]; then shift 2; fi
+  [ "${1-}" = -- ] && shift
+  "$T/bin/$tool" "$@"
+}
 
 pass=0
 fail=0
