@@ -38,7 +38,7 @@ sa_fw_detect_backend() {
         echo "firewall: firewalld and nftables are both active; refusing to mix" >&2; return 1
     fi
     if [ "$fwd" -eq 1 ]; then echo firewalld; return 0; fi
-    if [ "$nft" -eq 1 ] || command -v nft >/dev/null 2>&1; then echo nftables; return 0; fi
+    if [ "$nft" -eq 1 ] || [ -x /usr/sbin/nft ]; then echo nftables; return 0; fi
     if [ -x /usr/bin/firewall-cmd ] >/dev/null 2>&1; then echo firewalld; return 0; fi
     echo "firewall: no supported backend found" >&2; return 1
 }
