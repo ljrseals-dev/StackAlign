@@ -27,7 +27,11 @@ out=
 while [ "$#" -gt 0 ]; do
   case "$1" in --output) out=$2; shift 2 ;; *) shift ;; esac
 done
-printf '{"models":[{"name":"local-model:latest"}]}\n' > "$out"
+if [[ ${OLLAMA_TEST_BAD_RESPONSE:-0} == 1 ]]; then
+  printf '%s\n' '{"models":[{"name":"\u001b[31mowned"}]}' > "$out"
+else
+  printf '{"models":[{"name":"local-model:latest"}]}\n' > "$out"
+fi
 MOCK
 chmod 700 "$T/bin/"*
 export PATH="$T/bin:$PATH"
@@ -37,6 +41,11 @@ export STACKALIGN_OLLAMA_HOST=http://127.0.0.1:11434
 out=$(sa_llm_host_status)
 [[ $out == *"runtime: Ollama API healthy"* && $out == *"local-model:latest"* ]]
 echo "ok   local Ollama endpoint health and model inventory"
+
+if OLLAMA_TEST_BAD_RESPONSE=1 sa_llm_host_status >/dev/null 2>&1; then
+  echo "FAIL: terminal-control characters accepted in Ollama model names" >&2; exit 1
+fi
+echo "ok   Ollama model inventory rejects terminal-control output"
 
 out=$(sa_llm_host_pull local-model:latest 0)
 [[ $out == *"would run 'ollama pull local-model:latest'"* ]]
