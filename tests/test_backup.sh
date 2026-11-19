@@ -45,6 +45,13 @@ EOF
 chmod 700 "$TMP/bin/mariabackup"
 
 source "$ROOT/lib/backup.sh"
+# Test-only backup executable fixture; production uses fixed absolute paths.
+sa_exec() {
+  local tool=$1; shift
+  [ "${1-}" = -- ] || return 64
+  shift
+  "$tool" "$@"
+}
 logical=$(sa_backup_dump "$TMP/backups")
 [ -f "$logical" ] && [ ! -L "$logical" ]
 [ "$(stat -c '%a' "$logical")" = 600 ]
