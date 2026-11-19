@@ -14,8 +14,32 @@ _sa_llm_url_valid() {
   [[ $url != *..* && $url != *'@'* && $url != *'?'* && $url != *'#'* ]]
 }
 
+
+_sa_llm_load_config() {
+  local config line key value
+  config=${STACKALIGN_LLM_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/stackalign/llm.env}
+  [[ -e $config || -L $config ]] || return 0
+  [[ -f $config && ! -L $config ]] || {
+    echo "agent: local LLM config must be a regular non-symlink file" >&2
+    return 2
+  }
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ $line == *=* ]] || { echo "agent: malformed local LLM config" >&2; return 2; }
+    key=${line%%=*}
+    value=${line#*=}
+    case "$key" in
+      STACKALIGN_LLM_BASE_URL)
+        [[ -n ${STACKALIGN_LLM_BASE_URL:-} ]] || export STACKALIGN_LLM_BASE_URL=$value ;;
+      STACKALIGN_LLM_MODEL)
+        [[ -n ${STACKALIGN_LLM_MODEL:-} ]] || export STACKALIGN_LLM_MODEL=$value ;;
+      *) echo "agent: unsupported key in local LLM config: $key" >&2; return 2 ;;
+    esac
+  done < "$config"
+}
+
 sa_llm_plan() {
   [ "$#" -ge 1 ] || { echo "usage: stackalign agent plan <request>" >&2; return 64; }
+  _sa_llm_load_config || return $?
   local request="$*" base_url model key
   (( ${#request} <= 4000 )) || { echo "agent: request exceeds 4000 characters" >&2; return 64; }
   base_url=${STACKALIGN_LLM_BASE_URL:-https://api.openai.com/v1}
