@@ -24,6 +24,14 @@ chmod 700 "$TMP/bin/rpm"
 
 # Restrict PATH so host-installed clients cannot make this fixture nondeterministic.
 source "$ROOT/lib/tls.sh"
+# Test-only RPM provenance fixture; never changes production command resolution.
+sa_exec_capture() {
+  [ "${1-}" = rpm ] || return 64
+  shift
+  [ "${1-}" = -- ] || return 64
+  shift
+  rpm "$@"
+}
 PATH="$TMP/bin"
 export PATH
 
