@@ -22,12 +22,12 @@
 
 # Shared HTTPS fetch and primary-key validation implementation.
 # shellcheck source=lib/fetch.sh
-source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
-source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/exec.sh"
-source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/validate.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/exec.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/validate.sh"
 
 # shellcheck source=lib/toml.sh
-source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
 
 
 _sa_repo_valid() {  # <kind> <value>
@@ -177,7 +177,7 @@ sa_repo_versionlock() {  # <name> <package> <version>
 # Matches the component by exact name; duplicates are rejected.
 _sa_repo_manifest_pin() {
   local comp=$1
-  local manifest=${SA_VERSIONS_TOML:-${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/vendor/versions.toml}
+  local manifest=${SA_VERSIONS_TOML:-${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/vendor/versions.toml}
   local i=0 hits=0 pin=""
 
   [ -f "$manifest" ] || return 66
