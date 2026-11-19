@@ -16,7 +16,7 @@ _sa_bk_defaults_ok() {
     local file=${SA_MYSQL_DEFAULTS_FILE:-} mode owner
     [ -n "$file" ] && [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
     read -r mode owner < <(stat -c '%a %u' -- "$file" 2>/dev/null) || return 1
-    [[ $mode == 400 || $mode == 600 ]] && [[ $owner == "$(id -u)" ]]
+    [[ $mode == 400 || $mode == 600 ]] && [[ $owner == "$(/usr/bin/id -u)" ]]
 }
 
 _sa_bk_artifact_ok() {
@@ -31,7 +31,7 @@ _sa_bk_private_dir_ok() {
     local dir=${1:-} mode owner
     [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
     read -r mode owner < <(stat -c '%a %u' -- "$dir" 2>/dev/null) || return 1
-    [[ $mode == 700 && $owner == "$(id -u)" ]]
+    [[ $mode == 700 && $owner == "$(/usr/bin/id -u)" ]]
 }
 
 # sa_backup_dump <dest_dir> -> prints the .sql.gz path.
@@ -43,8 +43,8 @@ sa_backup_dump() {
         echo "backup: SA_MYSQL_DEFAULTS_FILE must be a regular, non-symlink file owned by this user with mode 400 or 600" >&2
         return 64
     }
-    command -v mysqldump >/dev/null 2>&1 || { echo "backup: mysqldump is not installed" >&2; return 69; }
-    command -v gzip >/dev/null 2>&1 || { echo "backup: gzip is not installed" >&2; return 69; }
+    { [ -x /usr/bin/mysqldump ] || [ -x /usr/bin/mariadb-dump ]; } || { echo "backup: mysqldump is not installed" >&2; return 69; }
+    [ -x /usr/bin/gzip ] || { echo "backup: gzip is not installed" >&2; return 69; }
     ( umask 077; mkdir -p -- "$dest" ) || return 1
     [ -d "$dest" ] && [ ! -L "$dest" ] && [ "$(realpath -e -- "$dest" 2>/dev/null)" = "$dest" ] && _sa_bk_private_dir_ok "$dest" || {
         echo "backup: destination must be a real directory owned by this user with mode 700" >&2; return 1;
@@ -53,8 +53,8 @@ sa_backup_dump() {
     tmp=$(mktemp "$dest/.db-$stamp.XXXXXX") || return 1
     f="$dest/db-$stamp-${tmp##*.}.sql.gz"
     if ( umask 077; set -o pipefail
-         mysqldump --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --single-transaction \
-                   --routines --triggers --events --hex-blob --all-databases | gzip -c > "$tmp" ) && ln -- "$tmp" "$f"; then
+         sa_exec mysqldump -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --single-transaction \
+                   --routines --triggers --events --hex-blob --all-databases | /usr/bin/gzip -c > "$tmp" ) && ln -- "$tmp" "$f"; then
         rm -f -- "$tmp"
         chmod 600 -- "$f" || { rm -f -- "$f"; return 1; }
         printf '%s\n' "$f"
@@ -75,7 +75,7 @@ sa_backup_physical() {
         echo "backup: SA_MYSQL_DEFAULTS_FILE must be a regular, non-symlink file owned by this user with mode 400 or 600" >&2
         return 64
     }
-    command -v mariabackup >/dev/null 2>&1 || { echo "backup: mariabackup is not installed" >&2; return 69; }
+    [ -x /usr/bin/mariabackup ] || { echo "backup: mariabackup is not installed" >&2; return 69; }
     local parent=${target%/*}
     ( umask 077; mkdir -p -- "$parent" ) || return 1
     _sa_bk_private_dir_ok "$parent" || {
@@ -84,7 +84,7 @@ sa_backup_physical() {
     [ ! -e "$target" ] && [ ! -L "$target" ] || {
         echo "backup: target exists; refusing to overwrite" >&2; return 1;
     }
-    if ! ( umask 077; mariabackup --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --backup --target-dir="$target" >&2 ); then
+    if ! ( umask 077; sa_exec mariabackup -- --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --backup --target-dir="$target" >&2 ); then
         [ -d "$target" ] && { umask 077; : > "$target/.stackalign-incomplete"; }
         echo "backup: physical backup failed; partial data retained and marked incomplete" >&2
         return 1
@@ -167,5 +167,5 @@ sa_backup_rclone() {
     [[ $remote =~ ^[A-Za-z0-9_-]+:[A-Za-z0-9._/-]*$ && $remote != *..* ]] || {
         echo "backup: bad remote" >&2; return 64;
     }
-    rclone copy -- "$src" "$remote"
+    sa_exec rclone -- copy -- "$src" "$remote"
 }
