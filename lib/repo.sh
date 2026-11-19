@@ -23,6 +23,7 @@
 # Shared HTTPS fetch and primary-key validation implementation.
 # shellcheck source=lib/fetch.sh
 source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
+source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/exec.sh"
 
 # shellcheck source=lib/toml.sh
 source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
@@ -87,7 +88,7 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   # A new or changed repo definition needs its validated signing key imported.
   # An unchanged definition does not repeat the rpmdb operation.
   if [ "$wrote" -eq 1 ]; then
-    rpm --import "$key" || {
+    sa_exec rpm -- --import "$key" || {
       rm -rf -- "$tmpd"
       echo "repo: rpm --import failed" >&2
       return 1
@@ -166,7 +167,7 @@ sa_repo_versionlock() {  # <name> <package> <version>
   _sa_repo_valid package "$2" || { _sa_repo_bad package "$2"; return 64; }
   _sa_repo_valid version "$3" || { _sa_repo_bad version "$3"; return 64; }
   if _sa_repo_ftp "$2"; then echo "error=ftp_daemon_refused" >&2; return 3; fi
-  dnf versionlock add -- "$2-$3"
+  sa_exec dnf -- versionlock add -- "$2-$3"
 }
 
 # _sa_repo_manifest_pin <component>   -> prints pinned_version on stdout
@@ -247,10 +248,10 @@ sa_repo_install() {
   elif [ ! -f "$SA_YUM_REPOS_DIR/stackalign-$name.repo" ]; then
     echo "repo: $name not set up and no repo args given; refusing" >&2; return 1
   fi
-  if rpm -q "$pkg-$ver" >/dev/null 2>&1; then
+  if sa_exec rpm -- -q -- "$pkg-$ver" >/dev/null 2>&1; then
     echo "$pkg-$ver: already installed"
   else
-    dnf install -y -- "$pkg-$ver" || return 1
+    sa_exec dnf -- install -y -- "$pkg-$ver" || return 1
   fi
   sa_repo_versionlock "$name" "$pkg" "$ver" || return $?
   rpm -q "$pkg-$ver" >/dev/null 2>&1 || { echo "repo: health check failed: $pkg-$ver not installed" >&2; return 1; }
