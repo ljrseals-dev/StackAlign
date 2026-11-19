@@ -3,7 +3,7 @@
 # Author: Lewis James Seals Jr.
 #
 # lib/secret.sh -- password and secret policy. Written from master prompt v8 Part III.
-. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
 
 # Two primitives, never confused:
 #   machine-generated (256-bit random) -> SHA-256 for storage
