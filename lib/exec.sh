@@ -18,6 +18,7 @@ _sa_exec_binary() {
         rpm)        printf '%s\n' /usr/bin/rpm ;;
         openssl)    printf '%s\n' /usr/bin/openssl ;;
         curl)       printf '%s\n' /usr/bin/curl ;;
+        gpg)        printf '%s\n' /usr/bin/gpg ;;
         *) return 64 ;;
     esac
 }
