@@ -107,7 +107,9 @@ sa_lemp_host_check() {
 }
 
 sa_lemp_plan() {
-  sa_lemp_host_check || return $?
+  # Planning is read-only and may run on unsupported/non-root hosts; only apply
+  # performs the privileged EL9 host and package-manager checks.
+  sa_lemp_web_root_valid || return $?
   cat <<EOF
 StackAlign LEMP beta plan (no changes made)
   Target: EL9 x86_64
