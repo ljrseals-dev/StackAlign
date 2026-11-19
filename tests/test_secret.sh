@@ -60,8 +60,7 @@ val2=$(sa_secret_gen dbroot2 machine 2>/dev/null); [ "$val" != "$val2" ] && ok "
   exec 3>&2
   exec 2>"$T/xtrace.log"
   set -x
-  traced_value=$(sa_secret_gen tracecheck machine)
-  rc=$?
+  if traced_value=$(sa_secret_gen tracecheck machine); then rc=0; else rc=$?; fi
   set +x
   exec 2>&3
   [ "$rc" -eq 64 ] && [ -z "$traced_value" ] && [ ! -e "$SA_SECRETS_DIR/tracecheck.hash" ] || exit 1
