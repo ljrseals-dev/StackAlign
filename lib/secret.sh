@@ -94,7 +94,7 @@ _sa_secret_gen_impl() {  # <name> [mode]
 
   _sa_secret_dir_prepare || { echo "secret: secrets directory is unsafe or not privately owned" >&2; return 1; }
   local tmp
-  tmp=$(umask 077; /usr/bin/mktemp "$SA_SECRETS_DIR/.\${name}.XXXXXX") || {
+  tmp=$(umask 077; /usr/bin/mktemp "$SA_SECRETS_DIR/.${name}.XXXXXX") || {
     echo "secret: cannot create private temporary file" >&2
     return 1
   }
@@ -115,7 +115,7 @@ _sa_secret_gen_impl() {  # <name> [mode]
 }
 
 _sa_secret_dir_prepare() {
-  local dir=\${SA_SECRETS_DIR:-} normalized resolved mode owner
+  local dir=${SA_SECRETS_DIR:-} normalized resolved mode owner
   [[ $dir == /* && $dir != *..* && $dir != *$'\n'* && $dir != *$'\r'* ]] || return 1
   normalized=$(/usr/bin/realpath -m -- "$dir" 2>/dev/null) || return 1
   [[ $normalized == "$dir" ]] || return 1
@@ -126,6 +126,15 @@ _sa_secret_dir_prepare() {
   /usr/bin/chmod 0700 -- "$dir" || return 1
   read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$dir" 2>/dev/null) || return 1
   [[ $mode == 700 && $owner == "$(/usr/bin/id -u)" ]]
+}
+
+sa_secret_gen() {
+  local tracing=0 rc
+  case $- in *x*) tracing=1; set +x ;; esac
+  _sa_secret_gen_impl "$@"
+  rc=$?
+  if [ "$tracing" -eq 1 ]; then set -x; fi
+  return "$rc"
 }
 
 sa_secret_list() {
