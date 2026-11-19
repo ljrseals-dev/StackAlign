@@ -37,6 +37,12 @@ SA_HISTORY_ALLOW_SECRETS=1 sa_history_snapshot "$T/etc/secrets/key" s >/dev/null
 [ "$rc" -eq 3 ] && ok "legacy environment override cannot enable secret snapshots" || bad "legacy override cannot enable secret snapshots"
 
 [ "$(stat -c '%a' "$SA_HISTORY_ROOT")" = 700 ] && ok "history root mode is private" || bad "history root mode is private"
+mkdir -m 700 "$T/outside"
+ln -s "$T/outside" "$T/history-link"
+SA_HISTORY_ROOT="$T/history-link" sa_history_snapshot "$T/etc/a.conf" linkroot >/dev/null 2>&1; rc=$?
+[ "$rc" -ne 0 ] && ok "symlinked history root rejected" || bad "symlinked history root rejected"
+sa_history_snapshot "$T/etc/../etc/a.conf" traversal >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 64 ] && ok "non-canonical snapshot path rejected" || bad "non-canonical snapshot path rejected"
 
 # idempotent within the same second for the same path+slug
 a=$(sa_history_snapshot "$T/etc/a.conf" same); b=$(sa_history_snapshot "$T/etc/a.conf" same)
