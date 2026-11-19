@@ -46,6 +46,6 @@ sa_exec() {
         return 69
     }
     /usr/bin/timeout --signal=TERM --kill-after=5 "${seconds}s" \
-        /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C HOME=/root \
+        /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C HOME=/ \
         SYSTEMD_PAGER=cat PAGER=cat "$binary" "$@"
 }
