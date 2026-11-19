@@ -234,6 +234,7 @@ A source file, design note, mock test, CI result, or successful plan does not pr
 
 ## Documentation
 
+- [Self-hosted LLM runtime](docs/SELF-HOSTED-LLM.md) — local Ollama discovery, model pulls, and constrained planner connection.
 - [Internet access setup](docs/INTERNET-ACCESS.md) — access-purpose questions, tunnel selection, manual fallback, and security boundaries.
 - [Hosting modes](docs/HOSTING-MODES.md) — Nginx, Apache, and hybrid mode contract and apply gates.
 - [Beta hosting scope](docs/BETA-SCOPE-AND-HOSTING.md) — web hosting/vhost scope, default PHP-FPM pool behavior, and distinction from independent-user isolation.
