@@ -26,7 +26,7 @@ if sa_task_create health_check '' >/dev/null 2>&1; then echo "FAIL: empty descri
 tab=$(printf '\011')
 if sa_task_create health_check "bad${tab}field" >/dev/null 2>&1; then echo "FAIL: task description accepted terminal control characters" >&2; exit 1; fi
 pending_id=$(sa_task_create health_check "Control-character rejection test")
-newline=$(printf '\012')
+newline=$(printf '\012X'); newline=${newline%X}
 if sa_task_transition "$pending_id" running "bad${newline}field" >/dev/null 2>&1; then echo "FAIL: task event detail accepted terminal control characters" >&2; exit 1; fi
 [[ $(sqlite3 "$SA_STATE_DB" "SELECT status FROM tasks WHERE id='$pending_id';") == pending ]]
 
