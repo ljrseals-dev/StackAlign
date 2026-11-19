@@ -1,6 +1,27 @@
-# Configuration schema proposal
+# Configuration schema
 
-**Status: design only; parser and validation are not implemented.** This document specifies intended keys, not accepted runtime syntax.
+## Runtime schema (version 1)
+
+The runtime parser accepts only the following keys. Unknown sections and keys are rejected.
+
+    [meta]
+    config_version=1
+    allow_override=0
+
+    [security]
+    password_mode=machine
+    passphrase_wordlist=/absolute/canonical/path/to/wordlist
+
+- `meta.config_version` is required and must equal `1`.
+- `meta.allow_override` is optional and accepts only `0` or `1`.
+- `security.password_mode` is optional and accepts `machine`, `human-passphrase`, or `human-legacy`.
+- `security.passphrase_wordlist` is optional and must name an existing, regular, non-symlink file by its canonical absolute path.
+- Configuration is parsed as data; values are never sourced or evaluated.
+- Duplicate keys are rejected unless `meta.allow_override=1`, in which case the last value wins with a warning.
+
+The server, PHP, Redis, and site examples below remain design proposals only. They are not accepted runtime keys and will be rejected until their validation, isolation, and lifecycle contracts are implemented.
+
+## Proposed future configuration (not accepted by runtime parser)
 
 ## Server role
 
