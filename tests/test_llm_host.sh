@@ -78,6 +78,41 @@ _sa_llm_load_config
 [[ $STACKALIGN_LLM_MODEL == "local-model:latest" ]]
 echo "ok   planner safely loads saved local endpoint and model"
 
+# Existing directories must never have their permissions silently changed.
+PUBLIC_DIR="$T/public-config"
+mkdir -p "$PUBLIC_DIR"
+chmod 755 "$PUBLIC_DIR"
+if STACKALIGN_LLM_CONFIG="$PUBLIC_DIR/llm.env" sa_llm_host_configure another-model 1 >/dev/null 2>&1; then
+  echo "FAIL: insecure existing config directory accepted" >&2; exit 1
+fi
+[[ $(stat -c '%a' "$PUBLIC_DIR") == 755 ]]
+echo "ok   configure refuses broad directory permissions without changing them"
+
+# Symlinked parent components must not redirect config creation.
+ln -s "$T/config" "$T/config-link"
+if STACKALIGN_LLM_CONFIG="$T/config-link/other.env" sa_llm_host_configure another-model 1 >/dev/null 2>&1; then
+  echo "FAIL: symlinked config parent accepted" >&2; exit 1
+fi
+[[ ! -e "$T/config/other.env" ]]
+echo "ok   configure rejects symlinked config parents"
+
+# The planner must reject a config that is readable by other users.
+chmod 644 "$STACKALIGN_LLM_CONFIG"
+if _sa_llm_load_config >/dev/null 2>&1; then
+  echo "FAIL: world-readable planner config accepted" >&2; exit 1
+fi
+chmod 600 "$STACKALIGN_LLM_CONFIG"
+echo "ok   planner rejects insecure config-file permissions"
+
+# Duplicate keys are ambiguous and must fail closed.
+DUP_CONFIG="$T/duplicate.env"
+printf '%s\\n' 'STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11434/v1' 'STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11435/v1' 'STACKALIGN_LLM_MODEL=local-model:latest' > "$DUP_CONFIG"
+chmod 600 "$DUP_CONFIG"
+if STACKALIGN_LLM_CONFIG="$DUP_CONFIG" _sa_llm_load_config >/dev/null 2>&1; then
+  echo "FAIL: duplicate planner config keys accepted" >&2; exit 1
+fi
+echo "ok   planner rejects duplicate configuration keys"
+
 if sa_llm_host_configure another-model 1 >/dev/null 2>&1; then
   echo "FAIL: existing local config overwritten" >&2; exit 1
 fi
