@@ -38,6 +38,11 @@ ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }
 reset() { : > "$FAKE_LOG"; rm -f "$FAKE_STATE"/*; touch "$FAKE_STATE/nginx.active"; printf 'good\n' > "$FAKE_CONF"; }
 
+# Service operation names are allowlisted before reaching systemctl.
+reset
+sa_service_restart 'nginx;touch /tmp/stackalign-service-pwned' >/dev/null 2>&1; rc=$?
+{ [ "$rc" -eq 64 ] && [ ! -s "$FAKE_LOG" ]; } && ok "service command injection rejected" || bad "service command injection rejected"
+
 # health dispatch
 reset; sa_service_health nginx && sa_service_health php-fpm && sa_service_health mariadb && ok "health dispatch ok" || bad "health dispatch ok"
 sa_service_health bogus 2>/dev/null; [ $? -eq 64 ] && ok "unknown service -> 64" || bad "unknown service -> 64"
