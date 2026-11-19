@@ -61,12 +61,12 @@ sa_fw_render_nft() {
 sa_fw_apply_nft() {
     local tmp rc=0
     tmp="$(mktemp)" || return 1
-    if nft list table inet stackalign >/dev/null 2>&1; then
+    if sa_exec nft -- list table inet stackalign >/dev/null 2>&1; then
         printf 'delete table inet stackalign\n' > "$tmp" || { rm -f -- "$tmp"; return 1; }
     fi
     sa_fw_render_nft "$@" >> "$tmp" || { rm -f -- "$tmp"; return 64; }
-    if nft -c -f "$tmp"; then
-        nft -f "$tmp" || rc=1
+    if sa_exec nft -- -c -f "$tmp"; then
+        sa_exec nft -- -f "$tmp" || rc=1
     else
         rc=1
         echo "firewall: ruleset failed nft -c; nothing loaded" >&2
