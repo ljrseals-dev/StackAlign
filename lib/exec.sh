@@ -18,6 +18,13 @@ _sa_exec_binary() {
         rpm)        printf '%s\n' /usr/bin/rpm ;;
         openssl)    printf '%s\n' /usr/bin/openssl ;;
         argon2)     printf '%s\n' /usr/bin/argon2 ;;
+        useradd)    printf '%s\n' /usr/sbin/useradd ;;
+        userdel)    printf '%s\n' /usr/sbin/userdel ;;
+        groupadd)   printf '%s\n' /usr/sbin/groupadd ;;
+        chpasswd)   printf '%s\n' /usr/sbin/chpasswd ;;
+        install)    printf '%s\n' /usr/bin/install ;;
+        sshd)       printf '%s\n' /usr/sbin/sshd ;;
+        getent)     printf '%s\n' /usr/bin/getent ;;
         curl)       printf '%s\n' /usr/bin/curl ;;
         gpg)        printf '%s\n' /usr/bin/gpg ;;
         *) return 64 ;;
