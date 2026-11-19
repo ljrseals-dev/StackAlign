@@ -57,7 +57,7 @@ _sa_sftp_key_ok() {
     [[ $1 =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com)[\ ][A-Za-z0-9+/=]+([\ ][A-Za-z0-9@._-]+)?$ ]]
 }
 _sa_sftp_exists()   { sa_exec id -- -- "$1" >/dev/null 2>&1; }
-_sa_sftp_in_group() { id -nG -- "$1" 2>/dev/null | tr ' ' '\n' | grep -qx -- "$SA_SFTP_GROUP"; }
+_sa_sftp_in_group() { sa_exec id -- -nG -- "$1" 2>/dev/null | tr ' ' '\n' | grep -qx -- "$SA_SFTP_GROUP"; }
 _sa_sftp_group()    { sa_exec getent -- group "$SA_SFTP_GROUP" >/dev/null 2>&1 || sa_exec groupadd -- -- "$SA_SFTP_GROUP"; }
 
 # OpenSSH rejects locked shadow accounts before public-key authentication.
