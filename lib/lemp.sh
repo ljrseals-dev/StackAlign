@@ -22,7 +22,7 @@ sa_lemp_web_root_valid() {
     echo "stackalign install: web root must be an absolute path containing only letters, digits, dot, underscore, slash, and hyphen" >&2
     return 64
   }
-  resolved=$(realpath -m -- "$web" 2>/dev/null) || {
+  resolved=$(/usr/bin/realpath -m -- "$web" 2>/dev/null) || {
     echo "stackalign install: cannot resolve web root safely" >&2
     return 64
   }
@@ -82,7 +82,7 @@ sa_lemp_targets_safe() {
 
 sa_lemp_host_check() {
   sa_lemp_web_root_valid || return $?
-  [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
+  [ "${EUID:-$(/usr/bin/id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   [ -r "$SA_LEMP_OS_RELEASE_FILE" ] || { sa_lemp_die "cannot read $SA_LEMP_OS_RELEASE_FILE"; return 1; }
   local id="" version="" arch
   # Parse only ID and VERSION_ID as data; never source os-release.
@@ -121,9 +121,9 @@ sa_lemp_restore() {
   local backup=$1 path
   for path in "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
     if [ -e "$backup$path" ] || [ -L "$backup$path" ]; then
-      cp -a "$backup$path" "$path" || return 1
+      /usr/bin/cp -a -- "$backup$path" "$path" || return 1
     else
-      rm -f "$path" || return 1
+      /usr/bin/rm -f -- "$path" || return 1
     fi
   done
 }
@@ -138,11 +138,11 @@ sa_lemp_apply() {
   sa_exec dnf --timeout 1800 -- -y install -- nginx mariadb-server php-fpm php-mysqlnd || { sa_lemp_die "DNF package installation failed"; return 1; }
 
   backup=$(mktemp -d) || return 1
-  mkdir -p "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d" "$backup$web/public"
-  [ ! -e "$pool" ] && [ ! -L "$pool" ] || cp -a "$pool" "$backup$pool" || { rm -rf "$backup"; return 1; }
-  [ ! -e "$site" ] && [ ! -L "$site" ] || cp -a "$site" "$backup$site" || { rm -rf "$backup"; return 1; }
-  [ ! -e "$web/public/index.php" ] && [ ! -L "$web/public/index.php" ] || cp -a "$web/public/index.php" "$backup$web/public/index.php" || { rm -rf "$backup"; return 1; }
-  mkdir -p "$etc/php-fpm.d" "$etc/nginx/conf.d" "$web/public" || failed=1
+  /usr/bin/mkdir -p -- "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d" "$backup$web/public"
+  [ ! -e "$pool" ] && [ ! -L "$pool" ] || /usr/bin/cp -a -- "$pool" "$backup$pool" || { /usr/bin/rm -rf -- "$backup"; return 1; }
+  [ ! -e "$site" ] && [ ! -L "$site" ] || /usr/bin/cp -a -- "$site" "$backup$site" || { /usr/bin/rm -rf -- "$backup"; return 1; }
+  [ ! -e "$web/public/index.php" ] && [ ! -L "$web/public/index.php" ] || /usr/bin/cp -a -- "$web/public/index.php" "$backup$web/public/index.php" || { /usr/bin/rm -rf -- "$backup"; return 1; }
+  /usr/bin/mkdir -p -- "$etc/php-fpm.d" "$etc/nginx/conf.d" "$web/public" || failed=1
 
   if [ "$failed" -eq 0 ]; then
     [ -f "$pool" ] || failed=1
@@ -153,10 +153,10 @@ sa_lemp_apply() {
         -e 's|^[;[:space:]]*listen[.]owner[[:space:]]*=.*|listen.owner = nginx|' \
         -e 's|^[;[:space:]]*listen[.]group[[:space:]]*=.*|listen.group = nginx|' \
         -e 's|^[;[:space:]]*listen[.]mode[[:space:]]*=.*|listen.mode = 0660|' "$pool" || failed=1
-      grep -Eq '^user[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
-      grep -Eq '^group[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
-      grep -Eq '^listen[.]owner[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
-      grep -Eq '^listen[.]group[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
+      /usr/bin/grep -Eq '^user[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
+      /usr/bin/grep -Eq '^group[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
+      /usr/bin/grep -Eq '^listen[.]owner[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
+      /usr/bin/grep -Eq '^listen[.]group[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
     fi
   fi
 
@@ -184,13 +184,13 @@ server {
     }
 }
 NGINX
-    sed -i "s|^    root /var/www/stackalign/public;|    root $web/public;|" "$site" || failed=1
+    /usr/bin/sed -i "s|^    root /var/www/stackalign/public;|    root $web/public;|" "$site" || failed=1
     cat > "$web/public/index.php" <<'PHP'
 <?php
 header('Content-Type: text/plain; charset=utf-8');
 echo "StackAlign LEMP beta: PHP-FPM is responding\n";
 PHP
-    chmod 0644 "$site" "$web/public/index.php" || failed=1
+    /usr/bin/chmod 0644 -- "$site" "$web/public/index.php" || failed=1
   fi
 
   if [ "$failed" -eq 0 ]; then sa_exec php-fpm -- -t || failed=1; fi
@@ -213,14 +213,14 @@ PHP
     sa_exec systemctl -- restart php-fpm >/dev/null 2>&1 || recovery_failed=1
     sa_exec systemctl -- restart nginx >/dev/null 2>&1 || recovery_failed=1
     if [ "$recovery_failed" -eq 0 ]; then
-      rm -rf "$backup"
+      /usr/bin/rm -rf -- "$backup"
     else
       echo "CRITICAL: recovery was incomplete; backup preserved at $backup for manual recovery" >&2
     fi
     sa_lemp_die "LEMP apply did not complete; installed RPMs may remain and require manual removal"
     return 1
   fi
-  rm -rf "$backup"
+  /usr/bin/rm -rf -- "$backup"
   cat <<EOF
 StackAlign LEMP beta installed.
   Local endpoint: http://127.0.0.1:8080/
