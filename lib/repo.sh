@@ -47,7 +47,13 @@ _sa_repo_ftp() {  # <package> -> 0 if it is an FTP daemon
   return 1
 }
 
-_sa_repo_bad() { echo "repo: invalid $1: $2" >&2; return 64; }
+_sa_repo_bad() {
+  case ${1-} in
+    repo_url|key_url) echo "repo: invalid $1 (value redacted)" >&2 ;;
+    *) echo "repo: invalid $1: $2" >&2 ;;
+  esac
+  return 64
+}
 
 sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   [ $# -eq 4 ] || { echo "usage: sa_repo_setup <name> <repo_url> <fingerprint> <key_url>" >&2; return 64; }
