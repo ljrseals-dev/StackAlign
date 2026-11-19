@@ -54,7 +54,10 @@ sa_exec() {
         echo "exec: env/timeout utilities unavailable; refusing execution" >&2
         return 69
     }
+    local -a argv=("$@")
+    printf "stackalign: exec %s (timeout=%ss)\\n" "$tool" "$seconds" >&2
+    if [ -x /usr/bin/logger ]; then /usr/bin/logger -t stackalign "exec $tool timeout=$seconds" 2>/dev/null || true; fi
     /usr/bin/timeout --signal=TERM --kill-after=5 "${seconds}s" \
         /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C HOME=/ \
-        SYSTEMD_PAGER=cat PAGER=cat "$binary" "$@"
+        SYSTEMD_PAGER=cat PAGER=cat "$binary" "${argv[@]}"
 }
