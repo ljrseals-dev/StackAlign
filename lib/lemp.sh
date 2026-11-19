@@ -82,7 +82,6 @@ sa_lemp_targets_safe() {
 
 sa_lemp_host_check() {
   sa_lemp_web_root_valid || return $?
-  [ "${SA_LEMP_TESTING:-0}" = 1 ] && return 0
   [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   [ -r "$SA_LEMP_OS_RELEASE_FILE" ] || { sa_lemp_die "cannot read $SA_LEMP_OS_RELEASE_FILE"; return 1; }
   local id="" version="" arch
@@ -130,7 +129,6 @@ sa_lemp_restore() {
 }
 
 sa_lemp_apply() {
-  [ "${SA_LEMP_TESTING:-0}" = 1 ] || [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   sa_lemp_host_check || return $?
   sa_lemp_targets_safe || return $?
   local etc="$SA_LEMP_ETC_ROOT" web="$SA_LEMP_WEB_ROOT"
