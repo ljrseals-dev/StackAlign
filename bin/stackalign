@@ -183,7 +183,7 @@ cmd_doctor() {
     echo "config: not found ($SA_CONF_PATH), skipped"
   fi
   for daemon in vsftpd pure-ftpd proftpd; do
-    if rpm -q "$daemon" >/dev/null 2>&1; then
+    if sa_exec rpm -- -q -- "$daemon" >/dev/null 2>&1; then
       echo "NOTICE: independently managed FTP daemon detected: $daemon (StackAlign does not install or configure it)"
     fi
   done
