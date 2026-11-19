@@ -7,9 +7,8 @@ CLI="$ROOT/bin/stackalign"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin"
 {
-  printf 'CAPTURE_ARGS=%q\nCAPTURE_HEADER=%q\nCAPTURE_BODY=%q\n' "$T/args" "$T/header" "$T/body"
+  printf '#!/usr/bin/env bash\nCAPTURE_ARGS=%q\nCAPTURE_HEADER=%q\nCAPTURE_BODY=%q\n' "$T/args" "$T/header" "$T/body"
   cat <<'CURL'
-#!/usr/bin/env bash
 printf '%s' "$*" > "$CAPTURE_ARGS"
 if [[ $* == *"/health"* ]]; then
   printf '{"status":"ok"}\n'
