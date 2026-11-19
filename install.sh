@@ -3,8 +3,10 @@
 # Author: Lewis James Seals Jr.
 
 # Establish a predictable environment before bootstrap operations.
-PATH=/usr/sbin:/usr/bin:/sbin:/bin
-export PATH
+if [ "${EUID:-0}" -eq 0 ] || [ "${EUID:-0}" -ne "${UID:-${EUID:-0}}" ]; then
+  PATH=/usr/sbin:/usr/bin:/sbin:/bin
+  export PATH
+fi
 IFS=$' \t\n'
 umask 077
 unset BASH_ENV ENV CDPATH GLOBIGNORE LD_PRELOAD LD_LIBRARY_PATH
