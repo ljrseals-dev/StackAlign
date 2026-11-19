@@ -254,5 +254,5 @@ sa_repo_install() {
     sa_exec dnf -- install -y -- "$pkg-$ver" || return 1
   fi
   sa_repo_versionlock "$name" "$pkg" "$ver" || return $?
-  rpm -q "$pkg-$ver" >/dev/null 2>&1 || { echo "repo: health check failed: $pkg-$ver not installed" >&2; return 1; }
+  sa_exec rpm -- -q -- "$pkg-$ver" >/dev/null 2>&1 || { echo "repo: health check failed: $pkg-$ver not installed" >&2; return 1; }
 }
