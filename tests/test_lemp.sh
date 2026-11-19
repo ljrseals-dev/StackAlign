@@ -5,7 +5,7 @@ set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin" "$T/etc/php-fpm.d" "$T/etc/nginx/conf.d" "$T/web"
-export PATH="$T/bin:$PATH" SA_LEMP_TESTING=1 SA_LEMP_ETC_ROOT="$T/etc" SA_LEMP_WEB_ROOT="$T/web"
+export PATH="$T/bin:$PATH" SA_LEMP_ETC_ROOT="$T/etc" SA_LEMP_WEB_ROOT="$T/web"
 export LOG="$T/actions.log"
 cat > "$T/etc/php-fpm.d/www.conf" <<'EOF'
 user = apache
@@ -28,6 +28,8 @@ SH
   chmod +x "$T/bin/$tool"
 done
 source "$ROOT/lib/lemp.sh"
+# Fixture-only host check override; production has no environment bypass.
+sa_lemp_host_check() { sa_lemp_web_root_valid; }
 # Explicit fixture-only executor; production executor never consults PATH.
 sa_exec() {
   local tool=$1
