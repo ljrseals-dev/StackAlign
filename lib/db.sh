@@ -20,18 +20,20 @@ sa_db_validate_name() {
 _sa_db_defaults_ok() {
     local file=${SA_MYSQL_DEFAULTS_FILE:-} mode owner resolved
     [[ $file == /* && $file != *..* ]] && [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
-    resolved=$(realpath -e -- "$file" 2>/dev/null) || return 1
+    resolved=$(/usr/bin/realpath -e -- "$file" 2>/dev/null) || return 1
     [[ $resolved == "$file" ]] || return 1
-    read -r mode owner < <(stat -c '%a %u' -- "$file" 2>/dev/null) || return 1
-    [[ ( $mode == 400 || $mode == 600 ) && $owner == "$(id -u)" ]]
+    read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$file" 2>/dev/null) || return 1
+    [[ ( $mode == 400 || $mode == 600 ) && $owner == "$(/usr/bin/id -u)" ]]
 }
+
+_sa_db_client_available() { [ -x /usr/bin/mysql ] || [ -x /usr/bin/mariadb ]; }
 
 _sa_db_require_client() {
     _sa_db_defaults_ok || {
         echo "db: SA_MYSQL_DEFAULTS_FILE must be a regular non-symlink file owned by this user with mode 400 or 600" >&2
         return 64
     }
-    [ -x /usr/bin/mysql ] || [ -x /usr/bin/mariadb ] || {
+    _sa_db_client_available || {
         echo "db: mysql client is not installed" >&2
         return 69
     }
