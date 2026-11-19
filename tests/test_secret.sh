@@ -105,6 +105,18 @@ _sa_secret_breached() { return 0; }                       # always breached
 reset; sa_secret_gen pp3 human-passphrase >/dev/null 2>&1; rc=$?
 { [ $rc -eq 4 ] && [ ! -e "$SA_SECRETS_DIR/pp3.hash" ]; } && ok "all draws breached: rc 4, nothing stored" || bad "all draws breached (rc=$rc)"
 source "$ROOT/lib/secret.sh"                              # restore real lookup
+# Reapply fixture-only command and dependency overrides after sourcing.
+sa_exec() {
+  local tool=$1
+  shift
+  [ "${1-}" = -- ] && shift
+  case "$tool" in
+    curl|argon2) [ -x "$T/bin/$tool" ] || return 127; "$T/bin/$tool" "$@" ;;
+    openssl) /usr/bin/openssl "$@" ;;
+    *) return 64 ;;
+  esac
+}
+_sa_secret_argon2_available() { [ -x "$T/bin/argon2" ]; }
 
 # HIBP unreachable => fail closed, nothing stored or printed
 reset; touch "$T_FAIL"; out=$(sa_secret_gen pp4 human-passphrase 2>/dev/null); rc=$?; rm "$T_FAIL"
