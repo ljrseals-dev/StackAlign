@@ -17,12 +17,20 @@ exit 0
 F
 cat > "$T/bin/rpm" <<'F'
 #!/usr/bin/env bash
-[ "$1" = -q ] && grep -qx -- "$2" "$STATE" 2>/dev/null
+[ "$1" = -q ] && { shift; [ "${1-}" = -- ] && shift; grep -qx -- "$1" "$STATE" 2>/dev/null; }
 F
 chmod +x "$T/bin/"*
 
 export SA_ROOT="$ROOT"
 . "$ROOT/lib/repo.sh"
+# Fixture-only dependency injection; production executor uses absolute binaries.
+sa_exec() {
+  local tool=$1
+  shift
+  if [ "${1-}" = --timeout ]; then shift 2; fi
+  [ "${1-}" = -- ] && shift
+  "$T/bin/$tool" "$@"
+}
 
 fail=0
 check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }

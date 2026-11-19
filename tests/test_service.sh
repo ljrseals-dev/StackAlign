@@ -25,10 +25,23 @@ chmod +x "$T/bin"/*
 export PATH="$T/bin:$PATH"
 
 source "$ROOT/lib/history.sh"; source "$ROOT/lib/service.sh"
+ 
+# Test-only dependency injection: production sa_exec remains absolute-path only.
+sa_exec() {
+  local tool=$1
+  shift
+  [ "${1-}" = -- ] && shift
+  "$T/bin/$tool" "$@"
+}
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }
 reset() { : > "$FAKE_LOG"; rm -f "$FAKE_STATE"/*; touch "$FAKE_STATE/nginx.active"; printf 'good\n' > "$FAKE_CONF"; }
+
+# Service operation names are allowlisted before reaching systemctl.
+reset
+sa_service_restart 'nginx;touch /tmp/stackalign-service-pwned' >/dev/null 2>&1; rc=$?
+{ [ "$rc" -eq 64 ] && [ ! -s "$FAKE_LOG" ]; } && ok "service command injection rejected" || bad "service command injection rejected"
 
 # health dispatch
 reset; sa_service_health nginx && sa_service_health php-fpm && sa_service_health mariadb && ok "health dispatch ok" || bad "health dispatch ok"

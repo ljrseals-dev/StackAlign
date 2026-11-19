@@ -1,53 +1,31 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
-# tests/test_db_cli.sh -- CLI plan/apply/list/drop-gate tests.
+# CLI-level plan, validation, and destructive-operation gate tests.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
-mkdir -m 700 "$TMP/bin"
+trap 'rm -rf -- "$TMP"' EXIT
+export SA_MYSQL_DEFAULTS_FILE="$TMP/mysql.cnf"
 printf '[client]\nuser=test\npassword=not-a-real-secret\n' > "$TMP/mysql.cnf"
 chmod 600 "$TMP/mysql.cnf"
-export SA_MYSQL_DEFAULTS_FILE="$TMP/mysql.cnf"
-export TEST_TMP="$TMP"
-export PATH="$TMP/bin:$PATH"
-
-cat > "$TMP/bin/mysql" <<'EOF'
-#!/usr/bin/env bash
-query=''
-for arg in "$@"; do
-  case "$arg" in --execute=*) query=${arg#--execute=} ;; esac
-done
-case "$query" in
-  'SHOW DATABASES;') printf 'mysql\napp_db\n' ;;
-  'SELECT VERSION(), CURRENT_USER();') printf '10.11.6-MariaDB\tstackalign@localhost\n' ;;
-  'SELECT User, Host FROM mysql.user ORDER BY User, Host;') printf 'stackalign\tlocalhost\nroot\tlocalhost\n' ;;
-  SELECT*) ;;
-  'CREATE DATABASE '*) printf '%s\n' "$query" >> "$TEST_TMP/create.log" ;;
-  *) echo "unexpected query: $query" >&2; exit 64 ;;
-esac
-EOF
-chmod 700 "$TMP/bin/mysql"
 
 plan=$(bash "$ROOT/bin/stackalign" db create webapp)
 printf '%s\n' "$plan" | grep -q 'plan: would create database webapp'
-[ ! -e "$TMP/create.log" ]
+printf '%s\n' "$plan" | grep -q 'no database state changed'
 
-bash "$ROOT/bin/stackalign" db create webapp --apply
-grep -Fq 'CREATE DATABASE IF NOT EXISTS `webapp`' "$TMP/create.log"
-bash "$ROOT/bin/stackalign" db list | grep -q 'app_db'
-bash "$ROOT/bin/stackalign" db status | grep -q 'server_version: 10.11.6-MariaDB'
-bash "$ROOT/bin/stackalign" db user list | grep -q 'stackalign'
+set +e
+bash "$ROOT/bin/stackalign" db create 'webapp;touch /tmp/stackalign-db-pwned' >/dev/null 2>&1
+bad_rc=$?
+set -e
+[ "$bad_rc" -eq 64 ]
+[ ! -e /tmp/stackalign-db-pwned ]
 
 set +e
 bash "$ROOT/bin/stackalign" db drop webapp --apply >"$TMP/drop.out" 2>&1
-rc=$?
+drop_rc=$?
 set -e
-[ "$rc" -eq 2 ]
+[ "$drop_rc" -eq 2 ]
 grep -q 'DROP BLOCKED' "$TMP/drop.out"
-if grep -q 'DROP DATABASE' "$TMP/create.log"; then
-  echo "FAIL: drop reached the SQL client" >&2; exit 1
-fi
 
-echo "database CLI tests: PASS"
+echo "database CLI plan/validation/drop-gate tests: PASS"

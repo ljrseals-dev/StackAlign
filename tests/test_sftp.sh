@@ -25,6 +25,23 @@ mkfake systemctl 'echo "systemctl $*" >> "$CALLS"; [ "$1" = reload ] && exit "${
 
 export SA_SFTP_BASE="$T/sftp" SA_SFTP_KEYDIR="$T/keys" SA_SFTP_DROPIN="$T/sshd_config.d/50-stackalign-sftp.conf"
 . "$ROOT/lib/sftp.sh"
+# Production policy rejects fixture roots and non-root mutation callers.
+_sa_sftp_path_policy >/dev/null 2>&1; path_policy_rc=$?
+[ "$path_policy_rc" -ne 0 ] && check "reject paths outside production SFTP roots" 0 0 || check "reject paths outside production SFTP roots" 1 0
+if [ "$EUID" -ne 0 ]; then
+  _sa_sftp_require_root >/dev/null 2>&1; root_rc=$?
+  [ "$root_rc" -ne 0 ] && check "non-root SFTP mutations refused" 0 0 || check "non-root SFTP mutations refused" 1 0
+fi
+# Fixture-only path/root injection; production has no environment bypass.
+_sa_sftp_path_policy() { return 0; }
+_sa_sftp_require_root() { return 0; }
+# Test-only executor routes approved tool IDs to explicit fixture binaries.
+sa_exec() {
+  local tool=$1
+  shift
+  [ "${1-}" = -- ] && shift
+  "$T/bin/$tool" "$@"
+}
 
 
 # sshd_config interpolation must reject directive injection and symlinked paths.
@@ -42,6 +59,8 @@ check "reject symlinked sshd path component" "$symlink_base_rc" 64
 
 KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyData0123456789abcdefghijk user@host'
 printf '%s\n' "$KEY" > "$T/good.pub"
+ln -s "$T/good.pub" "$T/key-link.pub"
+sa_sftp_add_user alice "$T/key-link.pub" >/dev/null 2>&1; check "symlinked public key rejected" "$?" 64
 printf '%s\n' 'command="rm -rf /" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA x' > "$T/opts.pub"
 printf '%s\n%s\n' "$KEY" "$KEY" > "$T/two.pub"
 printf '%s\n' 'ssh-dss AAAAB3NzaC1kc3MAAACB x' > "$T/dss.pub"

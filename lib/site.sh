@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 # lib/site.sh -- read-only virtual-host inventory and syntax diagnostics.
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/validate.sh"
 sa_site_list() {
     local root=${SA_SITE_ETC_ROOT:-/etc}
     local dir entry found=0 target rel rc=0 entries
@@ -41,26 +43,28 @@ sa_site_list() {
     [ "$found" -eq 1 ] || echo 'no vhost configuration files found in standard directories'
     return "$rc"
 }
+_sa_site_has_binary() { local binary; binary=$(_sa_exec_binary "$1") || return 1; [ -x "$binary" ]; }
+
 sa_site_doctor() {
     local server=${1:-all} rc=0 checked=0
     case "$server" in nginx|apache|all) ;; *) echo "usage: stackalign site doctor [nginx|apache|all]" >&2; return 64 ;; esac
     if [ "$server" = nginx ] || [ "$server" = all ]; then
-        if command -v nginx >/dev/null 2>&1; then
+        if _sa_site_has_binary nginx; then
             checked=1
-            if nginx -t; then echo 'nginx_config: valid'; else echo 'nginx_config: INVALID' >&2; rc=1; fi
+            if sa_exec nginx -- -t; then echo 'nginx_config: valid'; else echo 'nginx_config: INVALID' >&2; rc=1; fi
         elif [ "$server" = nginx ]; then echo 'nginx: not installed' >&2; return 69
         else echo 'nginx: not installed (skipped)'; fi
     fi
     if [ "$server" = apache ] || [ "$server" = all ]; then
-        if command -v httpd >/dev/null 2>&1; then
+        if _sa_site_has_binary httpd; then
             checked=1
-            if httpd -t; then echo 'apache_config: valid'; else echo 'apache_config: INVALID' >&2; rc=1; fi
+            if sa_exec httpd -- -t; then echo 'apache_config: valid'; else echo 'apache_config: INVALID' >&2; rc=1; fi
         elif [ "$server" = apache ]; then echo 'apache: not installed' >&2; return 69
         else echo 'apache: not installed (skipped)'; fi
     fi
     [ "$checked" -eq 1 ] || { echo 'site doctor: no supported web server binary found; no configuration was checked' >&2; return 69; }
     return "$rc"
 }
-sa_site_add() { echo 'site add: BLOCKED — tenant isolation and transactional deployment are not implemented; no changes made' >&2; return 2; }
-sa_site_remove() { echo 'site remove: BLOCKED — dependency checks, verified backup and rollback are not implemented; no changes made' >&2; return 2; }
-sa_site_isolate() { echo 'site isolate: BLOCKED — independent tenant isolation is not implemented or acceptance-tested; no changes made' >&2; return 2; }
+sa_site_add() { sa_validate_domain "${1-}" || return $?; echo 'site add: BLOCKED — tenant isolation and transactional deployment are not implemented; no changes made' >&2; return 2; }
+sa_site_remove() { sa_validate_domain "${1-}" || return $?; echo 'site remove: BLOCKED — dependency checks, verified backup and rollback are not implemented; no changes made' >&2; return 2; }
+sa_site_isolate() { sa_validate_domain "${1-}" || return $?; echo 'site isolate: BLOCKED — independent tenant isolation is not implemented or acceptance-tested; no changes made' >&2; return 2; }

@@ -22,16 +22,18 @@
 
 # Shared HTTPS fetch and primary-key validation implementation.
 # shellcheck source=lib/fetch.sh
-source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/exec.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/validate.sh"
 
 # shellcheck source=lib/toml.sh
-source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
 
 
 _sa_repo_valid() {  # <kind> <value>
   case $1 in
     name)    [[ $2 =~ ^[a-z0-9][a-z0-9_-]*$ ]] ;;
-    package) [[ $2 =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]] ;;
+    package) sa_validate_package_name "$2" ;;
     version) [[ $2 =~ ^[A-Za-z0-9][A-Za-z0-9._:~+-]*$ ]] ;;
     url)     [[ $2 =~ ^https://[A-Za-z0-9._~:/?#@!$\&\'*+,\;=%-]+$ ]] ;;
     fpr)     [[ $2 =~ ^[0-9A-Fa-f]{40}$ ]] ;;
@@ -45,7 +47,13 @@ _sa_repo_ftp() {  # <package> -> 0 if it is an FTP daemon
   return 1
 }
 
-_sa_repo_bad() { echo "repo: invalid $1: $2" >&2; return 64; }
+_sa_repo_bad() {
+  case ${1-} in
+    repo_url|key_url) echo "repo: invalid $1 (value redacted)" >&2 ;;
+    *) echo "repo: invalid $1: $2" >&2 ;;
+  esac
+  return 64
+}
 
 sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   [ $# -eq 4 ] || { echo "usage: sa_repo_setup <name> <repo_url> <fingerprint> <key_url>" >&2; return 64; }
@@ -87,7 +95,7 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   # A new or changed repo definition needs its validated signing key imported.
   # An unchanged definition does not repeat the rpmdb operation.
   if [ "$wrote" -eq 1 ]; then
-    rpm --import "$key" || {
+    sa_exec rpm -- --import "$key" || {
       rm -rf -- "$tmpd"
       echo "repo: rpm --import failed" >&2
       return 1
@@ -166,7 +174,7 @@ sa_repo_versionlock() {  # <name> <package> <version>
   _sa_repo_valid package "$2" || { _sa_repo_bad package "$2"; return 64; }
   _sa_repo_valid version "$3" || { _sa_repo_bad version "$3"; return 64; }
   if _sa_repo_ftp "$2"; then echo "error=ftp_daemon_refused" >&2; return 3; fi
-  dnf versionlock add -- "$2-$3"
+  sa_exec dnf -- versionlock add -- "$2-$3"
 }
 
 # _sa_repo_manifest_pin <component>   -> prints pinned_version on stdout
@@ -175,7 +183,7 @@ sa_repo_versionlock() {  # <name> <package> <version>
 # Matches the component by exact name; duplicates are rejected.
 _sa_repo_manifest_pin() {
   local comp=$1
-  local manifest=${SA_VERSIONS_TOML:-${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/vendor/versions.toml}
+  local manifest=${SA_VERSIONS_TOML:-${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/vendor/versions.toml}
   local i=0 hits=0 pin=""
 
   [ -f "$manifest" ] || return 66
@@ -247,11 +255,11 @@ sa_repo_install() {
   elif [ ! -f "$SA_YUM_REPOS_DIR/stackalign-$name.repo" ]; then
     echo "repo: $name not set up and no repo args given; refusing" >&2; return 1
   fi
-  if rpm -q "$pkg-$ver" >/dev/null 2>&1; then
+  if sa_exec rpm -- -q -- "$pkg-$ver" >/dev/null 2>&1; then
     echo "$pkg-$ver: already installed"
   else
-    dnf install -y -- "$pkg-$ver" || return 1
+    sa_exec dnf -- install -y -- "$pkg-$ver" || return 1
   fi
   sa_repo_versionlock "$name" "$pkg" "$ver" || return $?
-  rpm -q "$pkg-$ver" >/dev/null 2>&1 || { echo "repo: health check failed: $pkg-$ver not installed" >&2; return 1; }
+  sa_exec rpm -- -q -- "$pkg-$ver" >/dev/null 2>&1 || { echo "repo: health check failed: $pkg-$ver not installed" >&2; return 1; }
 }

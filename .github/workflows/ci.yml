@@ -1,14 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 #
-# Historical CI evidence: run 43351689173 completed successfully for commit
-# ea0f816df44372a658bfb1fc100d7142053e584a (pull_request event; Ubuntu and
-# AlmaLinux 9 jobs). This is not evidence for every revision or a live-host test.
-#
-# VERSION PIN: actions/checkout@v6 is TO_BE_VERIFIED. It comes from a third-party
-# registry (packages.ecosyste.ms: latest_release_number v6.0.2, published
-# 2026-01-09) whose own tag list was inconsistent. Confirm on
-# https://github.com/actions/checkout/releases before relying on it.
+# Historical CI evidence is revision-specific and is not real-host acceptance.
 name: ci
 on:
   push:
@@ -21,19 +14,23 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck gnupg openssh-server openssh-client openssl
+      - run: make security
       - run: make lint
       - run: make headers
       - run: make test
 
   almalinux9:
-    # The project targets EL-family; this runs the same suites in an EL9 userland.
-    # (Container tests of real nginx/PHP/MariaDB are M2b, not this job.)
+    # EL9 userland regression coverage; not a real-host deployment test.
     runs-on: ubuntu-latest
     container: almalinux:9
     steps:
       - name: Install test dependencies
         run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl
       - uses: actions/checkout@v6
+      - run: make security
       - run: make lint
       - run: make headers
-      - run: make test
+      - name: Run fixture tests as unprivileged user
+        run: |
+          chown -R nobody:nobody "$GITHUB_WORKSPACE"
+          su -s /bin/bash nobody -c "cd '$GITHUB_WORKSPACE' && make test"

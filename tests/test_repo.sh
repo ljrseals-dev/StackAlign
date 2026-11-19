@@ -41,7 +41,7 @@ cat > "$T/bin/rpm" <<'EOF'
 echo "rpm $*" >> "$FAKE_LOG"
 case $1 in
   --import) exit 0 ;;
-  -q) [ -e "$FAKE_STATE/installed.$2" ] ;;
+  -q) shift; [ "${1-}" = -- ] && shift; [ -e "$FAKE_STATE/installed.$1" ] ;;
 esac
 EOF
 cat > "$T/bin/dnf" <<'EOF'
@@ -52,6 +52,14 @@ exit 0
 EOF
 chmod +x "$T/bin"/*; export PATH="$T/bin:$PATH"
 source "$ROOT/lib/repo.sh"
+# Explicit fixture-only executor; production executor never consults PATH.
+sa_exec() {
+  local tool=$1
+  shift
+  if [ "${1-}" = --timeout ]; then shift 2; fi
+  [ "${1-}" = -- ] && shift
+  "$T/bin/$tool" "$@"
+}
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }

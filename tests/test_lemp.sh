@@ -5,7 +5,7 @@ set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin" "$T/etc/php-fpm.d" "$T/etc/nginx/conf.d" "$T/web"
-export PATH="$T/bin:$PATH" SA_LEMP_TESTING=1 SA_LEMP_ETC_ROOT="$T/etc" SA_LEMP_WEB_ROOT="$T/web"
+export PATH="$T/bin:$PATH" SA_LEMP_ETC_ROOT="$T/etc" SA_LEMP_WEB_ROOT="$T/web"
 export LOG="$T/actions.log"
 cat > "$T/etc/php-fpm.d/www.conf" <<'EOF'
 user = apache
@@ -27,7 +27,28 @@ esac
 SH
   chmod +x "$T/bin/$tool"
 done
+SA_LEMP_OS_RELEASE_FILE="$T/fake-os-release"
 source "$ROOT/lib/lemp.sh"
+[ "$SA_LEMP_OS_RELEASE_FILE" = /etc/os-release ] || { echo "FAIL: OS release path override accepted"; exit 1; }
+_sa_lemp_path_policy >/dev/null 2>&1; policy_rc=$?
+[ "$policy_rc" -ne 0 ] && echo "ok   production LEMP roots restricted" || { echo "FAIL production LEMP roots restricted"; exit 1; }
+_sa_lemp_path_policy() { [ "$SA_LEMP_ETC_ROOT" = "$T/etc" ] && [[ "$SA_LEMP_WEB_ROOT" == "$T/"* ]]; }
+# Legacy environment flag must not bypass root checks on non-root callers.
+if [ "$EUID" -ne 0 ]; then
+  SA_LEMP_TESTING=1 sa_lemp_host_check >/dev/null 2>&1
+  rc=$?
+  [ "$rc" -ne 0 ] || { echo "FAIL: SA_LEMP_TESTING bypassed host gate" >&2; exit 1; }
+fi
+# Fixture-only host check override; production has no environment bypass.
+sa_lemp_host_check() { sa_lemp_web_root_valid; }
+# Explicit fixture-only executor; production executor never consults PATH.
+sa_exec() {
+  local tool=$1
+  shift
+  if [ "${1-}" = --timeout ]; then shift 2; fi
+  [ "${1-}" = -- ] && shift
+  "$T/bin/$tool" "$@"
+}
 pass=0 fail=0
 ok(){ pass=$((pass+1)); echo "ok   - $1"; }
 bad(){ fail=$((fail+1)); echo "FAIL - $1"; }
@@ -71,7 +92,7 @@ mkdir -p "$T/web/public"
 
 : > "$LOG"
 sa_lemp_apply >"$T/apply.out" 2>&1; rc=$?
-{ [ "$rc" -eq 0 ] && grep -q 'dnf -y install nginx mariadb-server php-fpm php-mysqlnd' "$LOG"; } && ok "uses only EL repository package names" || bad "package installation"
+{ [ "$rc" -eq 0 ] && grep -q 'dnf -y install -- nginx mariadb-server php-fpm php-mysqlnd' "$LOG"; } && ok "uses only EL repository package names" || bad "package installation"
 grep -q '^user = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^group = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^listen.owner = nginx$' "$T/etc/php-fpm.d/www.conf" &&
