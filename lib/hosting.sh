@@ -104,8 +104,8 @@ sa_hosting_doctor() {
   done
   case "$mode" in
     apache|hybrid)
-      if command -v httpd >/dev/null 2>&1; then
-        if ! modules=$(httpd -M 2>&1); then
+      if [ -x /usr/sbin/httpd ] >/dev/null 2>&1; then
+        if ! modules=$(sa_exec_capture httpd -- -M 2>&1); then
           echo "apache module inspection: FAILED" >&2
           missing=1
         else
