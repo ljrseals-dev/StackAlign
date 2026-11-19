@@ -56,6 +56,7 @@ source "$ROOT/lib/repo.sh"
 sa_exec() {
   local tool=$1
   shift
+  if [ "${1-}" = --timeout ]; then shift 2; fi
   [ "${1-}" = -- ] && shift
   "$T/bin/$tool" "$@"
 }
