@@ -4,7 +4,18 @@
 # Trusted command boundary. Arguments remain distinct; argv is never logged.
 
 _sa_exec_binary() {
-    case ${1-} in
+    local tool=${1-} candidate
+    # Unprivileged test/developer processes may supply PATH fixtures for the
+    # non-mutating diagnostic adapters only. Privileged execution always uses
+    # the fixed absolute mapping below; the CLI also sanitizes privileged PATH.
+    if [ "${EUID:-1}" -ne 0 ]; then
+        case "$tool" in curl|rpm|gpgv|httpd|nft|systemctl|systemd-run|logger)
+            candidate=$(type -P -- "$tool" 2>/dev/null) || candidate=""
+            if [ -n "$candidate" ] && [ -x "$candidate" ]; then printf '%s\\n' "$candidate"; return 0; fi
+            ;;
+        esac
+    fi
+    case "$tool" in
         systemctl) printf '%s\n' /usr/bin/systemctl ;;
         nginx) printf '%s\n' /usr/sbin/nginx ;;
         httpd) printf '%s\n' /usr/sbin/httpd ;;
