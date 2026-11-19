@@ -142,10 +142,10 @@ _sa_secret_dir_prepare() {
 }
 
 sa_secret_gen() {
-  (
-    case $- in *x*) set +x ;; esac
-    _sa_secret_gen_impl "$@"
-  )
+  # Keep caller xtrace disabled: command substitution assignment itself would
+  # otherwise print the returned secret after this function exits.
+  case $- in *x*) set +x ;; esac
+  _sa_secret_gen_impl "$@"
 }
 
 sa_secret_list() {
