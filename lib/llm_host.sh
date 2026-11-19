@@ -65,14 +65,17 @@ PY
 }
 
 sa_llm_host_models() {
+  local host
   command -v ollama >/dev/null 2>&1 || { echo "llm: ollama is not installed" >&2; return 69; }
-  ollama list
+  host=$(_sa_llm_host_endpoint) || return $?
+  OLLAMA_HOST=${host#http://} ollama list
 }
 
 sa_llm_host_pull() {
-  local model=$1 apply=${2:-0}
+  local model=$1 apply=${2:-0} host
   _sa_llm_model_valid "$model" || { echo "llm: invalid model identifier" >&2; return 64; }
   command -v ollama >/dev/null 2>&1 || { echo "llm: ollama is not installed; no download attempted" >&2; return 69; }
+  host=$(_sa_llm_host_endpoint) || return $?
   if [[ $apply != 1 ]]; then
     echo "plan: would run 'ollama pull $model'"
     echo "This downloads model data and consumes local disk space."
@@ -80,7 +83,7 @@ sa_llm_host_pull() {
     return 0
   fi
   echo "llm: pulling model '$model' via the installed Ollama CLI"
-  ollama pull "$model"
+  OLLAMA_HOST=${host#http://} ollama pull "$model"
 }
 
 
