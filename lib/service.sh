@@ -5,8 +5,8 @@
 # lib/service.sh -- service lifecycle. Written from master prompt v8 Part III.
 # Needs lib/history.sh (sa_history_rollback) for reload_safe.
 #
-. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
-. "$(dirname "${BASH_SOURCE[0]}")/validate.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/validate.sh"
 
 # ASSUMPTIONS (spec is silent; unmeasured design choices):
 #   * a FAILED PRE-reload health check is treated like a failed post-check:
