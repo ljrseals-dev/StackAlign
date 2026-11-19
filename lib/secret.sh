@@ -142,9 +142,11 @@ _sa_secret_dir_prepare() {
 }
 
 sa_secret_gen() {
-  # Keep caller xtrace disabled: command substitution assignment itself would
-  # otherwise print the returned secret after this function exits.
-  case $- in *x*) set +x ;; esac
+  # A command substitution runs in a subshell; disabling xtrace here cannot
+  # protect the caller's assignment trace. Refuse before generating anything.
+  case $- in
+    *x*) echo "secret: generation refused while xtrace is enabled; disable xtrace first" >&2; return 64 ;;
+  esac
   _sa_secret_gen_impl "$@"
 }
 
