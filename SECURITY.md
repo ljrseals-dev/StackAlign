@@ -59,11 +59,13 @@ real-host acceptance evidence.
 The current security repair branch adds a narrow allowlisted command executor
 (`lib/exec.sh`). It resolves selected system-management executables to fixed
 absolute paths, passes arguments as distinct Bash array elements, starts them
-with a minimal environment, and applies a timeout. It deliberately does not
-log argument vectors. The executor is integrated into the CLI update planner,
+with a minimal environment, and applies a timeout. Privileged calls always use
+fixed absolute paths; the non-root remote-client diagnostic may resolve `curl`
+from the caller's PATH, which cannot confer root privileges. It deliberately
+does not log argument vectors. The executor is integrated into the CLI update planner,
 LEMP package/service operations, repository package operations, database
 clients, site diagnostics, secret helpers, and selected SFTP account/sshd
-operations.
+operations, backup clients, and firewall rule application.
 
 Shared semantic validators now cover package identifiers, database
 identifiers, site slugs, DNS names, service names, ports, and canonical paths
