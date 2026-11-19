@@ -9,7 +9,6 @@
 # ASSUMPTIONS to verify on a throwaway host: your sshd includes sshd_config.d/*.conf
 # and a Match block in that drop-in does not leak into later directives (check with
 # `sshd -T -C user=alice,addr=127.0.0.1`); sshd -t passes before every reload.
-. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
 . "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/common.sh"
 
 : "${SA_SFTP_GROUP:=sftponly}"
@@ -71,7 +70,7 @@ _sa_sftp_key_ok() {
     [[ $1 =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com)[\ ][A-Za-z0-9+/=]+([\ ][A-Za-z0-9@._-]+)?$ ]]
 }
 _sa_sftp_exists()   { sa_exec id -- -- "$1" >/dev/null 2>&1; }
-_sa_sftp_in_group() { sa_exec id -- -nG -- "$1" 2>/dev/null | tr ' ' '\n' | grep -qx -- "$SA_SFTP_GROUP"; }
+_sa_sftp_in_group() { sa_exec id -- -nG -- "$1" 2>/dev/null | /usr/bin/tr ' ' '\n' | /usr/bin/grep -qx -- "$SA_SFTP_GROUP"; }
 _sa_sftp_group()    { sa_exec getent -- group "$SA_SFTP_GROUP" >/dev/null 2>&1 || sa_exec groupadd -- -- "$SA_SFTP_GROUP"; }
 
 # OpenSSH rejects locked shadow accounts before public-key authentication.
@@ -176,4 +175,4 @@ sa_sftp_remove_user() {
     log "sftp: removed login for $user; data kept in $SA_SFTP_BASE/$user"
 }
 
-sa_sftp_list() { sa_exec getent -- group "$SA_SFTP_GROUP" 2>/dev/null | awk -F: '{ gsub(",", "\n", $4); print $4 }'; }
+sa_sftp_list() { sa_exec getent -- group "$SA_SFTP_GROUP" 2>/dev/null | /usr/bin/awk -F: '{ gsub(",", "\n", $4); print $4 }'; }
