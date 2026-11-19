@@ -25,7 +25,6 @@ _sa_config_key_allowed() {
     *) return 1 ;;
   esac
 }
-
 sa_config_load() {  # <file>
   local file=${1-} line n=0 section="" key val
   local -a dups=()
@@ -74,41 +73,7 @@ sa_config_load() {  # <file>
   fi
   if [ -n "${SA_CONF[security.passphrase_wordlist]-}" ]; then
     local wl=${SA_CONF[security.passphrase_wordlist]} resolved
-    [[ $wl == /* && $wl != *..* && $wl != *  if [ "${#dups[@]}" -gt 0 ]; then
-    local d
-    if [ "${SA_CONF[meta.allow_override]-}" = 1 ]; then
-      for d in "${dups[@]}"; do echo "config: WARNING duplicate key (last wins) at ${d}" >&2; done
-    else
-      for d in "${dups[@]}"; do echo "config: ERROR duplicate key at ${d}" >&2; done
-      _sa_config_error "config: duplicate keys are not allowed"; return 1
-    fi
-  fi
-  return 0
-}
-
-sa_config_get() {  # <section.key> [default]
-  if [ -n "${SA_CONF[$1]+x}" ]; then printf '%s\n' "${SA_CONF[$1]}"
-  elif [ $# -ge 2 ]; then printf '%s\n' "$2"
-  else return 1; fi
-}
-\\n'* && $wl != *  if [ "${#dups[@]}" -gt 0 ]; then
-    local d
-    if [ "${SA_CONF[meta.allow_override]-}" = 1 ]; then
-      for d in "${dups[@]}"; do echo "config: WARNING duplicate key (last wins) at ${d}" >&2; done
-    else
-      for d in "${dups[@]}"; do echo "config: ERROR duplicate key at ${d}" >&2; done
-      _sa_config_error "config: duplicate keys are not allowed"; return 1
-    fi
-  fi
-  return 0
-}
-
-sa_config_get() {  # <section.key> [default]
-  if [ -n "${SA_CONF[$1]+x}" ]; then printf '%s\n' "${SA_CONF[$1]}"
-  elif [ $# -ge 2 ]; then printf '%s\n' "$2"
-  else return 1; fi
-}
-\\r'* ]] || {
+    [[ $wl == /* && $wl != *..* && $wl != *$'\n'* && $wl != *$'\r'* ]] || {
       _sa_config_error "config: security.passphrase_wordlist must be an absolute canonical path"; return 1
     }
     [ -f "$wl" ] && [ ! -L "$wl" ] || {
