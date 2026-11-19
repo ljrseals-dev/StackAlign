@@ -58,7 +58,7 @@ sa_state_status() {
 sa_task_create() {
   local kind=${1:-} description=${2:-} id qid qkind qdesc
   case "$kind" in health_check|website_deploy|database_backup|website_migration) ;; *) echo "task: unsupported type: $kind" >&2; return 64 ;; esac
-  [[ -n $description && ${#description} -le 500 ]] || { echo "task: description must contain 1-500 characters" >&2; return 64; }
+  [[ -n $description && ${#description} -le 500 && $description != *[[:cntrl:]]* ]] || { echo "task: description must contain 1-500 printable characters without control characters" >&2; return 64; }
   _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
   _sa_state_existing_db || { echo "task: state database is not initialized or has unsafe permissions" >&2; return 1; }
@@ -80,7 +80,7 @@ sa_task_transition() {
   local id=${1:-} target=${2:-} detail=${3:-} qid qdetail expected result
   [[ $id =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "task: invalid task id" >&2; return 64; }
   case "$target" in running) expected=pending ;; succeeded|failed) expected=running ;; *) return 64 ;; esac
-  [[ ${#detail} -le 500 ]] || { echo "task: detail exceeds 500 characters" >&2; return 64; }
+  [[ ${#detail} -le 500 && $detail != *[[:cntrl:]]* ]] || { echo "task: detail must contain at most 500 characters without control characters" >&2; return 64; }
   _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
   _sa_state_existing_db || { echo "task: state database is not initialized or has unsafe permissions" >&2; return 1; }
