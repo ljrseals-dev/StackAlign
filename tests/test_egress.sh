@@ -19,6 +19,8 @@ mkfake ip 'cat "$FAKE_NEIGH"'
 . "$ROOT/lib/egress.sh"
 # Test-only executor seam: preserve fixture environment and resolve mock tools
 # from this test's PATH. Production executor remains fixed-path when privileged.
+# Explicit fixture override for the root gate; no production bypass exists.
+_sa_eg_require_root() { return 0; }
 sa_exec() {
   local tool=$1; shift
   if [ "${1-}" = --timeout ]; then shift 2; fi
