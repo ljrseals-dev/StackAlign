@@ -24,6 +24,7 @@
 # shellcheck source=lib/fetch.sh
 source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
 source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/exec.sh"
+source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/validate.sh"
 
 # shellcheck source=lib/toml.sh
 source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
@@ -32,7 +33,7 @@ source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh
 _sa_repo_valid() {  # <kind> <value>
   case $1 in
     name)    [[ $2 =~ ^[a-z0-9][a-z0-9_-]*$ ]] ;;
-    package) [[ $2 =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]] ;;
+    package) sa_validate_package_name "$2" ;;
     version) [[ $2 =~ ^[A-Za-z0-9][A-Za-z0-9._:~+-]*$ ]] ;;
     url)     [[ $2 =~ ^https://[A-Za-z0-9._~:/?#@!$\&\'*+,\;=%-]+$ ]] ;;
     fpr)     [[ $2 =~ ^[0-9A-Fa-f]{40}$ ]] ;;
