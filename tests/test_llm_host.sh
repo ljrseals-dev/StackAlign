@@ -104,6 +104,13 @@ fi
 chmod 600 "$STACKALIGN_LLM_CONFIG"
 echo "ok   planner rejects insecure config-file permissions"
 
+chmod 755 "$T/config"
+if _sa_llm_load_config >/dev/null 2>&1; then
+  echo "FAIL: planner accepted a broadly accessible config directory" >&2; exit 1
+fi
+chmod 700 "$T/config"
+echo "ok   planner rejects broadly accessible config parent directories"
+
 # Duplicate keys are ambiguous and must fail closed.
 DUP_CONFIG="$T/duplicate.env"
 printf '%s\n' 'STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11434/v1' 'STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11435/v1' 'STACKALIGN_LLM_MODEL=local-model:latest' > "$DUP_CONFIG"
