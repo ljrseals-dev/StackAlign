@@ -24,11 +24,11 @@ sa_ext_install() {
     for e in $list; do
         [ -n "$e" ] || { echo "extensions: empty item is not allowed" >&2; return 64; }
         pkg="$(_sa_ext_pkg "$e")" || { echo "extensions: not allowed: $e" >&2; return 64; }
-        dnf -q list --available -- "$pkg" >/dev/null 2>&1 || {
+        sa_exec dnf -- -q list --available -- "$pkg" >/dev/null 2>&1 || {
             echo "extensions: $pkg not in an enabled repo; refusing" >&2
             return 1
         }
         pkgs+=("$pkg")
     done
-    dnf -y install -- "${pkgs[@]}"
+    sa_exec dnf -- -y install -- "${pkgs[@]}"
 }
