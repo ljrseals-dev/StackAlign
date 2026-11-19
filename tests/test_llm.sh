@@ -82,7 +82,7 @@ echo "ok   LLM plan rejects malformed model output"
 
 # A response containing tool calls must never be treated as a normal plan.
 cat > "$LLM_TEST_RESPONSE" <<'JSON'
-{"choices":[{"message":{"role":"assistant","content":"{\\"summary\\":\\"A safe plan.\\",\\"tasks\\":[],\\"questions\\":[],\\"warnings\\":[],\\"unsupported_requests\\":[]}","tool_calls":[{"type":"function","function":{"name":"dangerous_action","arguments":"{}"}}]},"finish_reason":"stop"}]}
+{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"A safe plan.\",\"tasks\":[],\"questions\":[],\"warnings\":[],\"unsupported_requests\":[]}","tool_calls":[{"type":"function","function":{"name":"dangerous_action","arguments":"{}"}}]},"finish_reason":"stop"}]}
 JSON
 if sa_llm_plan "check server" >/dev/null 2>&1; then
   echo "FAIL: tool-call response accepted" >&2; exit 1
