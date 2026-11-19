@@ -3,6 +3,7 @@
 # Author: Lewis James Seals Jr.
 # lib/site.sh -- read-only virtual-host inventory and syntax diagnostics.
 . "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/validate.sh"
 sa_site_list() {
     local root=${SA_SITE_ETC_ROOT:-/etc}
     local dir entry found=0 target rel rc=0 entries
@@ -62,6 +63,6 @@ sa_site_doctor() {
     [ "$checked" -eq 1 ] || { echo 'site doctor: no supported web server binary found; no configuration was checked' >&2; return 69; }
     return "$rc"
 }
-sa_site_add() { echo 'site add: BLOCKED — tenant isolation and transactional deployment are not implemented; no changes made' >&2; return 2; }
-sa_site_remove() { echo 'site remove: BLOCKED — dependency checks, verified backup and rollback are not implemented; no changes made' >&2; return 2; }
-sa_site_isolate() { echo 'site isolate: BLOCKED — independent tenant isolation is not implemented or acceptance-tested; no changes made' >&2; return 2; }
+sa_site_add() { sa_validate_domain "${1-}" || return $?; echo 'site add: BLOCKED — tenant isolation and transactional deployment are not implemented; no changes made' >&2; return 2; }
+sa_site_remove() { sa_validate_domain "${1-}" || return $?; echo 'site remove: BLOCKED — dependency checks, verified backup and rollback are not implemented; no changes made' >&2; return 2; }
+sa_site_isolate() { sa_validate_domain "${1-}" || return $?; echo 'site isolate: BLOCKED — independent tenant isolation is not implemented or acceptance-tested; no changes made' >&2; return 2; }
