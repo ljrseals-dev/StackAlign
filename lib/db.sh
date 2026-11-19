@@ -4,9 +4,11 @@
 # lib/db.sh -- guarded MariaDB status, listing, and creation helpers.
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 . "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/validate.sh"
 
 sa_db_validate_name() {
     local name=${1:-} lower
+    sa_validate_db_name "$name" || return $? 
     [[ $name =~ ^[A-Za-z][A-Za-z0-9_]{0,63}$ ]] || {
         echo "db: name must start with a letter and contain only letters, digits, and underscores (max 64)" >&2
         return 64
