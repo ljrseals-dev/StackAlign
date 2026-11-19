@@ -30,5 +30,5 @@ sa_ext_install() {
         }
         pkgs+=("$pkg")
     done
-    sa_exec dnf -- -y install -- "${pkgs[@]}"
+    sa_exec dnf --timeout 1800 -- -y install -- "${pkgs[@]}"
 }
