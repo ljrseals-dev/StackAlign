@@ -38,7 +38,7 @@ sa_llm_host_status() {
   if curl --silent --show-error --fail --connect-timeout 2 --max-time 5 \
       --max-filesize 1048576 --max-redirs 0 --output "$tmp" "$host/api/tags"; then
     if python3 - "$tmp" <<'PY'
-import json, sys
+import json, re, sys
 try:
     with open(sys.argv[1], encoding="utf-8") as stream:
         data = json.load(stream)
@@ -48,6 +48,10 @@ if not isinstance(data, dict) or not isinstance(data.get("models"), list):
     raise SystemExit(1)
 for model in data["models"]:
     if not isinstance(model, dict) or not isinstance(model.get("name"), str):
+        raise SystemExit(1)
+    name = model["name"]
+    if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,127}(:[A-Za-z0-9._-]{1,64})?", name)
+            or ".." in name or "//" in name or name.endswith("/")):
         raise SystemExit(1)
 print("runtime: Ollama API healthy")
 for model in data["models"]:
