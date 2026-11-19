@@ -1,6 +1,13 @@
 #!/usr/bin/bash -p
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+
+# Establish a predictable environment before bootstrap operations.
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+IFS=$' \t\n'
+umask 077
+unset BASH_ENV ENV CDPATH GLOBIGNORE LD_PRELOAD LD_LIBRARY_PATH
 #
 # install.sh -- bootstrapper. Written from master prompt v8 Part III.
 # Downloads ONE pinned release tarball, verifies its SHA-256 against the value
