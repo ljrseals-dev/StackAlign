@@ -10,8 +10,14 @@ export CAPTURE="$T/pull-args"
 cat > "$T/bin/ollama" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ $1 == list ]]; then printf 'NAME ID SIZE\nlocal-model:latest abc 1GB\n'; exit 0; fi
-if [[ $1 == pull ]]; then printf '%s\n' "$*" > "$CAPTURE"; exit 0; fi
+if [[ $1 == list ]]; then
+  [[ ${OLLAMA_HOST:-} == "127.0.0.1:11434" ]] || exit 10
+  printf 'NAME ID SIZE\nlocal-model:latest abc 1GB\n'; exit 0
+fi
+if [[ $1 == pull ]]; then
+  [[ ${OLLAMA_HOST:-} == "127.0.0.1:11434" ]] || exit 10
+  printf '%s\n' "$*" > "$CAPTURE"; exit 0
+fi
 exit 64
 MOCK
 cat > "$T/bin/curl" <<'MOCK'
