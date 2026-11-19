@@ -9,7 +9,7 @@
 : "${SA_LEMP_ETC_ROOT:=/etc}"
 : "${SA_LEMP_WEB_ROOT:=/var/www/stackalign}"
 : "${SA_LEMP_OS_RELEASE_FILE:=/etc/os-release}"
-. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
 
 sa_lemp_die() { echo "stackalign install: $*" >&2; return 1; }
 
