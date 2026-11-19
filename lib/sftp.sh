@@ -9,7 +9,7 @@
 # ASSUMPTIONS to verify on a throwaway host: your sshd includes sshd_config.d/*.conf
 # and a Match block in that drop-in does not leak into later directives (check with
 # `sshd -T -C user=alice,addr=127.0.0.1`); sshd -t passes before every reload.
-. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/common.sh"
 
 : "${SA_SFTP_GROUP:=sftponly}"
 : "${SA_SFTP_BASE:=/srv/sftp}"
