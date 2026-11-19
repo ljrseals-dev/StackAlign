@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 # lib/db.sh -- guarded MariaDB status, listing, and creation helpers.
-. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
-. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
-. "$(dirname "${BASH_SOURCE[0]}")/validate.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/common.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/validate.sh"
 
 sa_db_validate_name() {
     local name=${1:-} lower
