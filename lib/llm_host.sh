@@ -107,8 +107,8 @@ sa_llm_host_configure() {
   tmp=$(mktemp "$dir/.llm.env.XXXXXX") || return 1
   chmod 600 "$tmp" || { rm -f -- "$tmp"; return 1; }
   if ! {
-    printf 'STACKALIGN_LLM_BASE_URL=%s\\n' 'http://127.0.0.1:11434/v1'
-    printf 'STACKALIGN_LLM_MODEL=%s\\n' "$model"
+    printf 'STACKALIGN_LLM_BASE_URL=%s\n' 'http://127.0.0.1:11434/v1'
+    printf 'STACKALIGN_LLM_MODEL=%s\n' "$model"
   } > "$tmp"; then
     rm -f -- "$tmp"
     return 1
@@ -121,10 +121,14 @@ sa_llm_host_configure() {
 }
 
 sa_llm_host_help() {
-  printf '%s\n' \
-    'usage: stackalign llm <status|models|pull <model> [--apply]|configure <model> [--apply]>' \
-    '  status   inspect the loopback Ollama API (read-only)' \
-    '  models   list models already present in Ollama' \
-    '  pull      plan a model download; --apply explicitly downloads it' \\\n    '  configure plan/save the local planner model; --apply writes a private config' \\\n    'Set STACKALIGN_OLLAMA_HOST (default http://127.0.0.1:11434).' \
-    'For agent plan, set STACKALIGN_LLM_BASE_URL=http://127.0.0.1:11434/v1'
+  cat <<'HELP'
+usage: stackalign llm <status|models|pull <model> [--apply]|configure <model> [--apply]>
+  status      inspect the loopback Ollama API (read-only)
+  models      list models already present in Ollama
+  pull        plan a model download; --apply explicitly downloads it
+  configure   plan/save the local planner model; --apply writes a private config
+
+Set STACKALIGN_OLLAMA_HOST (default http://127.0.0.1:11434).
+For agent plan, the saved configuration points to the local OpenAI-compatible endpoint.
+HELP
 }
