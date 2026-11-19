@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 # lib/site.sh -- read-only virtual-host inventory and syntax diagnostics.
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
 sa_site_list() {
     local root=${SA_SITE_ETC_ROOT:-/etc}
     local dir entry found=0 target rel rc=0 entries
@@ -45,16 +46,16 @@ sa_site_doctor() {
     local server=${1:-all} rc=0 checked=0
     case "$server" in nginx|apache|all) ;; *) echo "usage: stackalign site doctor [nginx|apache|all]" >&2; return 64 ;; esac
     if [ "$server" = nginx ] || [ "$server" = all ]; then
-        if command -v nginx >/dev/null 2>&1; then
+        if [ -x /usr/sbin/nginx ]; then
             checked=1
-            if nginx -t; then echo 'nginx_config: valid'; else echo 'nginx_config: INVALID' >&2; rc=1; fi
+            if sa_exec nginx -- -t; then echo 'nginx_config: valid'; else echo 'nginx_config: INVALID' >&2; rc=1; fi
         elif [ "$server" = nginx ]; then echo 'nginx: not installed' >&2; return 69
         else echo 'nginx: not installed (skipped)'; fi
     fi
     if [ "$server" = apache ] || [ "$server" = all ]; then
-        if command -v httpd >/dev/null 2>&1; then
+        if [ -x /usr/sbin/httpd ]; then
             checked=1
-            if httpd -t; then echo 'apache_config: valid'; else echo 'apache_config: INVALID' >&2; rc=1; fi
+            if sa_exec httpd -- -t; then echo 'apache_config: valid'; else echo 'apache_config: INVALID' >&2; rc=1; fi
         elif [ "$server" = apache ]; then echo 'apache: not installed' >&2; return 69
         else echo 'apache: not installed (skipped)'; fi
     fi
