@@ -131,12 +131,10 @@ _sa_secret_dir_prepare() {
 }
 
 sa_secret_gen() {
-  local tracing=0 rc
-  case $- in *x*) tracing=1; set +x ;; esac
-  _sa_secret_gen_impl "$@"
-  rc=$?
-  if [ "$tracing" -eq 1 ]; then set -x; fi
-  return "$rc"
+  (
+    case $- in *x*) set +x ;; esac
+    _sa_secret_gen_impl "$@"
+  )
 }
 
 sa_secret_list() {
