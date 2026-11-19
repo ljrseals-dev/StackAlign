@@ -48,6 +48,17 @@ fi
 n=$(sa_history_list | wc -l)
 [ "$n" -ge 3 ] && ok "list works ($n entries)" || bad "list works"
 [ -x "$(sa_history_path "$id")/undo.sh" ] && ok "undo.sh generated" || bad "undo.sh generated"
+# Snapshot IDs are identifiers, never arbitrary filesystem paths.
+if sa_history_path '../../tmp/attacker' >/dev/null 2>&1; then
+  bad "snapshot path traversal rejected"
+else
+  ok "snapshot path traversal rejected"
+fi
+if sa_history_rollback '../../tmp/attacker' >/dev/null 2>&1; then
+  bad "rollback path traversal rejected"
+else
+  ok "rollback path traversal rejected"
+fi
 
 # Undo stage/backup paths retain PID expansion in the generated script.
 root="$T/undo-pid"
