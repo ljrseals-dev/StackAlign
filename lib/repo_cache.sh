@@ -69,6 +69,12 @@ sa_cache_get() {
     if _sa_rpm_verify "$final" "$nevra"; then
         printf '%s\n' "$final"; return 0
     fi
+    if [ -e "$final" ] || [ -L "$final" ]; then
+        [ -f "$final" ] && [ ! -L "$final" ] || {
+            echo "cache: refusing non-regular or symlinked cache target" >&2; return 1;
+        }
+        /usr/bin/rm -f -- "$final" || return 1
+    fi
 
     tmp="$(/usr/bin/mktemp -d "$SA_RPM_CACHE/.dl.XXXXXX")" || return 1
     _sa_cache_fetch "$nevra" "$tmp" "$final"; rc=$?
