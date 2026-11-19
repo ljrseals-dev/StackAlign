@@ -6,7 +6,9 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CLI="$ROOT/bin/stackalign"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin"
-cat > "$T/bin/curl" <<'CURL'
+{
+  printf 'CAPTURE_ARGS=%q\nCAPTURE_HEADER=%q\nCAPTURE_BODY=%q\n' "$T/args" "$T/header" "$T/body"
+  cat <<'CURL'
 #!/usr/bin/env bash
 printf '%s' "$*" > "$CAPTURE_ARGS"
 if [[ $* == *"/health"* ]]; then
@@ -27,6 +29,7 @@ cp "$header_file" "$CAPTURE_HEADER"
 cp "$body_file" "$CAPTURE_BODY"
 printf '{"session_id":"test-session","answer":"Plan only; no host changes."}\n' > "$output_file"
 CURL
+} > "$T/bin/curl"
 chmod +x "$T/bin/curl"
 export PATH="$T/bin:$PATH"
 export SA_ROOT="$ROOT"
