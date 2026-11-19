@@ -25,6 +25,14 @@ chmod +x "$T/bin"/*
 export PATH="$T/bin:$PATH"
 
 source "$ROOT/lib/history.sh"; source "$ROOT/lib/service.sh"
+ 
+# Test-only dependency injection: production sa_exec remains absolute-path only.
+sa_exec() {
+  local tool=$1
+  shift
+  [ "${1-}" = -- ] && shift
+  "$T/bin/$tool" "$@"
+}
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }
