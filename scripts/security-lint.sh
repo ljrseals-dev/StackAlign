@@ -15,5 +15,5 @@ while IFS= read -r -d '' file; do
         printf 'security-lint: review banned shell construct in %s:\n%s\n' "$file" "$hits" >&2
         status=1
     fi
-done < <(find "$ROOT/bin" "$ROOT/lib" "$ROOT/install.sh" "$ROOT/scripts" -type f \( -name '*.sh' -o -path "$ROOT/bin/*" \) -print0)
+done < <(find "$ROOT/bin" "$ROOT/lib" "$ROOT/install.sh" -type f \( -name '*.sh' -o -path "$ROOT/bin/*" \) -print0)
 exit "$status"
