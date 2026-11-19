@@ -26,7 +26,7 @@ sa_validate_site_name() {
 
 sa_validate_domain() {
     local domain=${1-}
-    [[ ${#domain} -le 253 && $domain =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*$ ]] || {
+    [[ ${#domain} -le 253 && $domain =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9] )?)+$ ]] || {
         echo "validation: invalid DNS domain" >&2
         return 64
     }
