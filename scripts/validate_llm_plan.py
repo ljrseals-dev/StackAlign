@@ -33,7 +33,7 @@ def main() -> None:
         reject("validator requires one response file")
     try:
         envelope = strict_loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, ValueError):
+    except (OSError, UnicodeError, ValueError, RecursionError):
         reject("provider response is not valid JSON")
 
     content = envelope
@@ -58,7 +58,7 @@ def main() -> None:
     if isinstance(content, str):
         try:
             plan = strict_loads(content)
-        except ValueError:
+        except (ValueError, RecursionError):
             reject("model content is not strict JSON")
     else:
         plan = content
