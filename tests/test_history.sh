@@ -30,11 +30,13 @@ id=$(sa_history_snapshot "$T/etc/new.conf" create); printf 'made\n' > "$T/etc/ne
 sa_history_rollback "$id"
 [ ! -e "$T/etc/new.conf" ] && ok "rollback removes file that did not exist" || bad "rollback removes file that did not exist"
 
-# secrets refusal, and override warns
+# Secret snapshots are always refused, even if a legacy override is supplied.
 sa_history_snapshot "$T/etc/secrets/key" s >/dev/null 2>&1; rc=$?
-[ $rc -ne 0 ] && ok "secrets path refused" || bad "secrets path refused"
-w=$(SA_HISTORY_ALLOW_SECRETS=1 sa_history_snapshot "$T/etc/secrets/key" s 2>&1 >/dev/null)
-case $w in *WARNING*) ok "override warns on stderr" ;; *) bad "override warns on stderr" ;; esac
+[ "$rc" -eq 3 ] && ok "secrets path refused" || bad "secrets path refused"
+SA_HISTORY_ALLOW_SECRETS=1 sa_history_snapshot "$T/etc/secrets/key" s >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 3 ] && ok "legacy environment override cannot enable secret snapshots" || bad "legacy override cannot enable secret snapshots"
+
+[ "$(stat -c '%a' "$SA_HISTORY_ROOT")" = 700 ] && ok "history root mode is private" || bad "history root mode is private"
 
 # idempotent within the same second for the same path+slug
 a=$(sa_history_snapshot "$T/etc/a.conf" same); b=$(sa_history_snapshot "$T/etc/a.conf" same)
