@@ -91,6 +91,10 @@ sa_llm_host_configure() {
   config=${STACKALIGN_LLM_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/stackalign/llm.env}
   [[ $config == /* && $config != *..* ]] || { echo "llm: config path must be an absolute path without '..'" >&2; return 64; }
   dir=${config%/*}
+  [[ ! -e $config && ! -L $config ]] || {
+    echo "llm: config already exists; refusing to overwrite $config" >&2
+    return 2
+  }
   if [[ $apply != 1 ]]; then
     echo "plan: would create local planner config at $config"
     echo "model: $model"
@@ -98,10 +102,6 @@ sa_llm_host_configure() {
     echo "No file was written; rerun with --apply to save this configuration."
     return 0
   fi
-  [[ ! -e $config && ! -L $config ]] || {
-    echo "llm: config already exists; refusing to overwrite $config" >&2
-    return 2
-  }
   mkdir -p -- "$dir" || return 1
   chmod 700 "$dir" || return 1
   tmp=$(mktemp "$dir/.llm.env.XXXXXX") || return 1
