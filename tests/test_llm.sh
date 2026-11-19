@@ -90,7 +90,7 @@ fi
 echo "ok   LLM plan rejects tool-call responses even when content is valid"
 
 # Duplicate JSON keys are ambiguous and must not be normalized by last-key-wins parsing.
-printf '%s\\n' '{"summary":"first","summary":"second","tasks":[],"questions":[],"warnings":[],"unsupported_requests":[]}' > "$LLM_TEST_RESPONSE"
+printf '%s\n' '{"summary":"first","summary":"second","tasks":[],"questions":[],"warnings":[],"unsupported_requests":[]}' > "$LLM_TEST_RESPONSE"
 if python3 "$ROOT/scripts/validate_llm_plan.py" "$LLM_TEST_RESPONSE" >/dev/null 2>&1; then
   echo "FAIL: duplicate JSON keys accepted" >&2; exit 1
 fi
