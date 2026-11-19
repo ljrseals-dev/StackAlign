@@ -30,6 +30,7 @@ _sa_exec_binary() {
         curl) printf '%s\n' /usr/bin/curl ;;
         gpg) printf '%s\n' /usr/bin/gpg ;;
         gpgv) printf '%s\n' /usr/bin/gpgv ;;
+        sha256sum) printf '%s\n' /usr/bin/sha256sum ;;
         nft) printf '%s\n' /usr/sbin/nft ;;
         firewall-cmd) printf '%s\n' /usr/bin/firewall-cmd ;;
         systemd-run) printf '%s\n' /usr/bin/systemd-run ;;
