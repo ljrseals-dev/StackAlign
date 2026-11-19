@@ -27,7 +27,9 @@ esac
 SH
   chmod +x "$T/bin/$tool"
 done
+SA_LEMP_OS_RELEASE_FILE="$T/fake-os-release"
 source "$ROOT/lib/lemp.sh"
+[ "$SA_LEMP_OS_RELEASE_FILE" = /etc/os-release ] || { echo "FAIL: OS release path override accepted"; exit 1; }
 _sa_lemp_path_policy >/dev/null 2>&1; policy_rc=$?
 [ "$policy_rc" -ne 0 ] && echo "ok   production LEMP roots restricted" || { echo "FAIL production LEMP roots restricted"; exit 1; }
 _sa_lemp_path_policy() { [ "$SA_LEMP_ETC_ROOT" = "$T/etc" ] && [[ "$SA_LEMP_WEB_ROOT" == "$T/"* ]]; }
