@@ -110,26 +110,25 @@ sa_sftp_enable() {
     _sa_sftp_group || return 1
     sa_exec install -- -d -m 0755 -o root -g root -- "$SA_SFTP_BASE" "$SA_SFTP_KEYDIR" || return 1
     new="$(/usr/bin/mktemp "$dir/.sa-sftp.XXXXXX")" || return 1
-    sa_sftp_render > "$new" && /usr/bin/chmod 0644 -- "$new" || { /usr/bin/rm -f -- "$new"; return 1; }
+    sa_sftp_render > "$new" && /usr/bin/chmod 0644 -- "$new" || { /usr/bin//usr/bin/rm -f -- "$new"; return 1; }
     if [ -f "$SA_SFTP_DROPIN" ]; then
-        backup="$(/usr/bin/mktemp "$dir/.sa-sftp-bak.XXXXXX")" || { rm -f -- "$new"; return 1; }
-        /usr/bin/cp -p -- "$SA_SFTP_DROPIN" "$backup" || { /usr/bin/rm -f -- "$new" "$backup"; return 1; }
+        backup="$(/usr/bin/mktemp "$dir/.sa-sftp-bak.XXXXXX")" || { /usr/bin/rm -f -- "$new"; return 1; }
+        /usr/bin/cp -p -- "$SA_SFTP_DROPIN" "$backup" || { /usr/bin//usr/bin/rm -f -- "$new" "$backup"; return 1; }
     fi
-    /usr/bin/mv -f -- "$new" "$SA_SFTP_DROPIN" || { rm -f -- "$new" "$backup"; return 1; }
+    /usr/bin/mv -f -- "$new" "$SA_SFTP_DROPIN" || { /usr/bin/rm -f -- "$new" "$backup"; return 1; }
     if ! sa_exec sshd -- -t >&2; then
-        if [ -n "$backup" ]; then /usr/bin/mv -f -- "$backup" "$SA_SFTP_DROPIN"; else /usr/bin/rm -f -- "$SA_SFTP_DROPIN"; fi
+        if [ -n "$backup" ]; then /usr/bin//usr/bin/mv -f -- "$backup" "$SA_SFTP_DROPIN"; else /usr/bin/rm -f -- "$SA_SFTP_DROPIN"; fi
         echo "sftp: sshd -t failed; previous configuration restored" >&2; return 1
     fi
     if ! sa_exec systemctl -- reload sshd; then
-        if [ -n "$backup" ]; then mv -f -- "$backup" "$SA_SFTP_DROPIN"; else rm -f -- "$SA_SFTP_DROPIN"; fi
+        if [ -n "$backup" ]; then /usr/bin/mv -f -- "$backup" "$SA_SFTP_DROPIN"; else rm -f -- "$SA_SFTP_DROPIN"; fi
         echo "sftp: reload failed; previous configuration restored" >&2; return 1
     fi
-    [ -z "$backup" ] || /usr/bin/rm -f -- "$backup"
+    [ -z "$backup" ] || /usr/bin//usr/bin/rm -f -- "$backup"
 }
 
 sa_sftp_add_user() {
     local user=${1:-} keyfile=${2:-} key chroot tmp keytarget key_real
-    _sa_sftp_require_root || return $?
     _sa_sftp_require_root || return $?
     _sa_sftp_config_ok || return $?
     _sa_sftp_user_ok "$user" || { echo "sftp: bad username" >&2; return 64; }
@@ -163,6 +162,7 @@ sa_sftp_add_user() {
 
 sa_sftp_remove_user() {
     local user=${1:-} keytarget
+    _sa_sftp_require_root || return $?
     _sa_sftp_config_ok || return $?
     _sa_sftp_user_ok "$user" || { echo "sftp: bad username" >&2; return 64; }
     _sa_sftp_in_group "$user" || { echo "sftp: $user is not an SFTP account; refusing" >&2; return 1; }
