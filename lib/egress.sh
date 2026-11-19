@@ -194,7 +194,7 @@ sa_egress_confirm() {
        sa_exec systemctl -- is-active --quiet "$SA_EGRESS_REVERT_UNIT.service" 2>/dev/null; then
         _sa_eg_cancel_revert || {
             echo "egress: could not cancel revert timer/service; rules may still revert" >&2; return 1; }
-        if ! nft list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
+        if ! sa_exec nft -- list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
             echo "egress: revert was already executing; the egress table is absent and cannot be confirmed" >&2
             return 1
         fi
@@ -209,10 +209,10 @@ sa_egress_confirm() {
 sa_egress_remove() {
     _sa_eg_cancel_revert || {
         echo "egress: could not cancel pending revert timer/service; refusing removal" >&2; return 1; }
-    if ! nft list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
+    if ! sa_exec nft -- list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
         echo "egress: table is not loaded; nothing to remove"; return 0
     fi
-    if nft delete table inet "$SA_EGRESS_TABLE"; then
+    if sa_exec nft -- delete table inet "$SA_EGRESS_TABLE"; then
         _sa_eg_audit "removed table=$SA_EGRESS_TABLE"; return 0
     fi
     echo "egress: FAILED to delete table; firewall may still be active" >&2
