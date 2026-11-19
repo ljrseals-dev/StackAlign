@@ -16,7 +16,14 @@
 #   * after a successful rollback-and-recover, reload_safe returns 1 (the
 #     requested change did NOT take effect); 99 only if still unhealthy.
 
-sa_service_check() { sa_exec systemctl -- is-active --quiet "$1"; }
+_sa_service_name_ok() {
+  case ${1-} in nginx|httpd|php-fpm|mariadb|mysql|sshd) return 0 ;; *) return 1 ;; esac
+}
+
+sa_service_check() {
+  _sa_service_name_ok "${1-}" || { echo "service: unsupported service name" >&2; return 64; }
+  sa_exec systemctl -- is-active --quiet "$1"
+}
 
 sa_service_health() {
   case $1 in
@@ -28,17 +35,18 @@ sa_service_health() {
 }
 
 sa_service_reload() {
+  _sa_service_name_ok "${1-}" || { echo "service: unsupported service name" >&2; return 64; }
   if ! sa_service_check "$1" && [ "${SA_SERVICE_FORCE:-0}" != 1 ]; then
     echo "service $1 inactive: reload skipped"; return 0
   fi
   sa_exec systemctl -- reload "$1"
 }
 
-sa_service_restart() { sa_exec systemctl -- restart "$1"; }
+sa_service_restart() { _sa_service_name_ok "${1-}" || return 64; sa_exec systemctl -- restart "$1"; }
 
 sa_service_reload_safe() {  # <name> <snapshot-id>
   local name=${1:-} snap=${2:-}
-  [ -n "$name" ] || { echo "reload_safe: service name required" >&2; return 64; }
+  _sa_service_name_ok "$name" || { echo "reload_safe: unsupported service name" >&2; return 64; }
   if [ "${SA_MODE:-apply}" = plan ]; then
     echo "plan: health($name) -> reload $name -> health($name); on failure rollback ${snap:-<id>}, restart, recheck"
     return 0
