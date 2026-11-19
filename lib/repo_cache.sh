@@ -50,7 +50,8 @@ _sa_cache_root_prepare() {
             echo "cache: privileged cache directory must be root-owned mode 0700" >&2; return 1;
         }
     else
-        /usr/bin/mkdir -m 0700 -p -- "$SA_RPM_CACHE" || return 1
+        /usr/bin/mkdir -p -- "$SA_RPM_CACHE" || return 1
+        /usr/bin/chmod 0700 -- "$SA_RPM_CACHE" || return 1
         [ -d "$SA_RPM_CACHE" ] && [ ! -L "$SA_RPM_CACHE" ] || return 1
         resolved=$(/usr/bin/realpath -e -- "$SA_RPM_CACHE") || return 1
         [ "$resolved" = "$SA_RPM_CACHE" ] || return 1
