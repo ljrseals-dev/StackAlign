@@ -67,6 +67,7 @@ sa_exec() {
 # line-oriented and does not attempt to make arbitrary child output executable.
 _sa_exec_redact() {
     /usr/bin/sed -E \
+      -e '/^stackalign: exec /d' \
       -e 's/([Pp]assword|[Tt]oken|[Ss]ecret|[Aa]uthorization|[Aa]pi[_-]?[Kk]ey|[Pp]rivate[_-]?[Kk]ey)([[:space:]]*[:=][[:space:]]*)[^[:space:],;]+/\1\2[REDACTED]/g' \
       -e 's#(https?://)[^/@[:space:]]+:[^/@[:space:]]+@#\1[REDACTED]@#g' \
       -e 's/\x1B\[[0-9;]*[[:alpha:]]//g' \
