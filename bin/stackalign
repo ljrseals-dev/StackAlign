@@ -35,7 +35,7 @@ GPLAN=0; YES=0
 # Keep command metadata in Bash: no cat/awk subprocesses during dispatch.
 _sa_known() {
   case "$1" in
-    version|help|plan|install|doctor|tune|rollback|update|site|db|state|tls|backup|restore|bench|secret|repo|optimize|xcart|routine|internet|hosting|agent|sftp|egress|contain) return 0 ;;
+    version|help|plan|install|doctor|tune|rollback|update|site|db|state|tls|backup|restore|bench|secret|repo|optimize|xcart|routine|internet|hosting|agent|llm|sftp|egress|contain) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -44,7 +44,7 @@ _sa_ms() {
   case "$1" in
     version|help|plan|doctor) printf '%s\n' M1 ;;
     install|tune|rollback|secret|repo|optimize) printf '%s\n' M2a ;;
-    internet|hosting|agent) printf '%s\n' M2b ;;
+    internet|hosting|agent|llm) printf '%s\n' M2b ;;
     site|db|state|tls|xcart|routine|sftp) printf '%s\n' M3 ;;
     backup|restore|egress|contain) printf '%s\n' M4 ;;
     update) printf '%s\n' M5 ;;
@@ -107,7 +107,7 @@ _sa_cmd_help() {
     routine) printf 'stackalign routine  [M3]\n  routine subsystem: plan|install|doctor|run|run-builtin\n' ;;
     internet) printf 'stackalign internet  [M2b]\n  interactive internet access preferences and read-only planning\n' ;;
     hosting) printf 'stackalign hosting  [M2b]\n  hosting scope prompt, plans, and read-only inspection\n' ;;
-    agent) printf 'stackalign agent  [M2b]\n  LLM request planner: plan <request>; optional sidecar status\n' ;;
+    agent) printf 'stackalign agent  [M2b]\n  constrained LLM request planner\n' ;;\n    llm) printf 'stackalign llm  [M2b]\n  local Ollama runtime: status|models|pull <model> [--apply]\n' ;;
     sftp) printf 'stackalign sftp  [M3]\n  chrooted key-only SFTP account management\n' ;;
     egress) printf 'stackalign egress  [M4]\n  outbound firewall and passive LAN audit\n' ;;
     contain) printf 'stackalign contain  [M4]\n  evidence preservation before rebuild\n' ;;
@@ -573,6 +573,22 @@ cmd_internet() {
 }
 
 
+cmd_llm() {
+  local sub=${1:-}; shift || true
+  source "$SA_ROOT/lib/llm_host.sh"
+  case "$sub" in
+    status) [ $# -eq 0 ] || _sa_die "usage: stackalign llm status"; sa_llm_host_status ;;
+    models) [ $# -eq 0 ] || _sa_die "usage: stackalign llm models"; sa_llm_host_models ;;
+    pull)
+      local model=${1:-} apply=0
+      [ -n "$model" ] || _sa_die "usage: stackalign llm pull <model> [--apply]"
+      shift
+      [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = --apply ] || _sa_die "usage: stackalign llm pull <model> [--apply]"; apply=1; }
+      sa_llm_host_pull "$model" "$apply" ;;
+    *) sa_llm_host_help; return 64 ;;
+  esac
+}
+
 cmd_agent() {
   local sub=${1:-}; shift || true
   case "$sub" in
@@ -677,7 +693,7 @@ _sa_dispatch() {  # <cmd> args...
     db)       cmd_db "$@" ;;
     state)    cmd_state "$@" ;;
     tls)      cmd_tls "$@" ;;
-    agent)    cmd_agent "$@" ;;
+    agent)    cmd_agent "$@" ;;\n    llm)      cmd_llm "$@" ;;
     backup)   cmd_backup "$@" ;;
     restore)  cmd_restore "$@" ;;
     sftp)     cmd_sftp "$@" ;;
