@@ -59,6 +59,7 @@ sa_task_create() {
   local kind=${1:-} description=${2:-} id qid qkind qdesc
   case "$kind" in health_check|website_deploy|database_backup|website_migration) ;; *) echo "task: unsupported type: $kind" >&2; return 64 ;; esac
   [[ -n $description && ${#description} -le 500 ]] || { echo "task: description must contain 1-500 characters" >&2; return 64; }
+  _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
   _sa_state_existing_db || { echo "task: state database is not initialized or has unsafe permissions" >&2; return 1; }
   id=$(< /proc/sys/kernel/random/uuid) || return 1
@@ -70,8 +71,9 @@ COMMIT;" || return $?
   printf '%s\n' "$id"
 }
 sa_task_list() {
+  _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
-  [[ -f $SA_STATE_DB && ! -L $SA_STATE_DB ]] || { echo "task: state database is not initialized" >&2; return 1; }
+  _sa_state_existing_db || { echo "task: state database is not initialized or has unsafe permissions" >&2; return 1; }
   _sa_state_exec "SELECT id || char(9) || task_type || char(9) || status || char(9) || description FROM tasks ORDER BY created_at DESC,id;"
 }
 sa_task_transition() {
@@ -79,8 +81,9 @@ sa_task_transition() {
   [[ $id =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "task: invalid task id" >&2; return 64; }
   case "$target" in running) expected=pending ;; succeeded|failed) expected=running ;; *) return 64 ;; esac
   [[ ${#detail} -le 500 ]] || { echo "task: detail exceeds 500 characters" >&2; return 64; }
+  _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
-  [[ -f $SA_STATE_DB && ! -L $SA_STATE_DB ]] || { echo "task: state database is not initialized" >&2; return 1; }
+  _sa_state_existing_db || { echo "task: state database is not initialized or has unsafe permissions" >&2; return 1; }
   qid=$(_sa_state_sql_quote "$id"); qdetail=$(_sa_state_sql_quote "$detail")
   result=$(_sa_state_exec "BEGIN IMMEDIATE;
 CREATE TEMP TABLE _sa_transition_result(changed INTEGER);
