@@ -3,6 +3,8 @@
 # Author: Lewis James Seals Jr.
 #
 # lib/secret.sh -- password and secret policy. Written from master prompt v8 Part III.
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+
 # Two primitives, never confused:
 #   machine-generated (256-bit random) -> SHA-256 for storage
 #   human-chosen (passphrase / legacy) -> Argon2id (>=15 MiB, 2 iters, 1 lane)
@@ -34,14 +36,14 @@ _sa_secret_breached() {
   local sha prefix suffix body
   sha=$(printf '%s' "$1" | sha1sum | awk '{print toupper($1)}')
   prefix=${sha:0:5}; suffix=${sha:5}
-  body=$(curl -fsS --proto '=https' --tlsv1.2 -- "https://api.pwnedpasswords.com/range/$prefix") || return 2
+  body=$(sa_exec curl -- --fail --silent --show-error --connect-timeout 5 --max-time 20 --proto '=https' --tlsv1.2 -- "https://api.pwnedpasswords.com/range/$prefix") || return 2
   if tr -d '\r' <<<"$body" | grep -qiE "^${suffix}:"; then return 0; fi
   return 1
 }
 
 _sa_secret_argon2() {  # <password> -> encoded hash on stdout; password via stdin only
   command -v argon2 >/dev/null 2>&1 || { echo "secret: argon2 CLI not installed; refusing weaker fallback" >&2; return 5; }
-  local salt; salt=$(openssl rand -hex 8) || return 5
+  local salt; salt=$(sa_exec openssl -- rand -hex 8) || return 5
   printf '%s' "$1" | argon2 "$salt" -id -t 2 -m 14 -p 1 -e   # m=14 -> 2^14 KiB = 16 MiB
 }
 
@@ -56,7 +58,7 @@ _sa_secret_passphrase() {  # -> passphrase on stdout
 
 _sa_secret_legacy() { LC_ALL=C tr -dc 'A-Za-z0-9_-' </dev/urandom | head -c "$SA_LEGACY_LEN"; }
 
-sa_secret_gen() {  # <name> [mode]
+_sa_secret_gen_impl() {  # <name> [mode]
   local name=${1:-} mode=${2:-machine} file val hash
   _sa_secret_name_ok "$name" || { echo "secret: invalid name (want [a-z0-9_-], <=64)" >&2; return 64; }
   case $mode in machine|human-passphrase|human-legacy) ;; *) echo "secret: unknown mode: $mode" >&2; return 64 ;; esac
@@ -69,7 +71,7 @@ sa_secret_gen() {  # <name> [mode]
   case $mode in
     machine)
       command -v openssl >/dev/null 2>&1 || { echo "secret: openssl required" >&2; return 5; }
-      val=$(openssl rand -base64 32) || return 5
+      val=$(sa_exec openssl -- rand -base64 32) || return 5
       hash="sha256:$(printf '%s' "$val" | sha256sum | awk '{print $1}')" ;;
     human-passphrase)
       for _ in 1 2 3 4 5; do
