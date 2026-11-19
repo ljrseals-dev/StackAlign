@@ -42,3 +42,8 @@ The existing Pinecone Neural main branch inspected for this integration uses mod
 ## Testing
 
 tests/test_llm.sh uses a fake curl executable and canned provider responses. It tests request construction and response validation without making a network request or sending data to a provider. CI does not validate a live provider account or model response.
+
+
+## Self-hosted runtime
+
+For local Ollama discovery, model inventory, explicit model pulls, and planner endpoint configuration, see [Self-hosted LLM runtime](SELF-HOSTED-LLM.md).
