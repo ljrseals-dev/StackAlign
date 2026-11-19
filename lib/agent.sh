@@ -28,8 +28,8 @@ sa_agent_status() {
     echo "agent: remote HTTPS use requires STACKALIGN_AGENT_ALLOW_REMOTE=1" >&2
     return 2
   fi
-  command -v curl >/dev/null 2>&1 || { echo "agent: curl is required" >&2; return 2; }
-  curl --silent --show-error --fail --connect-timeout 5 --max-time 10 --max-redirs 0 "$url/health"
+  [ -x /usr/bin/curl ] || { echo "agent: curl is required" >&2; return 2; }
+  sa_exec curl --timeout 15 -- --silent --show-error --fail --connect-timeout 5 --max-time 10 --max-redirs 0 -- "$url/health"
 }
 
 # Sends a read-only host snapshot and an operator question to Pinecone.
@@ -47,7 +47,7 @@ sa_agent_ask() {
   fi
   key=${STACKALIGN_AGENT_API_KEY:-}
   [[ $key =~ ^[A-Za-z0-9_-]{32,256}$ ]] || { echo "agent: set STACKALIGN_AGENT_API_KEY to a random key of at least 32 characters" >&2; return 2; }
-  command -v curl >/dev/null 2>&1 || { echo "agent: curl is required" >&2; return 2; }
+  [ -x /usr/bin/curl ] || { echo "agent: curl is required" >&2; return 2; }
   command -v python3 >/dev/null 2>&1 || { echo "agent: python3 is required to encode JSON safely" >&2; return 2; }
 
   umask 077
@@ -65,9 +65,9 @@ sa_agent_ask() {
     rm -rf -- "$tmp"; echo "agent: failed to encode request" >&2; return 1
   fi
   printf 'X-API-Key: %s\n' "$key" > "$headers" || { rm -rf -- "$tmp"; return 1; }
-  if curl --silent --show-error --fail --connect-timeout 5 --max-time 90 --max-filesize 1048576 --max-redirs 0 \
+  if sa_exec curl --timeout 100 -- --silent --show-error --fail --connect-timeout 5 --max-time 90 --max-filesize 1048576 --max-redirs 0 \
       --header "@$headers" --header "Content-Type: application/json" \
-      --data-binary "@$body" --output "$response" "$url/chat"; then
+      --data-binary "@$body" --output "$response" -- "$url/chat"; then
     :
   else
     rc=$?
