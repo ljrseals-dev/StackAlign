@@ -26,7 +26,8 @@ _sa_sftp_safe_config_path() {
 }
 
 _sa_sftp_path_policy() {
-    [ "$SA_SFTP_BASE" = /srv/sftp ] &&
+    [ "$SA_SFTP_GROUP" = sftponly ] &&
+        [ "$SA_SFTP_BASE" = /srv/sftp ] &&
         [ "$SA_SFTP_KEYDIR" = /etc/ssh/sftp_keys ] &&
         [ "$SA_SFTP_DROPIN" = /etc/ssh/sshd_config.d/50-stackalign-sftp.conf ]
 }
