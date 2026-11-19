@@ -65,7 +65,7 @@ from the caller's PATH, which cannot confer root privileges. It deliberately
 does not log argument vectors. The executor is integrated into the CLI update planner,
 LEMP package/service operations, repository package operations, database
 clients, site diagnostics, secret helpers, and selected SFTP account/sshd
-operations, backup clients, and firewall rule application.
+operations, backup clients, and firewall rule application. Firewall mutations now require root; privileged RPM cache writes are pinned to `/var/cache/stackalign/rpms`, owner-controlled mode 0700, and use no-overwrite publication. Privileged repository-definition writes are pinned to `/etc/yum.repos.d`, with ownership and write-permission checks.
 
 Shared semantic validators now cover package identifiers, database
 identifiers, site slugs, DNS names, service names, ports, and canonical paths
