@@ -5,6 +5,8 @@
 # lib/service.sh -- service lifecycle. Written from master prompt v8 Part III.
 # Needs lib/history.sh (sa_history_rollback) for reload_safe.
 #
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+
 # ASSUMPTIONS (spec is silent; unmeasured design choices):
 #   * a FAILED PRE-reload health check is treated like a failed post-check:
 #     the snapshot is rolled back, the service restarted, health rechecked.
@@ -14,13 +16,13 @@
 #   * after a successful rollback-and-recover, reload_safe returns 1 (the
 #     requested change did NOT take effect); 99 only if still unhealthy.
 
-sa_service_check() { systemctl is-active --quiet "$1"; }
+sa_service_check() { sa_exec systemctl -- is-active --quiet "$1"; }
 
 sa_service_health() {
   case $1 in
-    nginx)   nginx -t >/dev/null 2>&1 ;;
-    php-fpm) php-fpm -t >/dev/null 2>&1 ;;
-    mariadb|mysql) mysqladmin ping >/dev/null 2>&1 ;;
+    nginx)   sa_exec nginx -- -t >/dev/null 2>&1 ;;
+    php-fpm) sa_exec php-fpm -- -t >/dev/null 2>&1 ;;
+    mariadb|mysql) sa_exec mysqladmin -- ping >/dev/null 2>&1 ;;
     *) echo "sa_service_health: unknown service $1" >&2; return 64 ;;
   esac
 }
@@ -29,10 +31,10 @@ sa_service_reload() {
   if ! sa_service_check "$1" && [ "${SA_SERVICE_FORCE:-0}" != 1 ]; then
     echo "service $1 inactive: reload skipped"; return 0
   fi
-  systemctl reload "$1"
+  sa_exec systemctl -- reload "$1"
 }
 
-sa_service_restart() { systemctl restart "$1"; }
+sa_service_restart() { sa_exec systemctl -- restart "$1"; }
 
 sa_service_reload_safe() {  # <name> <snapshot-id>
   local name=${1:-} snap=${2:-}
