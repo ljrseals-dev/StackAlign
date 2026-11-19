@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 source "$ROOT/lib/exec.sh"
 T=$(mktemp -d)
-trap 'rm -rf -- "$T"' EXIT
+trap '/usr/bin/rm -rf -- "$T"' EXIT
 mkdir -m 700 "$T/bin"
 marker="$T/should-not-exist"
 printf '#!/usr/bin/env bash\nexit 99\n' > "$T/bin/openssl"
