@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 SHELL := /bin/bash
-SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh) $(wildcard tests/*.sh) scripts/time-tests.sh tests/lib/timing.sh
+SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh) $(wildcard tests/*.sh) scripts/time-tests.sh scripts/security-lint.sh tests/lib/timing.sh
 
 .PHONY: test test-timed lint security headers all
 all: lint headers test
