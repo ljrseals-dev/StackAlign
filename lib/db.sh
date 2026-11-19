@@ -3,6 +3,7 @@
 # Author: Lewis James Seals Jr.
 # lib/db.sh -- guarded MariaDB status, listing, and creation helpers.
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
 
 sa_db_validate_name() {
     local name=${1:-} lower
@@ -32,7 +33,7 @@ _sa_db_require_client() {
         echo "db: SA_MYSQL_DEFAULTS_FILE must be a regular non-symlink file owned by this user with mode 400 or 600" >&2
         return 64
     }
-    command -v mysql >/dev/null 2>&1 || {
+    [ -x /usr/bin/mysql ] || [ -x /usr/bin/mariadb ] || {
         echo "db: mysql client is not installed" >&2
         return 69
     }
@@ -42,7 +43,7 @@ _sa_db_require_client() {
 sa_db_status() {
     local result version account
     _sa_db_require_client || return $?
-    result=$(mysql --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT VERSION(), CURRENT_USER();') || {
+    result=$(sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT VERSION(), CURRENT_USER();') || {
         echo "db: connection or status query failed" >&2
         return 1
     }
