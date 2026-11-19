@@ -32,14 +32,14 @@ sa_fw_validate() {
 # Prints the active backend; refuses to mix firewalld and nftables.service.
 sa_fw_detect_backend() {
     local fwd=0 nft=0
-    systemctl is-active --quiet firewalld 2>/dev/null && fwd=1
-    systemctl is-active --quiet nftables 2>/dev/null && nft=1
+    sa_exec systemctl -- is-active --quiet firewalld 2>/dev/null && fwd=1
+    sa_exec systemctl -- is-active --quiet nftables 2>/dev/null && nft=1
     if [ "$fwd" -eq 1 ] && [ "$nft" -eq 1 ]; then
         echo "firewall: firewalld and nftables are both active; refusing to mix" >&2; return 1
     fi
     if [ "$fwd" -eq 1 ]; then echo firewalld; return 0; fi
     if [ "$nft" -eq 1 ] || command -v nft >/dev/null 2>&1; then echo nftables; return 0; fi
-    if command -v firewall-cmd >/dev/null 2>&1; then echo firewalld; return 0; fi
+    if [ -x /usr/bin/firewall-cmd ] >/dev/null 2>&1; then echo firewalld; return 0; fi
     echo "firewall: no supported backend found" >&2; return 1
 }
 
@@ -79,8 +79,8 @@ sa_fw_apply_nft() {
 sa_fw_install_intrusion() {
     case ${1:-} in
         none) return 0 ;;
-        crowdsec) dnf -y install -- crowdsec crowdsec-firewall-bouncer-nftables ;;
-        fail2ban) dnf -y install -- fail2ban ;;
+        crowdsec) sa_exec dnf -- -y install -- crowdsec crowdsec-firewall-bouncer-nftables ;;
+        fail2ban) sa_exec dnf -- -y install -- fail2ban ;;
         *) echo "firewall: bad intrusion: ${1:-}" >&2; return 64 ;;
     esac
 }
