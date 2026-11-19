@@ -43,7 +43,7 @@ _sa_llm_load_config() {
   while IFS= read -r line || [[ -n $line ]]; do
     ((lines += 1))
     (( lines <= 2 )) || { echo "agent: local LLM config has too many entries" >&2; return 2; }
-    [[ $line == *=* && $line != ** ]] || {
+    [[ $line == *=* && $line != *$'\\x0d'* ]] || {
       echo "agent: malformed local LLM config" >&2
       return 2
     }
