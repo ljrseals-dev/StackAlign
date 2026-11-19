@@ -43,18 +43,20 @@ sa_site_list() {
     [ "$found" -eq 1 ] || echo 'no vhost configuration files found in standard directories'
     return "$rc"
 }
+_sa_site_has_binary() { local binary; binary=$(_sa_exec_binary "$1") || return 1; [ -x "$binary" ]; }
+
 sa_site_doctor() {
     local server=${1:-all} rc=0 checked=0
     case "$server" in nginx|apache|all) ;; *) echo "usage: stackalign site doctor [nginx|apache|all]" >&2; return 64 ;; esac
     if [ "$server" = nginx ] || [ "$server" = all ]; then
-        if [ -x /usr/sbin/nginx ]; then
+        if _sa_site_has_binary nginx; then
             checked=1
             if sa_exec nginx -- -t; then echo 'nginx_config: valid'; else echo 'nginx_config: INVALID' >&2; rc=1; fi
         elif [ "$server" = nginx ]; then echo 'nginx: not installed' >&2; return 69
         else echo 'nginx: not installed (skipped)'; fi
     fi
     if [ "$server" = apache ] || [ "$server" = all ]; then
-        if [ -x /usr/sbin/httpd ]; then
+        if _sa_site_has_binary httpd; then
             checked=1
             if sa_exec httpd -- -t; then echo 'apache_config: valid'; else echo 'apache_config: INVALID' >&2; rc=1; fi
         elif [ "$server" = apache ]; then echo 'apache: not installed' >&2; return 69
