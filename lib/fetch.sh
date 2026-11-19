@@ -4,7 +4,7 @@
 #
 # lib/fetch.sh -- safe downloads for StackAlign-managed standalone artifacts.
 # DNF repository/package downloads remain DNF's responsibility.
-. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
 
 _sa_fetch_valid_https_url() {
   [[ $# -eq 1 && $1 =~ ^https://[A-Za-z0-9._~:/?#@!$\&\'\(\)\*+,\;=%-]+$ ]]
