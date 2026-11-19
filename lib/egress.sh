@@ -11,7 +11,7 @@ _sa_eg_unit_ok() { [[ $SA_EGRESS_REVERT_UNIT =~ ^[A-Za-z0-9_.@-]+$ ]]; }
 
 _sa_eg_audit() {
     log "egress: $*"
-    if [ -x /usr/bin/logger ]; then /usr/bin/logger -t stackalign-egress -- "$*"; fi
+    if [ -x /usr/bin/logger ] || [ "${EUID:-1}" -ne 0 ]; then sa_exec logger -- -t stackalign-egress -- "$*" 2>/dev/null || true; fi
     return 0
 }
 _sa_eg_cancel_revert() {
@@ -167,8 +167,8 @@ sa_egress_apply() {
         _sa_eg_audit "apply refused: previous revert could not be cancelled"; return 1
     fi
     if [ "$secs" -gt 0 ]; then
-        nftbin=/usr/sbin/nft
-        [ -x "$nftbin" ] || { rm -f "$tmp"; echo "egress: nft not found" >&2; return 1; }
+        if [ "${EUID:-1}" -eq 0 ]; then nftbin=/usr/sbin/nft; else nftbin=$(type -P nft 2>/dev/null); fi
+        [ -n "$nftbin" ] && [ -x "$nftbin" ] || { rm -f "$tmp"; echo "egress: nft not found" >&2; return 1; }
         if ! sa_exec systemd-run -- --quiet --replace --unit="$SA_EGRESS_REVERT_UNIT" --on-active="${secs}s" \
                 "$nftbin" delete table inet "$SA_EGRESS_TABLE"; then
             rm -f "$tmp"; echo "egress: could not schedule auto-revert; NOTHING was loaded" >&2
