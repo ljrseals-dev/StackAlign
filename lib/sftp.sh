@@ -26,8 +26,18 @@ _sa_sftp_safe_config_path() {
     [[ $resolved == "$path" ]]
 }
 
+_sa_sftp_path_policy() {
+    [ "$SA_SFTP_BASE" = /srv/sftp ] &&
+        [ "$SA_SFTP_KEYDIR" = /etc/ssh/sftp_keys ] &&
+        [ "$SA_SFTP_DROPIN" = /etc/ssh/sshd_config.d/50-stackalign-sftp.conf ]
+}
+
+_sa_sftp_require_root() {
+    [ "${EUID:-$(/usr/bin/id -u)}" -eq 0 ] || { echo "sftp: account and sshd changes require root" >&2; return 1; }
+}
 _sa_sftp_config_ok() {
-    local dir resolved
+    local dir resolved mode owner
+    _sa_sftp_path_policy || { echo "sftp: configured paths are outside approved roots" >&2; return 64; }
     [[ $SA_SFTP_GROUP =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || {
         echo "sftp: invalid group name for sshd configuration" >&2; return 64;
     }
@@ -45,6 +55,9 @@ _sa_sftp_config_ok() {
     [ "$resolved" = "$dir" ] || {
         echo "sftp: sshd configuration directory resolves through a symlink" >&2; return 1;
     }
+    read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$dir" 2>/dev/null) || return 1
+    [[ $owner == "$(/usr/bin/id -u)" && $mode =~ ^[0-7]{3,4}$ ]] || return 1
+    (( (8#$mode & 022) == 0 )) || { echo "sftp: sshd configuration directory is group/world writable" >&2; return 1; }
     [ ! -L "$SA_SFTP_DROPIN" ] || {
         echo "sftp: refusing symlinked sshd drop-in" >&2; return 1;
     }
@@ -91,6 +104,7 @@ sa_sftp_render() {
 
 sa_sftp_enable() {
     local dir new backup=""
+    _sa_sftp_require_root || return $?
     _sa_sftp_config_ok || return $?
     dir="$(/usr/bin/dirname -- "$SA_SFTP_DROPIN")"
     _sa_sftp_group || return 1
@@ -114,10 +128,15 @@ sa_sftp_enable() {
 }
 
 sa_sftp_add_user() {
-    local user=${1:-} keyfile=${2:-} key chroot tmp keytarget
+    local user=${1:-} keyfile=${2:-} key chroot tmp keytarget key_real
+    _sa_sftp_require_root || return $?
+    _sa_sftp_require_root || return $?
     _sa_sftp_config_ok || return $?
     _sa_sftp_user_ok "$user" || { echo "sftp: bad username" >&2; return 64; }
-    [ -f "$keyfile" ] || { echo "sftp: key file not found" >&2; return 64; }
+    [[ $keyfile == /* && $keyfile != *..* && $keyfile != *$'\n'* && $keyfile != *$'\r'* ]] || { echo "sftp: key file path must be canonical and absolute" >&2; return 64; }
+    [ -f "$keyfile" ] && [ ! -L "$keyfile" ] || { echo "sftp: key file must be a regular non-symlink file" >&2; return 64; }
+    key_real=$(/usr/bin/realpath -e -- "$keyfile" 2>/dev/null) || return 64
+    [[ $key_real == "$keyfile" ]] || { echo "sftp: key file path is not canonical" >&2; return 64; }
     key="$(<"$keyfile")"
     _sa_sftp_key_ok "$key" || { echo "sftp: not a plain single-line public key" >&2; return 64; }
     keytarget="$SA_SFTP_KEYDIR/$user"
