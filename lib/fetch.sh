@@ -4,6 +4,7 @@
 #
 # lib/fetch.sh -- safe downloads for StackAlign-managed standalone artifacts.
 # DNF repository/package downloads remain DNF's responsibility.
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
 
 _sa_fetch_valid_https_url() {
   [[ $# -eq 1 && $1 =~ ^https://[A-Za-z0-9._~:/?#@!$\&\'\(\)\*+,\;=%-]+$ ]]
@@ -58,7 +59,7 @@ sa_fetch_url() {
 
   for url in "${urls[@]}"; do
     : > "$tmp" || { rm -rf -- "$tmpdir"; return 1; }
-    if curl --fail --silent --show-error --location \
+    if sa_exec curl -- --fail --silent --show-error --location \
         --proto '=https' --proto-redir '=https' \
         --connect-timeout 10 --max-time 300 \
         --output "$tmp" -- "$url"; then
@@ -138,7 +139,7 @@ sa_fetch_gpg_key() {
     return 1
   fi
 
-  if ! colon_data=$(gpg --with-colons --import-options show-only --import "$out" 2>/dev/null); then
+  if ! colon_data=$(sa_exec gpg -- --with-colons --import-options show-only --import "$out" 2>/dev/null); then
     rm -f -- "$out"
     echo "error=gpg_key_parse_failed" >&2
     return 1
