@@ -71,7 +71,9 @@ beneath an approved root. The runtime INI parser accepts only the documented
 version-1 `meta` and `security` keys and rejects unknown keys and invalid
 types. Secret hash files are created through private same-directory temporary
 files and atomic no-overwrite publication; secret generation disables
-inherited xtrace inside its worker subshell.
+inherited xtrace inside its worker subshell. History storage now requires a
+canonical owner-controlled mode-0700 root, and secret-directory snapshots are
+refused unconditionally (the former environment override is ineffective).
 
 These measures are not a complete command-execution migration. Other modules
 still contain direct external-command calls and require individual review.
