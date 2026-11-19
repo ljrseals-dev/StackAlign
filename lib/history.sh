@@ -123,7 +123,7 @@ sa_history_list() {
   _sa_hist_root_validate || { echo "sa_history_list: history root is unsafe" >&2; return 1; }
   local d
   for d in "$SA_HISTORY_ROOT"/*/; do
-    [ -f "${d}manifest" ] && basename "$d"
+    [ -f "${d}manifest" ] && /usr/bin/basename -- "$d"
   done
   return 0
 }
