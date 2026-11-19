@@ -8,6 +8,7 @@
 : "${SA_EGRESS_TABLE:=stackalign_egress}"
 : "${SA_EGRESS_REVERT_UNIT:=stackalign-egress-revert}"
 _sa_eg_unit_ok() { [[ $SA_EGRESS_REVERT_UNIT =~ ^[A-Za-z0-9_.@-]+$ ]]; }
+_sa_eg_require_root() { [ "${EUID:-1}" -eq 0 ] || { echo "egress: firewall mutation requires root" >&2; return 1; }; }
 
 _sa_eg_audit() {
     log "egress: $*"
@@ -151,6 +152,7 @@ sa_egress_render() {
 
 # sa_egress_apply <allowlist> <dns-csv> [lan-csv|none] [revert-seconds]
 sa_egress_apply() {
+    _sa_eg_require_root || return $?
     local tmp rc=0 secs=${4:-0} nftbin
     [[ $secs =~ ^[0-9]+$ ]] && { [ "$secs" -eq 0 ] || { [ "$secs" -ge 10 ] && [ "$secs" -le 3600 ]; }; } || {
         echo "egress: revert seconds must be 0 or 10-3600" >&2; return 64; }
@@ -190,6 +192,7 @@ sa_egress_apply() {
 }
 
 sa_egress_confirm() {
+    _sa_eg_require_root || return $?
     if sa_exec systemctl -- is-active --quiet "$SA_EGRESS_REVERT_UNIT.timer" 2>/dev/null ||
        sa_exec systemctl -- is-active --quiet "$SA_EGRESS_REVERT_UNIT.service" 2>/dev/null; then
         _sa_eg_cancel_revert || {
@@ -207,6 +210,7 @@ sa_egress_confirm() {
     echo "egress: no revert timer pending and table is absent" >&2; return 1
 }
 sa_egress_remove() {
+    _sa_eg_require_root || return $?
     _sa_eg_cancel_revert || {
         echo "egress: could not cancel pending revert timer/service; refusing removal" >&2; return 1; }
     if ! sa_exec nft -- list table inet "$SA_EGRESS_TABLE" >/dev/null 2>&1; then
