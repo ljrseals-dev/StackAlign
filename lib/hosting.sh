@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 #
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+
 # Hosting mode planning, operator scope selection, and read-only inspection.
 # Runtime apply remains gated until isolation and EL9 acceptance tests pass.
 
