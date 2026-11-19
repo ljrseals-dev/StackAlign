@@ -17,7 +17,10 @@ jobs:
       - run: make security
       - run: make lint
       - run: make headers
-      - run: make test
+      - name: Run fixture tests as unprivileged user
+        run: |
+          chown -R nobody:nobody "$GITHUB_WORKSPACE"
+          su -s /bin/bash nobody -c "cd '$GITHUB_WORKSPACE' && make test"
 
   almalinux9:
     # EL9 userland regression coverage; not a real-host deployment test.
