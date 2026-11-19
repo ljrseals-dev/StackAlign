@@ -12,12 +12,10 @@ marker="$T/should-not-exist"
 printf '#!/usr/bin/env bash\nexit 99\n' > "$T/bin/openssl"
 chmod 700 "$T/bin/openssl"
 
-# A poisoned PATH cannot replace the fixed executable path.
 PATH="$T/bin"
 export PATH
 sa_exec openssl -- version >/dev/null
 
-# Shell syntax in an argument remains data; it is never evaluated.
 set +e
 sa_exec openssl -- version '$(touch '"$marker"')' >/dev/null 2>&1
 rc=$?
@@ -25,14 +23,17 @@ set -e
 [ "$rc" -ne 0 ]
 [ ! -e "$marker" ]
 
-# Unknown executable names and missing separators fail closed.
-if sa_exec 'openssl;touch' -- version >/dev/null 2>&1; then
-    echo "unexpectedly accepted an unapproved executable" >&2
-    exit 1
-fi
-if sa_exec openssl version >/dev/null 2>&1; then
-    echo "unexpectedly accepted missing argument separator" >&2
-    exit 1
-fi
+if sa_exec 'openssl;touch' -- version >/dev/null 2>&1; then exit 1; fi
+if sa_exec openssl version >/dev/null 2>&1; then exit 1; fi
+if _sa_exec_binary bash >/dev/null 2>&1; then exit 1; fi
+
+redacted=$(_sa_exec_redact <<'EOF'
+password=hunter2 token:abc123 Authorization:BearerSecret https://user:pass@example.test/x
+EOF
+)
+[[ $redacted == *'password=[REDACTED]'* ]]
+[[ $redacted == *'token:[REDACTED]'* ]]
+[[ $redacted == *'Authorization:[REDACTED]'* ]]
+[[ $redacted == *'https://[REDACTED]@example.test/x'* ]]
 
 echo "trusted executor: PASS"
