@@ -95,6 +95,14 @@ arbitrary PATH-based executable substitution.
   server/PHP/Redis/site examples in `docs/CONFIG-SCHEMA.md` remain proposals.
 - The privileged CLI entrypoints use an absolute Bash interpreter in
   privileged mode and establish a predictable PATH before module dispatch.
+- LEMP writes are constrained to `/etc` and `/var/www`; SFTP mutation is
+  root-only and constrained to the approved `/srv/sftp`, `/etc/ssh/sftp_keys`,
+  and StackAlign sshd drop-in paths. The SFTP group is fixed to `sftponly`.
+- SFTP public-key inputs must be canonical, regular, non-symlink files; the
+  sshd drop-in directory must be owner-controlled and not group/world writable.
+- Passphrase wordlists must be canonical, regular, non-symlink, world-readable,
+  and not group/world writable. This prevents a root-run secret generator from
+  accidentally deriving passphrases from private files such as `/etc/shadow`.
 - The update apply function now returns exit code 2 without invoking package
   or service tools. Update planning remains read-only and does not authorize
   apply.
