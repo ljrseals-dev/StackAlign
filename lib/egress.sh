@@ -167,7 +167,8 @@ sa_egress_apply() {
         _sa_eg_audit "apply refused: previous revert could not be cancelled"; return 1
     fi
     if [ "$secs" -gt 0 ]; then
-        nftbin="$(type -P nft)" || { rm -f "$tmp"; echo "egress: nft not found" >&2; return 1; }
+        nftbin=/usr/sbin/nft
+        [ -x "$nftbin" ] || { rm -f "$tmp"; echo "egress: nft not found" >&2; return 1; }
         if ! sa_exec systemd-run -- --quiet --replace --unit="$SA_EGRESS_REVERT_UNIT" --on-active="${secs}s" \
                 "$nftbin" delete table inet "$SA_EGRESS_TABLE"; then
             rm -f "$tmp"; echo "egress: could not schedule auto-revert; NOTHING was loaded" >&2
