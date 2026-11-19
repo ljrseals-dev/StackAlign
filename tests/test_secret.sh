@@ -27,6 +27,18 @@ printf 'w%04d\n' $(seq 1 7776) > "$T/words.txt"; export SA_WORDLIST="$T/words.tx
 
 # shellcheck source=../lib/secret.sh
 source "$ROOT/lib/secret.sh"
+# Test-only command injection: production resolves approved binaries absolutely.
+sa_exec() {
+  local tool=$1
+  shift
+  [ "${1-}" = -- ] && shift
+  case "$tool" in
+    curl|argon2) [ -x "$T/bin/$tool" ] || return 127; "$T/bin/$tool" "$@" ;;
+    openssl) /usr/bin/openssl "$@" ;;
+    *) return 64 ;;
+  esac
+}
+_sa_secret_argon2_available() { [ -x "$T/bin/argon2" ]; }
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }
