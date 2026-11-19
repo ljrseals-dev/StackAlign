@@ -13,12 +13,27 @@ def reject(message: str) -> None:
     raise SystemExit(65)
 
 
+def strict_loads(raw: str):
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key: {key}")
+            result[key] = value
+        return result
+
+    def reject_constant(value):
+        raise ValueError(f"non-standard JSON constant: {value}")
+
+    return json.loads(raw, object_pairs_hook=unique_object, parse_constant=reject_constant)
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         reject("validator requires one response file")
     try:
-        envelope = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
+        envelope = strict_loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError):
         reject("provider response is not valid JSON")
 
     content = envelope
@@ -26,13 +41,24 @@ def main() -> None:
         choices = envelope.get("choices")
         if not isinstance(choices, list) or len(choices) != 1:
             reject("expected exactly one completion choice")
-        message = choices[0].get("message") if isinstance(choices[0], dict) else None
-        content = message.get("content") if isinstance(message, dict) else None
+        choice = choices[0]
+        if not isinstance(choice, dict):
+            reject("completion choice is not an object")
+        if choice.get("finish_reason") not in (None, "stop"):
+            reject("completion did not finish normally")
+        message = choice.get("message")
+        if not isinstance(message, dict):
+            reject("completion message is missing or malformed")
+        if message.get("refusal") or message.get("tool_calls") or message.get("function_call"):
+            reject("refusal and tool-call responses are not accepted")
+        if message.get("role") not in (None, "assistant"):
+            reject("completion message role is not assistant")
+        content = message.get("content")
 
     if isinstance(content, str):
         try:
-            plan = json.loads(content)
-        except json.JSONDecodeError:
+            plan = strict_loads(content)
+        except ValueError:
             reject("model content is not strict JSON")
     else:
         plan = content
