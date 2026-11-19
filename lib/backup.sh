@@ -43,7 +43,7 @@ sa_backup_dump() {
         echo "backup: SA_MYSQL_DEFAULTS_FILE must be a regular, non-symlink file owned by this user with mode 400 or 600" >&2
         return 64
     }
-    { [ -x /usr/bin/mysqldump ] || [ -x /usr/bin/mariadb-dump ]; } || { echo "backup: mysqldump is not installed" >&2; return 69; }
+    { if [ "${EUID:-1}" -eq 0 ]; then [ -x /usr/bin/mysqldump ] || [ -x /usr/bin/mariadb-dump ]; else command -v mysqldump >/dev/null 2>&1 || command -v mariadb-dump >/dev/null 2>&1; fi; } || { echo "backup: mysqldump is not installed" >&2; return 69; }
     [ -x /usr/bin/gzip ] || { echo "backup: gzip is not installed" >&2; return 69; }
     ( umask 077; mkdir -p -- "$dest" ) || return 1
     [ -d "$dest" ] && [ ! -L "$dest" ] && [ "$(realpath -e -- "$dest" 2>/dev/null)" = "$dest" ] && _sa_bk_private_dir_ok "$dest" || {
@@ -75,7 +75,7 @@ sa_backup_physical() {
         echo "backup: SA_MYSQL_DEFAULTS_FILE must be a regular, non-symlink file owned by this user with mode 400 or 600" >&2
         return 64
     }
-    [ -x /usr/bin/mariabackup ] || { echo "backup: mariabackup is not installed" >&2; return 69; }
+    { if [ "${EUID:-1}" -eq 0 ]; then [ -x /usr/bin/mariabackup ]; else command -v mariabackup >/dev/null 2>&1; fi; } || { echo "backup: mariabackup is not installed" >&2; return 69; }
     local parent=${target%/*}
     ( umask 077; mkdir -p -- "$parent" ) || return 1
     _sa_bk_private_dir_ok "$parent" || {
@@ -89,7 +89,7 @@ sa_backup_physical() {
         echo "backup: physical backup failed; partial data retained and marked incomplete" >&2
         return 1
     fi
-    if ! ( umask 077; mariabackup --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --prepare --target-dir="$target" >&2 ); then
+    if ! ( umask 077; sa_exec mariabackup -- --defaults-file="$SA_MYSQL_DEFAULTS_FILE" --prepare --target-dir="$target" >&2 ); then
         [ -d "$target" ] && { umask 077; : > "$target/.stackalign-incomplete"; }
         echo "backup: prepare failed; backup retained and marked incomplete" >&2
         return 1
