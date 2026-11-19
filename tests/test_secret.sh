@@ -63,6 +63,7 @@ val2=$(sa_secret_gen dbroot2 machine 2>/dev/null); [ "$val" != "$val2" ] && ok "
   traced_value=$(sa_secret_gen tracecheck machine)
   set +x
   exec 2>&3
+  [ -n "$traced_value" ] || exit 1
   if grep -Fq -- "$traced_value" "$T/xtrace.log"; then exit 1; fi
 ) && ok "xtrace cannot record generated secret" || bad "xtrace leaked generated secret"
 
