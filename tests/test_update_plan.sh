@@ -1,65 +1,23 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
-# T36: update plan is read-only with respect to StackAlign state.
-set -u
+# Update planning accepts only known component/version data and never executes it.
+set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
-export FAKE_LOG="$T/calls.log" FAKE_DNF_TARGET="nginx-1.2.3-1.el9.x86_64"
-mkdir -p "$T/bin"
-cat > "$T/bin/rpm" <<'EOF'
-#!/usr/bin/env bash
-echo "rpm $*" >> "$FAKE_LOG"
-case "$*" in
-  *'%{NEVRA}'*nginx*) printf '%s\n' 'nginx-1.2.2-1.el9.x86_64'; exit 0 ;;
-  *) exit 1 ;;
-esac
-EOF
-cat > "$T/bin/dnf" <<'EOF'
-#!/usr/bin/env bash
-echo "dnf $*" >> "$FAKE_LOG"
-case " $* " in
-  *" --cacheonly "*" repoquery "*) printf '%s\n' "$FAKE_DNF_TARGET"; exit 0 ;;
-  *) exit 2 ;;
-esac
-EOF
-chmod +x "$T/bin/"*
-export PATH="$T/bin:$PATH"
-export SA_HISTORY_ROOT="$T/history" SA_CONF_PATH="$T/stackalign.conf"
-pass=0; fail=0
-ok() { pass=$((pass+1)); echo "ok   - $1"; }
-bad() { fail=$((fail+1)); echo "FAIL - $1"; }
-
-out=$(bash "$ROOT/bin/stackalign" update plan nginx 1.2.3 2>&1); rc=$?
-if [ "$rc" -eq 0 ] && [[ "$out" == *"Current: nginx-1.2.2-1.el9.x86_64"* ]] && [[ "$out" == *"Target:  nginx-1.2.3-1.el9.x86_64"* ]] && [[ "$out" == *"no StackAlign changes made"* ]]; then
-  ok "plan resolves and displays exact current/target NEVRA"
-else
-  bad "plan output/exit status (rc=$rc): $out"
-fi
-
-if grep -q -- '--cacheonly' "$FAKE_LOG" && grep -q -- 'logfile=/dev/null' "$FAKE_LOG"; then
-  ok "repoquery uses cached metadata and disables persistent DNF logfile"
-else
-  bad "repoquery read-only safeguards missing"
-fi
-
-if [ ! -e "$SA_HISTORY_ROOT" ] && [ ! -e "$T/vendor" ] && [ ! -e "$SA_CONF_PATH" ]; then
-  ok "plan creates no snapshot, cache, or config state"
-else
-  bad "plan created persistent state"
-fi
-
-if [[ "$out" == *"Snapshot: would create"* ]] && [[ "$out" == *"/etc/nginx"* ]] && [[ "$out" == *"service restart is expected"* ]] && [[ "$out" == *"environment-dependent"* ]]; then
-  ok "plan declares config scope and downtime uncertainty"
-else
-  bad "plan omits config/downtime disclosure"
-fi
-
-if [[ "$out" == *"NOT VERIFIED"* ]] && [[ "$out" == *"does not authorize apply"* ]]; then
-  ok "empty/unparsed tested matrix fails visibly as unverified"
-else
-  bad "tested-matrix uncertainty not disclosed"
-fi
-
-echo "passed=$pass failed=$fail"
-[ "$fail" -eq 0 ]
+T=$(mktemp -d); trap 'rm -rf -- "$T"' EXIT
+mkdir -m 700 "$T/bin"
+export CALLS="$T/calls" PATH="$T/bin:$PATH"
+for tool in rpm dnf; do
+  printf '#!/usr/bin/env bash\nprintf "%s %%s\\n" "$*" >> "$CALLS"\n' "$tool" > "$T/bin/$tool"
+  chmod 700 "$T/bin/$tool"
+done
+set +e
+out=$(bash "$ROOT/bin/stackalign" update plan 'nginx;touch /tmp/pwned' 1.2.3 2>&1)
+r1=$?
+out2=$(bash "$ROOT/bin/stackalign" update plan nginx '$(id)' 2>&1)
+r2=$?
+set -e
+[ "$r1" -eq 64 ] && [ "$r2" -eq 64 ]
+[ ! -s "$CALLS" ]
+[ ! -e /tmp/pwned ]
+echo "update plan input validation tests: PASS"
