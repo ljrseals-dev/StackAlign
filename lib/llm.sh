@@ -15,7 +15,7 @@ _sa_llm_url_valid() {
 }
 
 _sa_llm_load_config() {
-  local config line key value owner mode canonical
+  local config line key value owner mode canonical config_dir dir_owner dir_mode
   local config_url="" config_model="" lines=0 seen_url=0 seen_model=0
   config=${STACKALIGN_LLM_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/stackalign/llm.env}
   [[ -e $config || -L $config ]] || return 0
@@ -36,6 +36,22 @@ _sa_llm_load_config() {
   }
   (( (8#$mode & 077) == 0 )) || {
     echo "agent: local LLM config permissions are too broad; require mode 600 or stricter" >&2
+    return 2
+  }
+  config_dir=${config%/*}
+  canonical=$(realpath -e -- "$config_dir") || return 2
+  [[ $canonical == "$config_dir" && -d $config_dir && ! -L $config_dir ]] || {
+    echo "agent: local LLM config parent must be a canonical non-symlink directory" >&2
+    return 2
+  }
+  dir_owner=$(stat -c '%u' -- "$config_dir") || return 2
+  dir_mode=$(stat -c '%a' -- "$config_dir") || return 2
+  [[ $dir_owner == "$(id -u)" ]] || {
+    echo "agent: local LLM config parent must be owned by the current user" >&2
+    return 2
+  }
+  (( (8#$dir_mode & 077) == 0 )) || {
+    echo "agent: local LLM config parent permissions are too broad; require mode 700 or stricter" >&2
     return 2
   }
 
