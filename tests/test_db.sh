@@ -38,6 +38,14 @@ EOF
 chmod 700 "$TMP/bin/mysql"
 
 source "$ROOT/lib/db.sh"
+
+# Test-only dependency injection: production sa_exec remains absolute-path only.
+sa_exec() {
+  local tool=$1
+  shift
+  [ "${1-}" = -- ] && shift
+  "$TMP/bin/$tool" "$@"
+}
 listing=$(sa_db_list)
 printf '%s\n' "$listing" | grep -q 'app_db'
 status=$(sa_db_status)
