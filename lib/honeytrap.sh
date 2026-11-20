@@ -117,3 +117,63 @@ status_honeytrap() {
     done
     return "$state"
 }
+
+# Desktop disturbance detection. This observes input-device opens, not
+# individual keystrokes or pointer motion.
+AUDIT_DESKTOP_SRC="${AUDIT_DESKTOP_SRC:-${_HONEYTRAP_ROOT}/config/audit/stackalign-desktop-honeytrap.rules}"
+AUDIT_DESKTOP_DEST="${AUDIT_DESKTOP_DEST:-/etc/audit/rules.d/stackalign-desktop-honeytrap.rules}"
+AUDIT_DESKTOP_PLUGIN_DEST="${AUDIT_DESKTOP_PLUGIN_DEST:-/etc/audit/plugins.d/stackalign-desktop-honeytrap.conf}"
+DESKTOP_TRIGGER_SCRIPT="${DESKTOP_TRIGGER_SCRIPT:-/usr/local/bin/stackalign-desktop-trigger.sh}"
+
+install_desktop_honeytrap() {
+    _honeytrap_require_root || return
+    printf '%s\\n' "Installing StackAlign Desktop Disturbance Honey Trap..."
+    if [[ ! -r "$AUDIT_DESKTOP_SRC" ]]; then
+        printf 'Desktop audit rule source is not readable: %s\\n' "$AUDIT_DESKTOP_SRC" >&2
+        return 1
+    fi
+    _honeytrap_install_file "$_HONEYTRAP_ROOT/scripts/desktop-trigger.sh" "$DESKTOP_TRIGGER_SCRIPT" 0700
+    _honeytrap_install_file "$AUDIT_DESKTOP_SRC" "$AUDIT_DESKTOP_DEST" 0640
+    local plugin_tmp
+    plugin_tmp="$(mktemp)"
+    printf '%s\\n' \
+        "# Copyright (c) 2026 Lewis James Seals Jr." \
+        "# SPDX-License-Identifier: MIT" \
+        "active = yes" "direction = out" "path = $DESKTOP_TRIGGER_SCRIPT" \
+        "type = always" "args =" "format = string" >"$plugin_tmp"
+    install -D -m 0640 "$plugin_tmp" "$AUDIT_DESKTOP_PLUGIN_DEST"
+    rm -f "$plugin_tmp"
+
+    if [[ "${MOCK_SYSTEM:-0}" != 1 ]]; then
+        if command -v augenrules >/dev/null 2>&1; then
+            augenrules --load
+        elif command -v auditctl >/dev/null 2>&1; then
+            auditctl -R "$AUDIT_DESKTOP_DEST"
+        else
+            printf '%s\\n' "Neither augenrules nor auditctl is available." >&2
+            return 1
+        fi
+        if command -v service >/dev/null 2>&1; then
+            service auditd restart
+        else
+            printf '%s\\n' "service is unavailable; desktop dispatcher activation is NOT verified." >&2
+            return 1
+        fi
+    fi
+    printf '%s\\n' "Desktop Honey Trap installed. It detects input-device opens, not individual input events."
+}
+
+uninstall_desktop_honeytrap() {
+    _honeytrap_require_root || return
+    rm -f -- "$AUDIT_DESKTOP_DEST" "$AUDIT_DESKTOP_PLUGIN_DEST" "$DESKTOP_TRIGGER_SCRIPT"
+    if [[ "${MOCK_SYSTEM:-0}" != 1 ]]; then
+        if command -v augenrules >/dev/null 2>&1; then
+            augenrules --load
+        elif command -v auditctl >/dev/null 2>&1; then
+            # Remove the live key rule if the rule file was removed before reload.
+            auditctl -D -k stackalign_desktop_honeytrap
+        fi
+        command -v service >/dev/null 2>&1 && service auditd restart
+    fi
+    printf '%s\\n' "Desktop Honey Trap configuration removed."
+}
