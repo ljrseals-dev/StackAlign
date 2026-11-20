@@ -200,9 +200,19 @@ cmd_install() {
   [ "${#POS[@]}" -eq 0 ] || _sa_die "usage: stackalign install [--plan|--apply]"
   source "$SA_ROOT/lib/lemp.sh"
   if [ "$APPLY" = 1 ] && [ "$PLAN_FLAG" = 0 ]; then
-    sa_lemp_install apply
+    sa_lemp_install apply || return $?
+    # Honey Trap is part of the default StackAlign installation. Enforcement
+    # remains conservative: no automatic IP bans are enabled by installation.
+    source "$SA_ROOT/lib/honeytrap.sh"
+    echo "Installing default SSH and LEMP/LLM Honey Trap monitors..."
+    echo "LOCKOUT CHECK: retain console/recovery access and inventory admin, VPN, NAT, proxy, and load-balancer IPs."
+    install_honeytrap || return $?
+    install_desktop_honeytrap || return $?
+    echo "Honey Trap installed. Automatic IP bans remain OFF."
+    echo "Run 'stackalign honeytrap credentials' for SSH credential and release SHA-256 guidance."
   else
     sa_lemp_install plan
+    echo "plan: default install also installs SSH and LEMP/LLM Honey Trap audit monitors"
     echo "(re-run with --apply to make changes)"
   fi
 }
