@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
 # StackAlign M2a memory tuner.
 # Inputs are MiB unless otherwise stated. SA_* variables are explicit cost
