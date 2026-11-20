@@ -89,6 +89,12 @@ status_honeytrap() {
     else
         printf '%s\n' "skipped  optional LEMP/LLM desktop monitor (no configured resource roots existed at install)"
     fi
+    if [[ -f "$FAIL2BAN_JAIL_DEST" ]] && grep -Eq '^[[:space:]]*enabled[[:space:]]*=[[:space:]]*true' "$FAIL2BAN_JAIL_DEST"; then
+        printf '%s\n' "[ENABLED] Fail2Ban Honey Trap enforcement"
+    else
+        printf '%s\n' "[DISABLED] Fail2Ban Honey Trap enforcement"
+        state=1
+    fi
     return "$state"
 }
 
