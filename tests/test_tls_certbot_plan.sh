@@ -17,6 +17,9 @@ chmod 700 "$TMP/bin/certbot"
 export CERTBOT_EXECUTION_MARKER="$TMP/certbot-was-executed"
 
 source "$ROOT/lib/tls.sh"
+
+# These tests isolate plan/status behavior; dedicated tests exercise clock failures.
+sa_tls_clock_preflight() { printf '%s\n' 'clock: synchronized=yes timezone=Etc/UTC'; }
 PATH="$TMP/bin:$PATH"
 export PATH
 export SA_CERT_ROOT="$TMP/stackalign-certs"

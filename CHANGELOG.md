@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### TLS safety
+
+- Added an automatic system-clock synchronization gate to TLS preflight and Certbot HTTP-01 planning. Unsynchronized or unverifiable time blocks downstream TLS planning; timezone is reported separately because TLS validity uses UTC time.
+- Added timedatectl to the trusted command allowlist and regression tests for synchronized, unsynchronized, and unavailable clock state.
+
 ### Documentation
 
 - Corrected project status to distinguish repository design documents from implementation; conversation-only drafts are not repository files or test results.
