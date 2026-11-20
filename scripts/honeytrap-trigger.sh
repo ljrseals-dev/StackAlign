@@ -25,7 +25,8 @@ handle_event() {
     local -a matches=() unique_matches=()
     local -A seen=()
 
-    [[ "$event" == *"type=SYSCALL"* && "$event" == *"key=stackalign_honeytrap"* ]] || return 0
+    [[ "$event" == *"type=SYSCALL"* ]] || return 0
+    [[ "$event" == *"key=stackalign_honeytrap"* || "$event" == *'key="stackalign_honeytrap"'* ]] || return 0
     pid="$(printf '%s\n' "$event" | sed -nE 's/.*type=SYSCALL.* pid=([0-9]+).*/\1/p')"
     if [[ ! "$pid" =~ ^[1-9][0-9]*$ ]]; then
         log_event "UNATTRIBUTED audit event; no ban attempted"
