@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # tests/vm_egress_smoke.sh -- REAL-HOST smoke test for lib/egress.sh. NOT run by `make test`.
 #
 # Run ONLY on an IPv6-enabled disposable VM, as root, from the
