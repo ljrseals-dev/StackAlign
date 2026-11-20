@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # Trusted command boundary. Arguments remain distinct; argv is never logged.
 
 _sa_exec_binary() {
