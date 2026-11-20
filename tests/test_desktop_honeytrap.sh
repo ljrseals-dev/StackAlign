@@ -46,27 +46,27 @@ test_install_emits_recursive_rules_for_existing_paths() {
 test_php_upload_is_info() {
     : >"$DESKTOP_HONEYTRAP_LOG"
     event 2000 /usr/sbin/php-fpm stackalign_upload_drop
-    grep -q '\\[INFO\\] Expected upload-queue write' "$DESKTOP_HONEYTRAP_LOG"
-    ! grep -q '\\[CRITICAL\\]' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q '\[INFO\] Expected upload-queue write' "$DESKTOP_HONEYTRAP_LOG"
+    ! grep -q '\[CRITICAL\]' "$DESKTOP_HONEYTRAP_LOG"
 }
 test_unexpected_upload_is_critical_and_unattributed() {
     : >"$DESKTOP_HONEYTRAP_LOG"
     event 3000 /bin/bash stackalign_upload_drop
-    grep -q '\\[CRITICAL\\] Unexpected executable' "$DESKTOP_HONEYTRAP_LOG"
-    grep -q '\\[UNATTRIBUTED\\]' "$DESKTOP_HONEYTRAP_LOG"
-    ! grep -q '\\[BAN\\]' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q '\[CRITICAL\] Unexpected executable' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q '\[UNATTRIBUTED\]' "$DESKTOP_HONEYTRAP_LOG"
+    ! grep -q '\[BAN\]' "$DESKTOP_HONEYTRAP_LOG"
 }
 test_python_model_write_is_critical() {
     : >"$DESKTOP_HONEYTRAP_LOG"
     event 4000 /usr/bin/python3 stackalign_model_tamper
-    grep -q '\\[CRITICAL\\] Unauthorized LLM model write' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q '\[CRITICAL\] Unauthorized LLM model write' "$DESKTOP_HONEYTRAP_LOG"
 }
 test_x11_and_senses_have_independent_allowlists() {
     : >"$DESKTOP_HONEYTRAP_LOG"
     event 5000 /usr/bin/Xvfb stackalign_desktop_honeytrap
-    grep -q '\\[INFO\\] Expected X11 runtime' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q '\[INFO\] Expected X11 runtime' "$DESKTOP_HONEYTRAP_LOG"
     event 5001 /tmp/rogue stackalign_senses_tamper
-    grep -q '\\[CRITICAL\\] Unauthorized 5-Senses' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q '\[CRITICAL\] Unauthorized 5-Senses' "$DESKTOP_HONEYTRAP_LOG"
 }
 test_ban_requires_opt_in_allowlist_and_unique_peer() {
     : >"$DESKTOP_HONEYTRAP_LOG"
@@ -87,7 +87,7 @@ printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 192.0.2.10:5555 users:(("worker",pid=6002,
 MOCK
     chmod +x "$HONEYTRAP_SS_BIN"
     event 6002 /tmp/rogue stackalign_model_tamper
-    grep -q '\\[BAN_SKIPPED\\]' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q '\[BAN_SKIPPED\]' "$DESKTOP_HONEYTRAP_LOG"
     ! grep -q 'CORRELATED pid=6002' "$DESKTOP_HONEYTRAP_LOG"
 
     : >"$DESKTOP_HONEYTRAP_LOG"
@@ -98,7 +98,7 @@ printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 198.51.100.10:5555 users:(("worker",pid=60
 MOCK
     chmod +x "$HONEYTRAP_SS_BIN"
     event 6001 /tmp/rogue stackalign_model_tamper
-    grep -q '\\[UNATTRIBUTED\\]' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q '\[UNATTRIBUTED\]' "$DESKTOP_HONEYTRAP_LOG"
     ! grep -q 'CORRELATED pid=6001' "$DESKTOP_HONEYTRAP_LOG"
 }
 run() {
