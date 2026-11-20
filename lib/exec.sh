@@ -16,7 +16,7 @@ _sa_exec_binary() {
         esac
     fi
     case "$tool" in
-        systemctl) printf '%s\n' /usr/bin/systemctl ;;
+        systemctl) printf '%s\n' /usr/bin/systemctl ;;\n        timedatectl) printf '%s\n' /usr/bin/timedatectl ;;
         nginx) printf '%s\n' /usr/sbin/nginx ;;
         httpd) printf '%s\n' /usr/sbin/httpd ;;
         apachectl) printf '%s\n' /usr/sbin/apachectl ;;
