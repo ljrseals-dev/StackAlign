@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/sftp.sh -- chrooted, key-only SFTP accounts (the replacement for an FTP daemon).
 # Uses sshd's internal-sftp inside a Match Group drop-in. No password logins, no shell,
 # no forwarding. Existing system accounts are never converted or deleted.
