@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 set -Eeuo pipefail
 trap 'printf "oracle test failed at line %s (rc=%s)\n" "$LINENO" "$?" >&2' ERR
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
