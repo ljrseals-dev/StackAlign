@@ -8,6 +8,28 @@
 
 : "${SA_CERT_ROOT:=/etc/stackalign/certs}"
 
+# Require systemd to confirm that the host clock is synchronized before any
+# certificate workflow is planned or preflighted. Timezone is diagnostic only:
+# certificate validity uses absolute UTC time, not the displayed local zone.
+sa_tls_clock_preflight() {
+    local synchronized timezone
+    synchronized=$(sa_exec_capture timedatectl -- show --property=NTPSynchronized --value 2>/dev/null) || {
+        echo "error=tls_clock_state_unavailable; refusing TLS workflow" >&2
+        return 3
+    }
+    if [ "$synchronized" != yes ]; then
+        echo "error=tls_clock_unsynchronized; NTPSynchronized is not yes; refusing TLS workflow" >&2
+        return 3
+    }
+
+    timezone=$(sa_exec_capture timedatectl -- show --property=Timezone --value 2>/dev/null) || timezone=""
+    if [[ $timezone =~ ^[A-Za-z0-9_+.-]+(/[A-Za-z0-9_+.-]+)*$ ]]; then
+        printf 'clock: synchronized=yes timezone=%s\n' "$timezone"
+    else
+        printf '%s\n' 'clock: synchronized=yes timezone=UNKNOWN (timezone does not affect TLS validity)'
+    fi
+}
+
 # Return the selected executable path without invoking the client.
 _sa_tls_client_path() {
     case "${1-}" in
@@ -78,7 +100,7 @@ _sa_tls_ca_url() {
 }
 
 # Render a Certbot HTTP-01 webroot command without executing it.
-# Issuance remains disabled pending source verification and deployment acceptance.
+# The clock gate runs before any issuance plan can be produced.
 sa_tls_certbot_http01_plan() {
     local domain=${1-} webroot=${2-} email=${3-} resolved certbot config work logs root_mode cert_root
     local arg quoted email_re='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
@@ -86,6 +108,7 @@ sa_tls_certbot_http01_plan() {
         echo "error=tls_certbot_http01_invalid_arguments" >&2
         return 64
     }
+    sa_tls_clock_preflight || return $?
     _sa_tls_domain_ok "$domain" || {
         echo "error=tls_http01_domain_invalid" >&2
         return 64
@@ -162,9 +185,11 @@ sa_tls_certbot_http01_plan() {
     printf '\n'
 }
 
-# Reports known ACME renewal schedulers; returns 2 if one is active.
+# Clock synchronization is checked before scheduler inspection. Return 3 for
+# clock uncertainty and 2 for an independently detected scheduler conflict.
 sa_tls_preflight() {
     local found=0 t
+    sa_tls_clock_preflight || return 3
     for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer acme.sh.timer lego-renew.timer stackalign-renew.timer; do
         if sa_exec systemctl -- is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
     done
@@ -291,8 +316,9 @@ sa_tls_status() {
 
 # sa_tls_issue is deliberately fail-closed. The previous adapter passed
 # ZeroSSL EAB secrets in argv and deployed cert/key as separate file renames.
-# Do not restore issuance until both secret transport and atomic activation exist.
+# Keep it blocked even after clock validation until atomic activation exists.
 sa_tls_issue() {
+    sa_tls_clock_preflight || return $?
     echo "tls: issuance BLOCKED — protected EAB transport and crash-safe atomic certificate/key deployment are not implemented" >&2
     return 2
 }
