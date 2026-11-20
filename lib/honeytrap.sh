@@ -61,8 +61,11 @@ DECOY
         elif command -v auditctl >/dev/null 2>&1; then auditctl -R "$AUDIT_RULE_DEST"
         else printf '%s\n' "Neither augenrules nor auditctl is available." >&2; return 1; fi
         command -v service >/dev/null 2>&1 || { printf '%s\n' "service is unavailable; dispatcher activation is NOT verified." >&2; return 1; }
-        service auditd restart
-        command -v fail2ban-client >/dev/null 2>&1 && fail2ban-client reload || :
+        service auditd restart || { printf '%s\n' "auditd restart failed; Honey Trap dispatcher is NOT active." >&2; return 1; }
+        command -v fail2ban-client >/dev/null 2>&1 || { printf '%s\n' "fail2ban-client is unavailable; enabled Honey Trap jail cannot enforce bans." >&2; return 1; }
+        fail2ban-client -t || { printf '%s\n' "Fail2Ban configuration test failed." >&2; return 1; }
+        fail2ban-client reload || { printf '%s\n' "Fail2Ban reload failed; Honey Trap jail is NOT confirmed active." >&2; return 1; }
+        fail2ban-client status stackalign-honeytrap || { printf '%s\n' "Honey Trap jail did not load after reload." >&2; return 1; }
     fi
     printf '%s\n' "Honey Trap files installed; live auditd and Fail2Ban behavior requires host acceptance testing."
 }
@@ -174,7 +177,11 @@ install_desktop_honeytrap() {
         elif command -v auditctl >/dev/null 2>&1; then auditctl -R "$AUDIT_DESKTOP_DEST"
         else printf '%s\n' "Neither augenrules nor auditctl is available." >&2; return 1; fi
         command -v service >/dev/null 2>&1 || { printf '%s\n' "service is unavailable; dispatcher activation is NOT verified." >&2; return 1; }
-        service auditd restart
+        service auditd restart || { printf '%s\n' "auditd restart failed; desktop dispatcher is NOT active." >&2; return 1; }
+        command -v fail2ban-client >/dev/null 2>&1 || { printf '%s\n' "fail2ban-client is unavailable; enabled Honey Trap jail cannot enforce bans." >&2; return 1; }
+        fail2ban-client -t || { printf '%s\n' "Fail2Ban configuration test failed." >&2; return 1; }
+        fail2ban-client reload || { printf '%s\n' "Fail2Ban reload failed." >&2; return 1; }
+        fail2ban-client status stackalign-honeytrap || { printf '%s\n' "Honey Trap jail did not load after reload." >&2; return 1; }
     fi
     printf 'LEMP/LLM Honey Trap installed with %s active audit roots. Missing roots were skipped, not created.\n' "$count"
 }
