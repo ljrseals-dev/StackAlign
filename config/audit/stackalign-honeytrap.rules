@@ -1,0 +1,7 @@
+# Copyright (c) 2026 Lewis James Seals Jr.
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr. (@ljrseals-dev)
+# Repository: https://github.com/ljrseals-dev/StackAlign
+# The installer renders the active watch path into /etc/audit/rules.d.
+# This template documents the required audit key and permissions.
+-w /etc/stackalign/traps/root_ssh_backup.key -p rwa -k stackalign_honeytrap
