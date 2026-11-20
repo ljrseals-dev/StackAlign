@@ -23,11 +23,14 @@ field_value() {
 }
 is_one_of() {
     local value=$1 list=$2 item
-    for item in $list; do [[ "$value" == "$item" ]] && return 0; done
+    local -a allowed_items=()
+    read -r -a allowed_items <<<"$list"
+    for item in "${allowed_items[@]}"; do [[ "$value" == "$item" ]] && return 0; done
     return 1
 }
 classify() {
-    local key=$1 exe=$2 base=${exe##*/} level=CRITICAL reason
+    local key=$1 exe=$2 base level=CRITICAL reason
+    base=${exe##*/}
     case "$key" in
         stackalign_upload_drop)
             if is_one_of "$base" "${HONEYTRAP_UPLOAD_INFO_EXES:-php-fpm php-fpm7.4 php-fpm8.0 php-fpm8.1 php-fpm8.2 php-fpm8.3 php-fpm8.4 python python2 python3 python3.8 python3.9 python3.10 python3.11 python3.12 python3.13 nginx}"; then
@@ -92,7 +95,7 @@ handle_event() {
         log_event "[UNATTRIBUTED] CRITICAL event key=$key PID=$pid executable=$exe; no unique established TCP peer"
         return 0
     fi
-    log_event "[CORRELATED] PID=$pid executable=$exe has unique TCP peer=$remote"
+    log_event "CORRELATED pid=$pid peer=$remote HONEYTRAP_ACCESS key=$key executable=$exe"
     # Explicit opt-in only; use the dedicated StackAlign jail, never sshd.
     if [[ "$AUTO_BAN" == 1 ]]; then
         if "$FAIL2BAN_BIN" set "$BAN_JAIL" banip "$remote" >/dev/null 2>&1; then
