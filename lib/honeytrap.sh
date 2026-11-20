@@ -138,7 +138,7 @@ install_desktop_honeytrap() {
             fi
         done
     } >"$tmp_rule"
-    if [[ "$count" -eq 0 ]]; then rm -f "$tmp_rule"; printf '%s\n' "No configured LEMP/LLM audit roots exist; refusing an empty policy." >&2; return 1; fi
+    if [[ "$count" -eq 0 ]]; then rm -f "$tmp_rule"; printf '%s\n' "No configured LEMP/LLM audit roots exist yet; SSH Honey Trap remains installed. Re-run honeytrap install after creating the application paths."; return 0; fi
     install -m 0640 "$tmp_rule" "$AUDIT_DESKTOP_DEST"; rm -f "$tmp_rule"
     local plugin_tmp
     plugin_tmp="$(mktemp)"
