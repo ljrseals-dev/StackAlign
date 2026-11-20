@@ -11,7 +11,6 @@ TAG=stackalign-honeytrap
 LOGGER_BIN="${DESKTOP_HONEYTRAP_LOGGER_BIN:-logger}"
 SS_BIN="${HONEYTRAP_SS_BIN:-ss}"
 AUTO_BAN="${HONEYTRAP_AUTO_BAN:-0}"
-BAN_JAIL="${HONEYTRAP_BAN_JAIL:-stackalign-honeytrap}"
 
 log_event() {
     "$LOGGER_BIN" -t "$TAG" -- "$1" 2>/dev/null || :
