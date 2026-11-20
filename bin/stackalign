@@ -48,7 +48,7 @@ GPLAN=0; YES=0
 # Keep command metadata in Bash: no cat/awk subprocesses during dispatch.
 _sa_known() {
   case "$1" in
-    version|help|plan|install|doctor|tune|rollback|update|site|db|tls|backup|restore|bench|secret|repo|optimize|xcart|routine|internet|hosting|agent|sftp|egress|contain) return 0 ;;
+    version|help|plan|install|doctor|tune|rollback|update|site|db|tls|backup|restore|bench|secret|repo|optimize|xcart|routine|internet|hosting|agent|sftp|egress|contain|honeytrap) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -59,7 +59,7 @@ _sa_ms() {
     install|tune|rollback|secret|repo|optimize) printf '%s\n' M2a ;;
     internet|hosting|agent) printf '%s\n' M2b ;;
     site|db|tls|xcart|routine|sftp) printf '%s\n' M3 ;;
-    backup|restore|egress|contain) printf '%s\n' M4 ;;
+    backup|restore|egress|contain|honeytrap) printf '%s\n' M4 ;;
     update) printf '%s\n' M5 ;;
     bench) printf '%s\n' M6 ;;
     *) return 1 ;;
@@ -92,7 +92,8 @@ _sa_cmd_list() {
     agent M2b 'Pinecone Neural planning sidecar: status or ask (read-only)' \
     sftp M3 'chrooted key-only SFTP account management' \
     egress M4 'outbound firewall and passive LAN audit' \
-    contain M4 'evidence preservation before rebuild'
+    contain M4 'evidence preservation before rebuild' \\
+    honeytrap M4 'Honey Trap lifecycle and credential/lockout guidance'
 }
 
 _sa_cmd_help() {
@@ -122,6 +123,7 @@ _sa_cmd_help() {
     sftp) printf 'stackalign sftp  [M3]\n  chrooted key-only SFTP account management\n' ;;
     egress) printf 'stackalign egress  [M4]\n  outbound firewall and passive LAN audit\n' ;;
     contain) printf 'stackalign contain  [M4]\n  evidence preservation before rebuild\n' ;;
+    honeytrap) printf 'stackalign honeytrap  [M4]\n  install|status|remove|credentials; automatic bans disabled by default\n' ;;
     *) return 1 ;;
   esac
 }
@@ -204,6 +206,31 @@ cmd_install() {
     echo "(re-run with --apply to make changes)"
   fi
 }
+cmd_honeytrap() {
+  local sub=${1:-}; shift || true
+  source "$SA_ROOT/lib/honeytrap.sh"
+  case "$sub" in
+    install)
+      [ $# -eq 0 ] || _sa_die "usage: stackalign honeytrap install"
+      [ "${EUID:-$(id -u)}" -eq 0 ] || _sa_die "honeytrap install requires root"
+      echo "LOCKOUT SAFETY: verify local-console/recovery access and record admin, VPN, NAT, reverse-proxy, load-balancer, and monitoring IPs before enabling bans."
+      echo "Run 'stackalign honeytrap credentials' for password, SSH-key, and SHA-256 guidance."
+      install_honeytrap || return $?
+      install_desktop_honeytrap ;;
+    status)
+      [ $# -eq 0 ] || _sa_die "usage: stackalign honeytrap status"
+      status_honeytrap ;;
+    remove)
+      [ $# -eq 0 ] || _sa_die "usage: stackalign honeytrap remove"
+      [ "${EUID:-$(id -u)}" -eq 0 ] || _sa_die "honeytrap remove requires root"
+      uninstall_desktop_honeytrap && uninstall_honeytrap ;;
+    credentials|help)
+      [ $# -eq 0 ] || _sa_die "usage: stackalign honeytrap credentials"
+      honeytrap_credentials_help ;;
+    *) _sa_die "usage: stackalign honeytrap <install|status|remove|credentials>" ;;
+  esac
+}
+
 cmd_repo() {
   _sa_parse "" "$@"
   [ ${#POS[@]} -eq 1 ] && [ "${POS[0]}" = inventory ] || _sa_die "usage: stackalign repo inventory"
@@ -654,6 +681,7 @@ _sa_dispatch() {  # <cmd> args...
     backup)   cmd_backup "$@" ;;
     restore)  cmd_restore "$@" ;;
     sftp)     cmd_sftp "$@" ;;
+    honeytrap) cmd_honeytrap "$@" ;;
     egress)   cmd_egress "$@" ;;
     *)        _sa_stub "$c" "$@" ;;
   esac
