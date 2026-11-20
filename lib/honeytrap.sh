@@ -104,10 +104,10 @@ install_desktop_honeytrap() {
             "${HONEYTRAP_X11_DIR:-/tmp/.X11-unix}:stackalign_desktop_honeytrap:wa" \
             "${HONEYTRAP_MODELS_DIR:-/var/www/llm-models}:stackalign_model_tamper:wa" \
             "${HONEYTRAP_UPLOADS_DIR:-/var/www/html/uploads}:stackalign_upload_drop:w" \
-            "${HONEYTRAP_SENSES_DIR:-/var/run/5-senses}:stackalign_senses_tamper:wa"; do
+            "${HONEYTRAP_SENSES_DIR:-/run/5-senses}:stackalign_senses_tamper:wa"; do
             path=${spec%%:*}; spec=${spec#*:}; key=${spec%%:*}; perm=${spec##*:}
             if [[ -d "$path" && ! -L "$path" ]]; then
-                printf '%s\n' "-a always,exit -F dir=$path -F perm=$perm -F key=$key"
+                printf '%s\n' "-a always,exit -F dir=${path%/}/ -F perm=$perm -F key=$key"
                 count=$((count + 1))
             else
                 printf 'Skipping absent or symlinked audit root: %s\n' "$path" >&2
