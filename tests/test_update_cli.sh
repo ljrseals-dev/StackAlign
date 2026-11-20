@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # CLI-level proof that update apply cannot execute unverified DNF operations.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
