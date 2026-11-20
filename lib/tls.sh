@@ -20,7 +20,7 @@ sa_tls_clock_preflight() {
     if [ "$synchronized" != yes ]; then
         echo "error=tls_clock_unsynchronized; NTPSynchronized is not yes; refusing TLS workflow" >&2
         return 3
-    }
+    fi
 
     timezone=$(sa_exec_capture timedatectl -- show --property=Timezone --value 2>/dev/null) || timezone=""
     if [[ $timezone =~ ^[A-Za-z0-9_+.-]+(/[A-Za-z0-9_+.-]+)*$ ]]; then
