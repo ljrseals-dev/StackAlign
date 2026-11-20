@@ -110,9 +110,21 @@ StackAlign Honey Trap credential and integrity guidance
 - The development installer's EXPECTED_SHA256 is PLACEHOLDER and intentionally
   refuses installation until a release process pins a real digest. Do not replace
   it with a digest calculated from an untrusted download.
-- Automatic IP bans are OFF by default. Before enabling them, document every
-  admin, VPN, NAT, reverse-proxy, load-balancer, and monitoring address in
-  HONEYTRAP_BAN_IGNORE_IPS; validate actual PID/socket topology and recovery.
+- Automatic IP banning is ENABLED by default after installation.
+- Configure HONEYTRAP_BAN_IGNORE_IPS with every administrator, VPN, NAT,
+  reverse-proxy, load-balancer, and monitoring address before deployment.
+  This exact-IP exclusion list is optional to the mechanism but strongly
+  recommended; CIDR ranges are not accepted by the current trigger.
+- PID/socket correlation is not proof of the original HTTP client. Validate
+  topology and console recovery before exposing the service to untrusted traffic.
+- Create an administrator SSH key with: ssh-keygen -t ed25519 -a 100
+- Generate a strong password with: openssl rand -base64 32
+  Store generated secrets in a password manager or secret manager; never in
+  the Honey Trap decoy directory, Git, shell history, or logs.
+- Verify a downloaded release with: sha256sum <downloaded-release-file>
+  Compare it with the independently trusted 64-character SHA-256 digest in
+  release metadata. SHA-256 is an integrity checksum, not an authentication
+  password or private signing key.
 GUIDE
 }
 
