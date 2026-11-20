@@ -74,11 +74,11 @@ test_ban_is_enabled_by_default_with_optional_allowlist_and_unique_peer() {
     export HONEYTRAP_BAN_IGNORE_IPS="192.0.2.10 192.0.2.11"
     cat >"$HONEYTRAP_SS_BIN" <<'MOCK'
 #!/usr/bin/env bash
-printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 198.51.100.9:5555 users:(("worker",pid=6000,fd=3))'
+printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 8.8.8.8:5555 users:(("worker",pid=6000,fd=3))'
 MOCK
     chmod +x "$HONEYTRAP_SS_BIN"
     event 6000 /tmp/rogue stackalign_model_tamper
-    grep -q 'CORRELATED pid=6000 peer=198.51.100.9 HONEYTRAP_ACCESS' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q 'CORRELATED pid=6000 peer=8.8.8.8 HONEYTRAP_ACCESS' "$DESKTOP_HONEYTRAP_LOG"
 
     : >"$DESKTOP_HONEYTRAP_LOG"
     cat >"$HONEYTRAP_SS_BIN" <<'MOCK'
@@ -93,8 +93,8 @@ MOCK
     : >"$DESKTOP_HONEYTRAP_LOG"
     cat >"$HONEYTRAP_SS_BIN" <<'MOCK'
 #!/usr/bin/env bash
-printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 198.51.100.9:5555 users:(("worker",pid=6001,fd=3))'
-printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 198.51.100.10:5555 users:(("worker",pid=6001,fd=4))'
+printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 8.8.8.8:5555 users:(("worker",pid=6001,fd=3))'
+printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 1.1.1.1:5555 users:(("worker",pid=6001,fd=4))'
 MOCK
     chmod +x "$HONEYTRAP_SS_BIN"
     event 6001 /tmp/rogue stackalign_model_tamper
