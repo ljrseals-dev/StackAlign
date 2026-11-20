@@ -4,7 +4,7 @@
 # Repository: https://github.com/ljrseals-dev/StackAlign
 # Recursive directory filters record writes and attribute changes beneath each
 # configured root. Missing optional roots are omitted by the installer.
--a always,exit -F dir=/tmp/.X11-unix -F perm=wa -F key=stackalign_desktop_honeytrap
--a always,exit -F dir=/var/www/llm-models -F perm=wa -F key=stackalign_model_tamper
--a always,exit -F dir=/var/www/html/uploads -F perm=w -F key=stackalign_upload_drop
--a always,exit -F dir=/var/run/5-senses -F perm=wa -F key=stackalign_senses_tamper
+-a always,exit -F dir=/tmp/.X11-unix/ -F perm=wa -F key=stackalign_desktop_honeytrap
+-a always,exit -F dir=/var/www/llm-models/ -F perm=wa -F key=stackalign_model_tamper
+-a always,exit -F dir=/var/www/html/uploads/ -F perm=w -F key=stackalign_upload_drop
+-a always,exit -F dir=/run/5-senses/ -F perm=wa -F key=stackalign_senses_tamper
