@@ -93,6 +93,15 @@ handle_event() {
     log_event "CORRELATED pid=$pid peer=$remote HONEYTRAP_ACCESS key=$key executable=$exe"
     # Explicit opt-in only; use the dedicated StackAlign jail, never sshd.
     if [[ "$AUTO_BAN" == 1 ]]; then
+        local ignore_ips="${HONEYTRAP_BAN_IGNORE_IPS:-}"
+        if [[ -z "$ignore_ips" ]]; then
+            log_event "[BAN_DISABLED] HONEYTRAP_BAN_IGNORE_IPS must list administrator and proxy addresses before automatic banning can run"
+            return 0
+        fi
+        if is_one_of "$remote" "$ignore_ips"; then
+            log_event "[BAN_SKIPPED] peer=$remote is in HONEYTRAP_BAN_IGNORE_IPS"
+            return 0
+        fi
         if "$FAIL2BAN_BIN" set "$BAN_JAIL" banip "$remote" >/dev/null 2>&1; then
             log_event "[BAN] $remote via jail=$BAN_JAIL for key=$key"
         else
