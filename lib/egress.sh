@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/egress.sh -- opt-in default-deny outbound firewall and passive LAN audit.
 # Linux/nftables only. No persistence, installation, or host changes on source.
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
