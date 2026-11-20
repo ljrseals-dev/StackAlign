@@ -35,6 +35,7 @@ test_install_sets_permissions() {
 }
 test_install_preserves_existing_decoy() {
     mkdir -p "$TRAP_DIR"
+    chmod 0600 "$TRAP_FILE"
     printf 'operator-managed marker\n' >"$TRAP_FILE"
     install_honeytrap
     grep -q 'operator-managed marker' "$TRAP_FILE"
