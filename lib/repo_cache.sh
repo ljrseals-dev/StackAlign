@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/repo_cache.sh -- verified RPM cache keyed by exact NEVRA.
 # Usage: sa_cache_get <nevra>   -> prints cached rpm path (only) on stdout.
 # Every path returns non-zero on failure; dnf output goes to stderr.
