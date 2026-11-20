@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/update.sh -- package update apply boundary.
 #
 # Real-host DNF transactions, dependency effects, service recovery, and RPM
