@@ -85,6 +85,30 @@ status_honeytrap() {
     return "$state"
 }
 
+
+# Print credential and integrity guidance without generating or exposing secrets.
+honeytrap_credentials_help() {
+    cat <<'GUIDE'
+StackAlign Honey Trap credential and integrity guidance
+- No Honey Trap password, API token, or private key is created or required.
+- root_ssh_backup.key is a DECOY marker, not a key; never configure it for SSH
+  authentication and never put a real credential in the trap directory.
+- Keep SSH administrator authentication separate. Prefer individually assigned
+  SSH keys; retain a tested console/recovery path before changing sshd or bans.
+- Never paste private keys or passwords into CLI arguments, shell history, logs,
+  Git, or Honey Trap configuration. Use a host secret manager/password tool.
+- Release SHA-256 is an integrity pin, not a password or signing key. Obtain the
+  expected 64-character digest from trusted release metadata over HTTPS and compare
+  it with: sha256sum <downloaded-release.tar.gz>.
+- The development installer's EXPECTED_SHA256 is PLACEHOLDER and intentionally
+  refuses installation until a release process pins a real digest. Do not replace
+  it with a digest calculated from an untrusted download.
+- Automatic IP bans are OFF by default. Before enabling them, document every
+  admin, VPN, NAT, reverse-proxy, load-balancer, and monitoring address in
+  HONEYTRAP_BAN_IGNORE_IPS; validate actual PID/socket topology and recovery.
+GUIDE
+}
+
 # LEMP/LLM server-side resource monitoring. Paths are configurable; the
 # installer never creates application directories or changes their ownership.
 AUDIT_DESKTOP_SRC="${AUDIT_DESKTOP_SRC:-${_HONEYTRAP_ROOT}/config/audit/stackalign-desktop-honeytrap.rules}"
