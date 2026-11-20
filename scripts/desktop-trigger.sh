@@ -17,10 +17,6 @@ BAN_JAIL="${HONEYTRAP_BAN_JAIL:-stackalign-honeytrap}"
 log_event() {
     "$LOGGER_BIN" -t "$TAG" -- "$1" 2>/dev/null || :
 }
-field_value() {
-    local event=$1 field=$2
-    printf '%s\n' "$event" | sed -nE "s/.*(^|[[:space:]])${field}=\"?([^\"[:space:]]+)\"?.*/\\2/p" | head -n1
-}
 is_one_of() {
     local value=$1 list=$2 item
     local -a allowed_items=()
@@ -72,7 +68,7 @@ remote_peer_for_pid() {
     printf '%s\n' "$addr"
 }
 handle_event() {
-    local event=$1 pid exe key classification level reason base remote
+    local event=$1 pid exe key classification level reason remote
     [[ "$event" == *"type=SYSCALL"* ]] || return 0
     key="$(printf '%s\n' "$event" | sed -nE 's/.*key="?([^" ]+)"?.*/\1/p' | head -n1)"
     [[ "$key" == stackalign_upload_drop || "$key" == stackalign_model_tamper || "$key" == stackalign_desktop_honeytrap || "$key" == stackalign_senses_tamper ]] || return 0
@@ -85,7 +81,6 @@ handle_event() {
     classification="$(classify "$key" "$exe")" || return 0
     level="$(printf '%s\n' "$classification" | sed -n '1p')"
     reason="$(printf '%s\n' "$classification" | sed -n '2p')"
-    base="$(printf '%s\n' "$classification" | sed -n '3p')"
     log_event "[$level] $reason (PID $pid)"
     [[ "$level" == CRITICAL ]] || return 0
 
