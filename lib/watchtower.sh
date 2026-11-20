@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/watchtower.sh -- advisory audit. Observes and scores; never changes anything.
 
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
