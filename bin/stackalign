@@ -123,7 +123,7 @@ _sa_cmd_help() {
     sftp) printf 'stackalign sftp  [M3]\n  chrooted key-only SFTP account management\n' ;;
     egress) printf 'stackalign egress  [M4]\n  outbound firewall and passive LAN audit\n' ;;
     contain) printf 'stackalign contain  [M4]\n  evidence preservation before rebuild\n' ;;
-    honeytrap) printf 'stackalign honeytrap  [M4]\n  install|status|remove|credentials; automatic bans disabled by default\n' ;;
+    honeytrap) printf 'stackalign honeytrap  [M4]\n  install|status|remove|credentials; automatic bans enabled by default\n' ;;
     *) return 1 ;;
   esac
 }
@@ -208,7 +208,8 @@ cmd_install() {
     echo "LOCKOUT CHECK: retain console/recovery access and inventory admin, VPN, NAT, proxy, and load-balancer IPs."
     install_honeytrap || return $?
     install_desktop_honeytrap || return $?
-    echo "Honey Trap installed. Automatic IP bans remain OFF."
+    echo "Honey Trap installed. Automatic Fail2Ban enforcement is ENABLED by default."
+    echo "LOCKOUT WARNING: verify console recovery and configure HONEYTRAP_BAN_IGNORE_IPS before exposing the host."
     echo "Run 'stackalign honeytrap credentials' for SSH credential and release SHA-256 guidance."
   else
     sa_lemp_install plan
@@ -223,7 +224,7 @@ cmd_honeytrap() {
     install)
       [ $# -eq 0 ] || _sa_die "usage: stackalign honeytrap install"
       [ "${EUID:-$(id -u)}" -eq 0 ] || _sa_die "honeytrap install requires root"
-      echo "LOCKOUT SAFETY: verify local-console/recovery access and record admin, VPN, NAT, reverse-proxy, load-balancer, and monitoring IPs before enabling bans."
+      echo "LOCKOUT WARNING: automatic banning is ENABLED after installation. Verify local-console recovery and configure admin, VPN, NAT, reverse-proxy, load-balancer, and monitoring exclusions first."
       echo "Run 'stackalign honeytrap credentials' for password, SSH-key, and SHA-256 guidance."
       install_honeytrap || return $?
       install_desktop_honeytrap ;;
