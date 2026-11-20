@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 """Black-box tests for the Bash M2a memory arithmetic.
 
 The harness invokes the production Bash implementation. It contains no second
