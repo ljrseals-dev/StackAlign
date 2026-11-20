@@ -68,9 +68,9 @@ test_x11_and_senses_have_independent_allowlists() {
     event 5001 /tmp/rogue stackalign_senses_tamper
     grep -q '\[CRITICAL\] Unauthorized 5-Senses' "$DESKTOP_HONEYTRAP_LOG"
 }
-test_ban_requires_opt_in_allowlist_and_unique_peer() {
+test_ban_is_enabled_by_default_with_optional_allowlist_and_unique_peer() {
     : >"$DESKTOP_HONEYTRAP_LOG"
-    export HONEYTRAP_AUTO_BAN=1
+    unset HONEYTRAP_AUTO_BAN
     export HONEYTRAP_BAN_IGNORE_IPS="192.0.2.10 192.0.2.11"
     cat >"$HONEYTRAP_SS_BIN" <<'MOCK'
 #!/usr/bin/env bash
@@ -103,7 +103,7 @@ MOCK
 }
 run() {
     local failed=0 t
-    for t in test_install_emits_recursive_rules_for_existing_paths test_php_upload_is_info test_unexpected_upload_is_critical_and_unattributed test_python_model_write_is_critical test_x11_and_senses_have_independent_allowlists test_ban_requires_opt_in_allowlist_and_unique_peer; do
+    for t in test_install_emits_recursive_rules_for_existing_paths test_php_upload_is_info test_unexpected_upload_is_critical_and_unattributed test_python_model_write_is_critical test_x11_and_senses_have_independent_allowlists test_ban_is_enabled_by_default_with_optional_allowlist_and_unique_peer; do
         if "$t"; then printf 'PASS %s\n' "$t"; else printf 'FAIL %s\n' "$t"; failed=1; fi
     done
     uninstall_desktop_honeytrap
