@@ -93,7 +93,21 @@ status_honeytrap() {
         printf '%s\n' "skipped  optional LEMP/LLM desktop monitor (no configured resource roots existed at install)"
     fi
     if [[ -f "$FAIL2BAN_JAIL_DEST" ]] && grep -Eq '^[[:space:]]*enabled[[:space:]]*=[[:space:]]*true' "$FAIL2BAN_JAIL_DEST"; then
-        printf '%s\n' "[ENABLED] Fail2Ban Honey Trap enforcement"
+        printf '%s\n' "[CONFIGURED] Fail2Ban Honey Trap jail enabled in $FAIL2BAN_JAIL_DEST"
+        if [[ "${MOCK_SYSTEM:-0}" != 1 ]]; then
+            if ! command -v fail2ban-client >/dev/null 2>&1; then
+                printf '%s\n' "[ERROR] fail2ban-client is unavailable; enforcement is NOT verified"
+                state=1
+            elif ! fail2ban-client status stackalign-honeytrap; then
+                printf '%s\n' "[ERROR] Honey Trap jail is not loaded; enforcement is NOT verified"
+                state=1
+            else
+                printf '%s\n' "[LOADED] Fail2Ban reports the Honey Trap jail active"
+                fail2ban-client get stackalign-honeytrap failregex || state=1
+            fi
+        else
+            printf '%s\n' "[MOCK] Live Fail2Ban state not checked"
+        fi
     else
         printf '%s\n' "[DISABLED] Fail2Ban Honey Trap enforcement"
         state=1
