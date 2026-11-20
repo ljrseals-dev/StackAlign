@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
 # lib/service.sh -- service lifecycle. Written from master prompt v8 Part III.
 # Needs lib/history.sh (sa_history_rollback) for reload_safe.
