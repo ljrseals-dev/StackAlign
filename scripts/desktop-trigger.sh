@@ -10,7 +10,6 @@ set -o pipefail
 TAG=stackalign-honeytrap
 LOGGER_BIN="${DESKTOP_HONEYTRAP_LOGGER_BIN:-logger}"
 SS_BIN="${HONEYTRAP_SS_BIN:-ss}"
-FAIL2BAN_BIN="${HONEYTRAP_FAIL2BAN_BIN:-fail2ban-client}"
 AUTO_BAN="${HONEYTRAP_AUTO_BAN:-0}"
 BAN_JAIL="${HONEYTRAP_BAN_JAIL:-stackalign-honeytrap}"
 
@@ -90,8 +89,8 @@ handle_event() {
         log_event "[UNATTRIBUTED] CRITICAL event key=$key PID=$pid executable=$exe; no unique established TCP peer"
         return 0
     fi
-    log_event "CORRELATED pid=$pid peer=$remote HONEYTRAP_ACCESS key=$key executable=$exe"
-    # Explicit opt-in only; use the dedicated StackAlign jail, never sshd.
+    # The dedicated Fail2Ban jail consumes CORRELATED records. Do not call
+    # fail2ban-client here; that would duplicate the jail action.
     if [[ "$AUTO_BAN" == 1 ]]; then
         local ignore_ips="${HONEYTRAP_BAN_IGNORE_IPS:-}"
         if [[ -z "$ignore_ips" ]]; then
@@ -102,13 +101,9 @@ handle_event() {
             log_event "[BAN_SKIPPED] peer=$remote is in HONEYTRAP_BAN_IGNORE_IPS"
             return 0
         fi
-        if "$FAIL2BAN_BIN" set "$BAN_JAIL" banip "$remote" >/dev/null 2>&1; then
-            log_event "[BAN] $remote via jail=$BAN_JAIL for key=$key"
-        else
-            log_event "[BAN_FAILED] $remote via jail=$BAN_JAIL; verify Fail2Ban configuration"
-        fi
+        log_event "CORRELATED pid=$pid peer=$remote HONEYTRAP_ACCESS key=$key executable=$exe"
     else
-        log_event "[BAN_DISABLED] Automatic banning is disabled; peer=$remote requires review"
+        log_event "[PEER_CORRELATED] pid=$pid peer=$remote key=$key; automatic ban is disabled"
     fi
 }
 while IFS= read -r audit_record; do
