@@ -31,12 +31,23 @@ install_honeytrap() {
     local tmp_rule
     printf '%s\n' "Installing StackAlign Honey Trap..."
     mkdir -p "$TRAP_DIR"
+    if [[ -L "$TRAP_DIR" || -L "$TRAP_FILE" ]]; then
+        printf '%s\n' "Refusing symlinked Honey Trap directory or file." >&2
+        return 1
+    fi
     if [[ ! -e "$TRAP_FILE" ]]; then
+        local old_umask
+        old_umask="$(umask)"
         umask 077
-        cat >"$TRAP_FILE" <<'DECOY'
+        if ! cat >"$TRAP_FILE" <<'DECOY'
 STACKALIGN HONEYTRAP DECOY — NOT A PRIVATE KEY.
 This file contains no credential and must never be used for authentication.
 DECOY
+        then
+            umask "$old_umask"
+            return 1
+        fi
+        umask "$old_umask"
     fi
     chmod 0400 "$TRAP_FILE"
     if [[ "${MOCK_SYSTEM:-0}" != 1 ]]; then
@@ -87,8 +98,12 @@ DECOY
 uninstall_honeytrap() {
     _honeytrap_require_root || return
     rm -f -- "$TRAP_FILE" "$AUDIT_RULE_DEST" "$AUDIT_PLUGIN_DEST" "$TRIGGER_SCRIPT" "$FAIL2BAN_FILTER_DEST" "$FAIL2BAN_JAIL_DEST"
-    if [[ "${MOCK_SYSTEM:-0}" != 1 ]] && command -v augenrules >/dev/null 2>&1; then
-        augenrules --load
+    if [[ "${MOCK_SYSTEM:-0}" != 1 ]]; then
+        if command -v augenrules >/dev/null 2>&1; then
+            augenrules --load
+        elif command -v auditctl >/dev/null 2>&1; then
+            auditctl -W "$TRAP_FILE" -p rwa -k stackalign_honeytrap
+        fi
         command -v service >/dev/null 2>&1 && service auditd restart
         command -v fail2ban-client >/dev/null 2>&1 && fail2ban-client reload
     fi
