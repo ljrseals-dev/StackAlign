@@ -35,7 +35,7 @@ newline_marker="$T/newline-command-ran"
 substitution_marker="$T/substitution-command-ran"
 payload=$(printf 'benign description\n/usr/bin/touch %s\n$(/usr/bin/touch %s)' "$newline_marker" "$substitution_marker")
 set +e
-sa_exec openssl -- version "$payload" >/dev/null 2>&1
+sa_exec id -- "$payload" >/dev/null 2>&1
 rc=$?
 set -e
 [ "$rc" -ne 0 ] || { echo "unexpected OpenSSL acceptance of adversarial argument" >&2; exit 1; }
