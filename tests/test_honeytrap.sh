@@ -27,6 +27,41 @@ test_install_creates_all_artifacts() {
     grep -q 'NOT A PRIVATE KEY' "$TRAP_FILE"
     grep -q -- '-w .* -p rwa -k stackalign_honeytrap' "$AUDIT_RULE_DEST"
     grep -q 'path = ' "$AUDIT_PLUGIN_DEST"
+    grep -q '^enabled = true
+}
+test_install_sets_permissions() {
+    install_honeytrap
+    [[ "$(stat -c '%a' "$TRAP_FILE")" == 400 ]]
+    [[ "$(stat -c '%a' "$TRIGGER_SCRIPT")" == 700 ]]
+}
+test_install_preserves_existing_decoy() {
+    mkdir -p "$TRAP_DIR"
+    chmod 0600 "$TRAP_FILE"
+    printf 'operator-managed marker\n' >"$TRAP_FILE"
+    install_honeytrap
+    grep -q 'operator-managed marker' "$TRAP_FILE"
+}
+test_status_reports_complete_install() {
+    install_honeytrap
+    status_honeytrap
+}
+test_uninstall_removes_all_artifacts() {
+    install_honeytrap
+    uninstall_honeytrap
+    [[ ! -e "$TRAP_FILE" && ! -e "$AUDIT_RULE_DEST" && ! -e "$AUDIT_PLUGIN_DEST" ]]
+    [[ ! -e "$TRIGGER_SCRIPT" && ! -e "$FAIL2BAN_FILTER_DEST" && ! -e "$FAIL2BAN_JAIL_DEST" ]]
+}
+run() {
+    setup
+    local failed=0 test
+    for test in test_install_creates_all_artifacts test_install_sets_permissions test_install_preserves_existing_decoy test_status_reports_complete_install test_uninstall_removes_all_artifacts; do
+        if "$test"; then printf 'PASS %s\n' "$test"; else printf 'FAIL %s\n' "$test"; failed=1; fi
+    done
+    teardown
+    return "$failed"
+}
+run
+ "$FAIL2BAN_JAIL_DEST"
 }
 test_install_sets_permissions() {
     install_honeytrap
