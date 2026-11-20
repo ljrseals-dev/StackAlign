@@ -42,8 +42,7 @@ run install --frobnicate; [ $RC -eq 64 ] && ok "unknown trailing option -> error
 run --frobnicate version; [ $RC -eq 64 ] && ok "unknown global flag -> error" || bad "unknown global flag -> error"
 run install --plan --apply; [ $RC -eq 64 ] && ok "--plan with --apply rejected" || bad "--plan with --apply rejected"
 
-# install is wired to the LEMP plan; bypass host discovery only for this CLI contract test.
-export SA_LEMP_TESTING=1
+# install is wired to the read-only LEMP plan; no privileged test bypass is used.
 run install --plan; { [ $RC -eq 0 ] && [[ $OUT == *"127.0.0.1:8080"* ]] && [[ $OUT == *"no changes made"* ]]; } && ok "install CLI exposes read-only LEMP plan" || bad "install CLI plan"
 run plan tune;          { [ $RC -eq 2 ] && [[ $OUT == *"not implemented"* ]]; } && ok "plan <cmd> alias reaches command" || bad "plan <cmd> alias reaches command"
 run plan;               [ $RC -eq 64 ] && ok "plan without command -> 64" || bad "plan without command -> 64"

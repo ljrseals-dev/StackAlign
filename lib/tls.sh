@@ -22,7 +22,7 @@ _sa_tls_client_path() {
 _sa_tls_client_provenance() {
     local path=$1 package=""
     if command -v rpm >/dev/null 2>&1; then
-        package=$(rpm -qf -- "$path" 2>/dev/null) || package=""
+        package=$(sa_exec_capture rpm -- -qf -- "$path" 2>/dev/null) || package=""
     fi
     if [ -n "$package" ]; then
         printf 'rpm-managed package=%s (signature provenance not independently verified)' "$package"
@@ -166,7 +166,7 @@ sa_tls_certbot_http01_plan() {
 sa_tls_preflight() {
     local found=0 t
     for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer acme.sh.timer lego-renew.timer stackalign-renew.timer; do
-        if systemctl is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
+        if sa_exec systemctl -- is-active --quiet "$t" 2>/dev/null; then echo "scheduler: $t active"; found=1; fi
     done
     if { crontab -l 2>/dev/null; cat /etc/cron.d/* 2>/dev/null; } | grep -Eq 'acme\.sh|(^|[[:space:]/])(lego|certbot)([[:space:]]|$)'; then
         echo "scheduler: ACME client cron entry present"; found=1
@@ -207,18 +207,18 @@ _sa_tls_status_one() {
     fi
     command -v openssl >/dev/null 2>&1 || { echo "tls: openssl is not installed" >&2; return 69; }
 
-    expiry=$(openssl x509 -in "$crt" -noout -enddate 2>/dev/null) || {
+    expiry=$(sa_exec_capture openssl -- x509 -in "$crt" -noout -enddate 2>/dev/null) || {
         printf 'lineage: %s\n  client: %s\n  certificate: INVALID\n  private_key: NOT_CHECKED\n' "$domain" "$client"
         return 1
     }
-    if openssl x509 -in "$crt" -noout -checkend 0 >/dev/null 2>&1; then
+    if sa_exec openssl -- x509 -in "$crt" -noout -checkend 0 >/dev/null 2>&1; then
         cert_state=NOT_EXPIRED
     else
         cert_state=EXPIRED
         rc=1
     fi
     if [[ $domain == \*.* ]]; then probe="stackalign-probe.${domain#*.}"; fi
-    if openssl x509 -in "$crt" -noout -checkhost "$probe" >/dev/null 2>&1; then
+    if sa_exec openssl -- x509 -in "$crt" -noout -checkhost "$probe" >/dev/null 2>&1; then
         host_state=MATCH
     else
         host_state=MISMATCH
@@ -228,8 +228,8 @@ _sa_tls_status_one() {
     case "$key_mode" in 400|600) ;; *) key_state=UNSAFE_PERMISSIONS; rc=1 ;; esac
     if [ "$key_state" != UNSAFE_PERMISSIONS ]; then
         work=$(mktemp -d) || return 1
-        if openssl x509 -in "$crt" -pubkey -noout > "$work/cert.pub" 2>/dev/null &&
-           openssl pkey -in "$key" -pubout -passin pass: > "$work/key.pub" 2>/dev/null &&
+        if sa_exec openssl -- x509 -in "$crt" -pubkey -noout > "$work/cert.pub" 2>/dev/null &&
+           sa_exec openssl -- pkey -in "$key" -pubout -passin pass: > "$work/key.pub" 2>/dev/null &&
            cmp -s "$work/cert.pub" "$work/key.pub"; then
             key_state=MATCH
         else
@@ -238,7 +238,7 @@ _sa_tls_status_one() {
         fi
         rm -rf -- "$work"
     fi
-    if openssl x509 -in "$crt" -noout -checkend 2592000 >/dev/null 2>&1; then
+    if sa_exec openssl -- x509 -in "$crt" -noout -checkend 2592000 >/dev/null 2>&1; then
         renewal=OUTSIDE_30_DAY_WINDOW
     else
         renewal=DUE_WITHIN_30_DAYS

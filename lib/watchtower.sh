@@ -50,10 +50,10 @@ sa_watchtower_scan() {
 # Live-host checks (run on the server, usually as root).
 sa_watchtower_live() {
     mkdir -p "$(dirname "$SA_WATCHTOWER_QUEUE")" || return 1
-    if command -v nginx >/dev/null 2>&1 && ! nginx -t >/dev/null 2>&1; then
+    if [ -x /usr/sbin/nginx ] && ! sa_exec nginx -- -t >/dev/null 2>&1; then
         _sa_emit_finding CRITICAL nginx "Live nginx -t failed."
     fi
-    if command -v mysqladmin >/dev/null 2>&1 && ! mysqladmin ping >/dev/null 2>&1; then
+    if [ -x /usr/bin/mysqladmin ] && ! sa_exec mysqladmin -- ping >/dev/null 2>&1; then
         _sa_emit_finding CRITICAL mariadb "MariaDB not responding to ping."
     fi
     _sa_watchtower_summary

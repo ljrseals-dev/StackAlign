@@ -8,20 +8,27 @@
 
 : "${SA_LEMP_ETC_ROOT:=/etc}"
 : "${SA_LEMP_WEB_ROOT:=/var/www/stackalign}"
-: "${SA_LEMP_OS_RELEASE_FILE:=/etc/os-release}"
+SA_LEMP_OS_RELEASE_FILE=/etc/os-release
+. "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
 
 sa_lemp_die() { echo "stackalign install: $*" >&2; return 1; }
 
 # The web root is interpolated into an Nginx directive by sed. Restrict it to
 # an absolute, normalized path alphabet so delimiters, replacement operators,
 # whitespace, and Nginx syntax cannot alter the generated configuration.
+_sa_lemp_path_policy() {
+  [ "${SA_LEMP_ETC_ROOT:-/etc}" = /etc ] &&
+    [[ ${SA_LEMP_WEB_ROOT:-/var/www/stackalign} == /var/www/* ]]
+}
+
 sa_lemp_web_root_valid() {
   local web=${SA_LEMP_WEB_ROOT:-} resolved
+  _sa_lemp_path_policy || { echo "stackalign install: configuration and web roots must remain under /etc and /var/www" >&2; return 64; }
   [[ $web == /* && $web =~ ^/[A-Za-z0-9._/-]+$ ]] || {
     echo "stackalign install: web root must be an absolute path containing only letters, digits, dot, underscore, slash, and hyphen" >&2
     return 64
   }
-  resolved=$(realpath -m -- "$web" 2>/dev/null) || {
+  resolved=$(/usr/bin/realpath -m -- "$web" 2>/dev/null) || {
     echo "stackalign install: cannot resolve web root safely" >&2
     return 64
   }
@@ -81,8 +88,7 @@ sa_lemp_targets_safe() {
 
 sa_lemp_host_check() {
   sa_lemp_web_root_valid || return $?
-  [ "${SA_LEMP_TESTING:-0}" = 1 ] && return 0
-  [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
+  [ "${EUID:-$(/usr/bin/id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   [ -r "$SA_LEMP_OS_RELEASE_FILE" ] || { sa_lemp_die "cannot read $SA_LEMP_OS_RELEASE_FILE"; return 1; }
   local id="" version="" arch
   # Parse only ID and VERSION_ID as data; never source os-release.
@@ -91,17 +97,19 @@ sa_lemp_host_check() {
   done < "$SA_LEMP_OS_RELEASE_FILE"
   id=${id%\"}; id=${id#\"}
   version=${version%\"}; version=${version#\"}
-  arch=$(uname -m) || return 1
+  arch=$(/usr/bin/uname -m) || return 1
   case "$id:$version:$arch" in
     almalinux:9*:x86_64|rocky:9*:x86_64|rhel:9*:x86_64|ol:9*:x86_64|centos:9*:x86_64) ;;
     *) sa_lemp_die "supported apply target is EL9 x86_64 (AlmaLinux, Rocky, RHEL, Oracle Linux, or CentOS Stream); found $id $version $arch"; return 1 ;;
   esac
-  command -v dnf >/dev/null 2>&1 || { sa_lemp_die "dnf is required"; return 1; }
-  command -v systemctl >/dev/null 2>&1 || { sa_lemp_die "systemctl is required"; return 1; }
+  [ -x /usr/bin/dnf ] || { sa_lemp_die "dnf is required"; return 1; }
+  [ -x /usr/bin/systemctl ] || { sa_lemp_die "systemctl is required"; return 1; }
 }
 
 sa_lemp_plan() {
-  sa_lemp_host_check || return $?
+  # Planning is read-only and may run on unsupported/non-root hosts; only apply
+  # performs the privileged EL9 host and package-manager checks.
+  sa_lemp_web_root_valid || return $?
   cat <<EOF
 StackAlign LEMP beta plan (no changes made)
   Target: EL9 x86_64
@@ -121,29 +129,28 @@ sa_lemp_restore() {
   local backup=$1 path
   for path in "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
     if [ -e "$backup$path" ] || [ -L "$backup$path" ]; then
-      cp -a "$backup$path" "$path" || return 1
+      /usr/bin/cp -a -- "$backup$path" "$path" || return 1
     else
-      rm -f "$path" || return 1
+      /usr/bin/rm -f -- "$path" || return 1
     fi
   done
 }
 
 sa_lemp_apply() {
-  [ "${SA_LEMP_TESTING:-0}" = 1 ] || [ "${EUID:-$(id -u)}" -eq 0 ] || { sa_lemp_die "apply requires root"; return 1; }
   sa_lemp_host_check || return $?
   sa_lemp_targets_safe || return $?
   local etc="$SA_LEMP_ETC_ROOT" web="$SA_LEMP_WEB_ROOT"
   local pool="$etc/php-fpm.d/www.conf" site="$etc/nginx/conf.d/stackalign.conf"
   local backup failed=0
   echo "Installing distro-provided LEMP packages (no third-party repositories added)"
-  dnf -y install nginx mariadb-server php-fpm php-mysqlnd || { sa_lemp_die "DNF package installation failed"; return 1; }
+  sa_exec dnf --timeout 1800 -- -y install -- nginx mariadb-server php-fpm php-mysqlnd || { sa_lemp_die "DNF package installation failed"; return 1; }
 
   backup=$(mktemp -d) || return 1
-  mkdir -p "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d" "$backup$web/public"
-  [ ! -e "$pool" ] && [ ! -L "$pool" ] || cp -a "$pool" "$backup$pool" || { rm -rf "$backup"; return 1; }
-  [ ! -e "$site" ] && [ ! -L "$site" ] || cp -a "$site" "$backup$site" || { rm -rf "$backup"; return 1; }
-  [ ! -e "$web/public/index.php" ] && [ ! -L "$web/public/index.php" ] || cp -a "$web/public/index.php" "$backup$web/public/index.php" || { rm -rf "$backup"; return 1; }
-  mkdir -p "$etc/php-fpm.d" "$etc/nginx/conf.d" "$web/public" || failed=1
+  /usr/bin/mkdir -p -- "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d" "$backup$web/public"
+  [ ! -e "$pool" ] && [ ! -L "$pool" ] || /usr/bin/cp -a -- "$pool" "$backup$pool" || { /usr/bin/rm -rf -- "$backup"; return 1; }
+  [ ! -e "$site" ] && [ ! -L "$site" ] || /usr/bin/cp -a -- "$site" "$backup$site" || { /usr/bin/rm -rf -- "$backup"; return 1; }
+  [ ! -e "$web/public/index.php" ] && [ ! -L "$web/public/index.php" ] || /usr/bin/cp -a -- "$web/public/index.php" "$backup$web/public/index.php" || { /usr/bin/rm -rf -- "$backup"; return 1; }
+  /usr/bin/mkdir -p -- "$etc/php-fpm.d" "$etc/nginx/conf.d" "$web/public" || failed=1
 
   if [ "$failed" -eq 0 ]; then
     [ -f "$pool" ] || failed=1
@@ -154,10 +161,10 @@ sa_lemp_apply() {
         -e 's|^[;[:space:]]*listen[.]owner[[:space:]]*=.*|listen.owner = nginx|' \
         -e 's|^[;[:space:]]*listen[.]group[[:space:]]*=.*|listen.group = nginx|' \
         -e 's|^[;[:space:]]*listen[.]mode[[:space:]]*=.*|listen.mode = 0660|' "$pool" || failed=1
-      grep -Eq '^user[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
-      grep -Eq '^group[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
-      grep -Eq '^listen[.]owner[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
-      grep -Eq '^listen[.]group[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
+      /usr/bin/grep -Eq '^user[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
+      /usr/bin/grep -Eq '^group[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
+      /usr/bin/grep -Eq '^listen[.]owner[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
+      /usr/bin/grep -Eq '^listen[.]group[[:space:]]*=[[:space:]]*nginx$' "$pool" || failed=1
     fi
   fi
 
@@ -185,43 +192,43 @@ server {
     }
 }
 NGINX
-    sed -i "s|^    root /var/www/stackalign/public;|    root $web/public;|" "$site" || failed=1
+    /usr/bin/sed -i "s|^    root /var/www/stackalign/public;|    root $web/public;|" "$site" || failed=1
     cat > "$web/public/index.php" <<'PHP'
 <?php
 header('Content-Type: text/plain; charset=utf-8');
 echo "StackAlign LEMP beta: PHP-FPM is responding\n";
 PHP
-    chmod 0644 "$site" "$web/public/index.php" || failed=1
+    /usr/bin/chmod 0644 -- "$site" "$web/public/index.php" || failed=1
   fi
 
-  if [ "$failed" -eq 0 ]; then php-fpm -t || failed=1; fi
-  if [ "$failed" -eq 0 ]; then nginx -t || failed=1; fi
+  if [ "$failed" -eq 0 ]; then sa_exec php-fpm -- -t || failed=1; fi
+  if [ "$failed" -eq 0 ]; then sa_exec nginx -- -t || failed=1; fi
   if [ "$failed" -eq 0 ]; then
-    systemctl enable --now mariadb || failed=1
-    systemctl enable --now php-fpm || failed=1
-    systemctl enable --now nginx || failed=1
+    sa_exec systemctl -- enable --now mariadb || failed=1
+    sa_exec systemctl -- enable --now php-fpm || failed=1
+    sa_exec systemctl -- enable --now nginx || failed=1
   fi
   if [ "$failed" -eq 0 ]; then
-    systemctl is-active --quiet mariadb || failed=1
-    systemctl is-active --quiet php-fpm || failed=1
-    systemctl is-active --quiet nginx || failed=1
+    sa_exec systemctl -- is-active --quiet mariadb || failed=1
+    sa_exec systemctl -- is-active --quiet php-fpm || failed=1
+    sa_exec systemctl -- is-active --quiet nginx || failed=1
   fi
 
   if [ "$failed" -ne 0 ]; then
     local recovery_failed=0
     echo "install: configuration or service activation failed; restoring prior StackAlign-managed config" >&2
     sa_lemp_restore "$backup" || recovery_failed=1
-    systemctl restart php-fpm >/dev/null 2>&1 || recovery_failed=1
-    systemctl restart nginx >/dev/null 2>&1 || recovery_failed=1
+    sa_exec systemctl -- restart php-fpm >/dev/null 2>&1 || recovery_failed=1
+    sa_exec systemctl -- restart nginx >/dev/null 2>&1 || recovery_failed=1
     if [ "$recovery_failed" -eq 0 ]; then
-      rm -rf "$backup"
+      /usr/bin/rm -rf -- "$backup"
     else
       echo "CRITICAL: recovery was incomplete; backup preserved at $backup for manual recovery" >&2
     fi
     sa_lemp_die "LEMP apply did not complete; installed RPMs may remain and require manual removal"
     return 1
   fi
-  rm -rf "$backup"
+  /usr/bin/rm -rf -- "$backup"
   cat <<EOF
 StackAlign LEMP beta installed.
   Local endpoint: http://127.0.0.1:8080/

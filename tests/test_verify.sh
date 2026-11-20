@@ -31,7 +31,16 @@ mkrel() {
         --detach-sign --output "$d/SHA256SUMS.sig" "$d/SHA256SUMS" 2>/dev/null
 }
 verify() { # dir ring fpr
-    ( . "$ROOT/lib/verify.sh"; sa_verify_artifact "$1/$NAME" "$1/SHA256SUMS" "$1/SHA256SUMS.sig" "$2" "$3" ) >"$T/out" 2>"$T/err"
+    ( . "$ROOT/lib/verify.sh"
+      # Test-only verifier injection: fake gpgv status lines are fixture data.
+      sa_exec_capture() {
+        local tool=$1; shift
+        [ "$tool" = gpgv ] || { [ "$tool" = sha256sum ] || return 64; }
+        [ "${1-}" = -- ] || return 64
+        shift
+        "$tool" "$@"
+      }
+      sa_verify_artifact "$1/$NAME" "$1/SHA256SUMS" "$1/SHA256SUMS.sig" "$2" "$3" ) >"$T/out" 2>"$T/err"
 }
 FUT="2099-01-01T00:00:00Z"; PAST="2000-01-01T00:00:00Z"
 

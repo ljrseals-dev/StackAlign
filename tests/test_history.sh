@@ -30,11 +30,19 @@ id=$(sa_history_snapshot "$T/etc/new.conf" create); printf 'made\n' > "$T/etc/ne
 sa_history_rollback "$id"
 [ ! -e "$T/etc/new.conf" ] && ok "rollback removes file that did not exist" || bad "rollback removes file that did not exist"
 
-# secrets refusal, and override warns
+# Secret snapshots are always refused, even if a legacy override is supplied.
 sa_history_snapshot "$T/etc/secrets/key" s >/dev/null 2>&1; rc=$?
-[ $rc -ne 0 ] && ok "secrets path refused" || bad "secrets path refused"
-w=$(SA_HISTORY_ALLOW_SECRETS=1 sa_history_snapshot "$T/etc/secrets/key" s 2>&1 >/dev/null)
-case $w in *WARNING*) ok "override warns on stderr" ;; *) bad "override warns on stderr" ;; esac
+[ "$rc" -eq 3 ] && ok "secrets path refused" || bad "secrets path refused"
+SA_HISTORY_ALLOW_SECRETS=1 sa_history_snapshot "$T/etc/secrets/key" s >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 3 ] && ok "legacy environment override cannot enable secret snapshots" || bad "legacy override cannot enable secret snapshots"
+
+[ "$(stat -c '%a' "$SA_HISTORY_ROOT")" = 700 ] && ok "history root mode is private" || bad "history root mode is private"
+mkdir -m 700 "$T/outside"
+ln -s "$T/outside" "$T/history-link"
+SA_HISTORY_ROOT="$T/history-link" sa_history_snapshot "$T/etc/a.conf" linkroot >/dev/null 2>&1; rc=$?
+[ "$rc" -ne 0 ] && ok "symlinked history root rejected" || bad "symlinked history root rejected"
+sa_history_snapshot "$T/etc/../etc/a.conf" traversal >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 64 ] && ok "non-canonical snapshot path rejected" || bad "non-canonical snapshot path rejected"
 
 # idempotent within the same second for the same path+slug
 a=$(sa_history_snapshot "$T/etc/a.conf" same); b=$(sa_history_snapshot "$T/etc/a.conf" same)
@@ -48,6 +56,17 @@ fi
 n=$(sa_history_list | wc -l)
 [ "$n" -ge 3 ] && ok "list works ($n entries)" || bad "list works"
 [ -x "$(sa_history_path "$id")/undo.sh" ] && ok "undo.sh generated" || bad "undo.sh generated"
+# Snapshot IDs are identifiers, never arbitrary filesystem paths.
+if sa_history_path '../../tmp/attacker' >/dev/null 2>&1; then
+  bad "snapshot path traversal rejected"
+else
+  ok "snapshot path traversal rejected"
+fi
+if sa_history_rollback '../../tmp/attacker' >/dev/null 2>&1; then
+  bad "rollback path traversal rejected"
+else
+  ok "rollback path traversal rejected"
+fi
 
 # Undo stage/backup paths retain PID expansion in the generated script.
 root="$T/undo-pid"

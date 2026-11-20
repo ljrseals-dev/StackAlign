@@ -63,14 +63,20 @@ printf '%s\n' "$out" | grep -q 'tls_contact_email_invalid'
 [ ! -e /tmp/should-not-exist ]
 [ ! -e "$CERTBOT_EXECUTION_MARKER" ]
 
-# CLI parser exposes only an explicit Certbot HTTP-01 plan.
-cli=$(bash "$ROOT/bin/stackalign" tls plan-issue example.com --client certbot --challenge http-01 --webroot "$TMP/webroot" --email admin@example.com)
-printf '%s\n' "$cli" | grep -q '^state: PLAN_ONLY$'
+# CLI parser rejects unapproved clients before any client discovery or execution.
 set +e
 cli=$(bash "$ROOT/bin/stackalign" tls plan-issue example.com --client lego --challenge http-01 --webroot "$TMP/webroot" --email admin@example.com 2>&1)
 rc=$?
 set -e
-[ "$rc" -ne 0 ]
+[ "$rc" -eq 64 ]
 printf '%s\n' "$cli" | grep -q 'must be explicitly certbot'
+
+# Issuance remains blocked even when the CLI is invoked with --apply.
+set +e
+cli=$(bash "$ROOT/bin/stackalign" tls issue example.com --apply 2>&1)
+rc=$?
+set -e
+[ "$rc" -eq 2 ]
+printf '%s\n' "$cli" | grep -q 'BLOCKED'
 
 echo "TLS Certbot HTTP-01 plan tests: PASS"

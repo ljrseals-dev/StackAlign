@@ -32,14 +32,14 @@ sa_fw_validate() {
 # Prints the active backend; refuses to mix firewalld and nftables.service.
 sa_fw_detect_backend() {
     local fwd=0 nft=0
-    systemctl is-active --quiet firewalld 2>/dev/null && fwd=1
-    systemctl is-active --quiet nftables 2>/dev/null && nft=1
+    sa_exec systemctl -- is-active --quiet firewalld 2>/dev/null && fwd=1
+    sa_exec systemctl -- is-active --quiet nftables 2>/dev/null && nft=1
     if [ "$fwd" -eq 1 ] && [ "$nft" -eq 1 ]; then
         echo "firewall: firewalld and nftables are both active; refusing to mix" >&2; return 1
     fi
     if [ "$fwd" -eq 1 ]; then echo firewalld; return 0; fi
-    if [ "$nft" -eq 1 ] || command -v nft >/dev/null 2>&1; then echo nftables; return 0; fi
-    if command -v firewall-cmd >/dev/null 2>&1; then echo firewalld; return 0; fi
+    if [ "$nft" -eq 1 ] || [ -x /usr/sbin/nft ]; then echo nftables; return 0; fi
+    if [ -x /usr/bin/firewall-cmd ] >/dev/null 2>&1; then echo firewalld; return 0; fi
     echo "firewall: no supported backend found" >&2; return 1
 }
 
@@ -59,14 +59,15 @@ sa_fw_render_nft() {
 # Validates with nft -c first; replaces only our table in one nft transaction.
 # WARNING: policy drop + a wrong ssh_port locks you out. Use a console initially.
 sa_fw_apply_nft() {
+    [ "${EUID:-1}" -eq 0 ] || { echo "firewall: apply requires root" >&2; return 1; }
     local tmp rc=0
     tmp="$(mktemp)" || return 1
-    if nft list table inet stackalign >/dev/null 2>&1; then
+    if sa_exec nft -- list table inet stackalign >/dev/null 2>&1; then
         printf 'delete table inet stackalign\n' > "$tmp" || { rm -f -- "$tmp"; return 1; }
     fi
     sa_fw_render_nft "$@" >> "$tmp" || { rm -f -- "$tmp"; return 64; }
-    if nft -c -f "$tmp"; then
-        nft -f "$tmp" || rc=1
+    if sa_exec nft -- -c -f "$tmp"; then
+        sa_exec nft -- -f "$tmp" || rc=1
     else
         rc=1
         echo "firewall: ruleset failed nft -c; nothing loaded" >&2
@@ -77,10 +78,11 @@ sa_fw_apply_nft() {
 
 # sa_fw_install_intrusion <crowdsec|fail2ban|none> -- DNF only, never vendored.
 sa_fw_install_intrusion() {
+    [ "${EUID:-1}" -eq 0 ] || { echo "firewall: package installation requires root" >&2; return 1; }
     case ${1:-} in
         none) return 0 ;;
-        crowdsec) dnf -y install -- crowdsec crowdsec-firewall-bouncer-nftables ;;
-        fail2ban) dnf -y install -- fail2ban ;;
+        crowdsec) sa_exec dnf --timeout 1800 -- -y install -- crowdsec crowdsec-firewall-bouncer-nftables ;;
+        fail2ban) sa_exec dnf --timeout 1800 -- -y install -- fail2ban ;;
         *) echo "firewall: bad intrusion: ${1:-}" >&2; return 64 ;;
     esac
 }

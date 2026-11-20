@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 SHELL := /bin/bash
-SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh) $(wildcard tests/*.sh) scripts/time-tests.sh tests/lib/timing.sh
+SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh) $(wildcard tests/*.sh) scripts/time-tests.sh scripts/security-lint.sh tests/lib/timing.sh
 
-.PHONY: test test-timed lint headers all
+.PHONY: test test-timed lint security headers all
 all: lint headers test
 
 # Rule 1: SPDX header + author on every source file (first 5 lines).
-HDR_FILES := $(SH_FILES) Makefile tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml
+HDR_FILES := $(SH_FILES) tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml
 headers:
 	@bad=0; for f in $(HDR_FILES); do \
 	  head -5 "$$f" | grep -q 'SPDX-License-Identifier:' && head -5 "$$f" | grep -q 'Author: Lewis James Seals Jr.' \
@@ -28,8 +28,11 @@ test:
 test-timed:
 	@bash ./scripts/time-tests.sh
 
-# bash -n always; shellcheck only if installed (reported, never silently skipped).
-lint:
+security:
+	@bash ./scripts/security-lint.sh
+
+# bash -n always; ShellCheck is mandatory in CI and optional for local installs.
+lint: security
 	@for f in $(SH_FILES); do bash -n "$$f" || exit 1; done; echo "bash -n: ok ($(words $(SH_FILES)) files)"
 	@if command -v shellcheck >/dev/null 2>&1; then \
 	  shellcheck -x -s bash -S warning $(SH_FILES) && echo "shellcheck: ok"; \

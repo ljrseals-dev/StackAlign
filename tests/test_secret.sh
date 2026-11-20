@@ -27,6 +27,18 @@ printf 'w%04d\n' $(seq 1 7776) > "$T/words.txt"; export SA_WORDLIST="$T/words.tx
 
 # shellcheck source=../lib/secret.sh
 source "$ROOT/lib/secret.sh"
+# Test-only command injection: production resolves approved binaries absolutely.
+sa_exec() {
+  local tool=$1
+  shift
+  [ "${1-}" = -- ] && shift
+  case "$tool" in
+    curl|argon2) [ -x "$T/bin/$tool" ] || return 127; "$T/bin/$tool" "$@" ;;
+    openssl) /usr/bin/openssl "$@" ;;
+    *) return 64 ;;
+  esac
+}
+_sa_secret_argon2_available() { [ -x "$T/bin/argon2" ]; }
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }
@@ -42,6 +54,18 @@ want="sha256:$(printf '%s' "$val" | sha256sum | awk '{print $1}')"
 grep -rqF -- "$val" "$SA_SECRETS_DIR" && bad "value NOT on disk" || ok "value never written to disk"
 { [ ! -s "$FAKE_LOG" ] && [ ! -s "$FAKE_ARGV" ]; } && ok "machine: no HIBP call, no argon2 (primitives not confused)" || bad "machine: no HIBP/argon2"
 val2=$(sa_secret_gen dbroot2 machine 2>/dev/null); [ "$val" != "$val2" ] && ok "two machine secrets differ" || bad "two machine secrets differ"
+
+# Secret generation must refuse under xtrace before creating or returning a value.
+(
+  exec 3>&2
+  exec 2>"$T/xtrace.log"
+  set -x
+  if traced_value=$(sa_secret_gen tracecheck machine); then rc=0; else rc=$?; fi
+  set +x
+  exec 2>&3
+  [ "$rc" -eq 64 ] && [ -z "$traced_value" ] && [ ! -e "$SA_SECRETS_DIR/tracecheck.hash" ] || exit 1
+  if grep -Fq -- "secret value" "$T/xtrace.log"; then exit 1; fi
+) && ok "xtrace causes secret generation to fail closed" || bad "xtrace secret generation gate"
 
 # --- never overwrite
 before=$(cat "$f"); sa_secret_gen dbroot machine >/dev/null 2>&1; rc=$?
@@ -93,6 +117,18 @@ _sa_secret_breached() { return 0; }                       # always breached
 reset; sa_secret_gen pp3 human-passphrase >/dev/null 2>&1; rc=$?
 { [ $rc -eq 4 ] && [ ! -e "$SA_SECRETS_DIR/pp3.hash" ]; } && ok "all draws breached: rc 4, nothing stored" || bad "all draws breached (rc=$rc)"
 source "$ROOT/lib/secret.sh"                              # restore real lookup
+# Reapply fixture-only command and dependency overrides after sourcing.
+sa_exec() {
+  local tool=$1
+  shift
+  [ "${1-}" = -- ] && shift
+  case "$tool" in
+    curl|argon2) [ -x "$T/bin/$tool" ] || return 127; "$T/bin/$tool" "$@" ;;
+    openssl) /usr/bin/openssl "$@" ;;
+    *) return 64 ;;
+  esac
+}
+_sa_secret_argon2_available() { [ -x "$T/bin/argon2" ]; }
 
 # HIBP unreachable => fail closed, nothing stored or printed
 reset; touch "$T_FAIL"; out=$(sa_secret_gen pp4 human-passphrase 2>/dev/null); rc=$?; rm "$T_FAIL"

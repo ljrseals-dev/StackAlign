@@ -47,6 +47,8 @@ timed "generate ordinary SSH client key" ssh-keygen -q -t ed25519 -N '' -f "$T/o
 timed "generate test host key" ssh-keygen -q -t ed25519 -N '' -f "$T/host_key"
 
 . "$ROOT/lib/sftp.sh"
+# Disposable integration fixture overrides only the production fixed-root policy.
+_sa_sftp_path_policy() { return 0; }
 timed "sa_sftp_add_user" sa_sftp_add_user "$SFTP_USER" "$T/sftp_client.pub"
 timed "useradd ordinary SSH account" useradd -m -s /bin/sh "$SSH_USER"
 timed "set ordinary SSH account random password" _sa_sftp_set_random_password "$SSH_USER"

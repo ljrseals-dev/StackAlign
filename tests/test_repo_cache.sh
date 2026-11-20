@@ -25,6 +25,21 @@ esac
 FAKE
 chmod +x "$T/bin/"*
 . "$ROOT/lib/repo_cache.sh"
+# Test-only command injection seam: mock RPM/DNF keep their fixture environment.
+sa_exec() {
+  local tool=$1; shift
+  if [ "${1-}" = --timeout ]; then shift 2; fi
+  [ "${1-}" = -- ] || return 64
+  shift
+  "$tool" "$@"
+}
+sa_exec_capture() {
+  local tool=$1; shift
+  if [ "${1-}" = --timeout ]; then shift 2; fi
+  [ "${1-}" = -- ] || return 64
+  shift
+  "$tool" "$@"
+}
 
 fail=0
 check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got '$2' want '$3')"; fail=1; fi; }

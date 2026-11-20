@@ -22,16 +22,44 @@
 
 # Shared HTTPS fetch and primary-key validation implementation.
 # shellcheck source=lib/fetch.sh
-source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/fetch.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/exec.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/validate.sh"
 
 # shellcheck source=lib/toml.sh
-source "${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
+source "${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/lib/toml.sh"
 
+
+_sa_repo_path_policy() {
+  local resolved owner mode
+  if [ "${EUID:-1}" -eq 0 ]; then
+    [ "$SA_YUM_REPOS_DIR" = /etc/yum.repos.d ] || {
+      echo "repo: privileged repository directory is fixed at /etc/yum.repos.d" >&2; return 64;
+    }
+    [ -d "$SA_YUM_REPOS_DIR" ] && [ ! -L "$SA_YUM_REPOS_DIR" ] || return 1
+    resolved=$(/usr/bin/realpath -e -- "$SA_YUM_REPOS_DIR") || return 1
+    [ "$resolved" = /etc/yum.repos.d ] || return 1
+    read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$SA_YUM_REPOS_DIR") || return 1
+    [ "$owner" = 0 ] && [[ $mode =~ ^[0-7]{3,4}$ ]] && (( (8#$mode & 022) == 0 )) || {
+      echo "repo: repository directory must be root-owned and not group/world writable" >&2; return 1;
+    }
+  else
+    [[ $SA_YUM_REPOS_DIR == /* && $SA_YUM_REPOS_DIR != *..* ]] || return 64
+    [ ! -L "$SA_YUM_REPOS_DIR" ] || return 1
+    /usr/bin/mkdir -p -- "$SA_YUM_REPOS_DIR" || return 1
+    /usr/bin/chmod 0700 -- "$SA_YUM_REPOS_DIR" || return 1
+    [ -d "$SA_YUM_REPOS_DIR" ] && [ ! -L "$SA_YUM_REPOS_DIR" ] || return 1
+    resolved=$(/usr/bin/realpath -e -- "$SA_YUM_REPOS_DIR") || return 1
+    [ "$resolved" = "$SA_YUM_REPOS_DIR" ] || return 1
+    read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$SA_YUM_REPOS_DIR") || return 1
+    [ "$owner" = "$(/usr/bin/id -u)" ] && [[ $mode =~ ^[0-7]{3,4}$ ]] && (( (8#$mode & 022) == 0 )) || return 1
+  fi
+}
 
 _sa_repo_valid() {  # <kind> <value>
   case $1 in
     name)    [[ $2 =~ ^[a-z0-9][a-z0-9_-]*$ ]] ;;
-    package) [[ $2 =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]] ;;
+    package) sa_validate_package_name "$2" ;;
     version) [[ $2 =~ ^[A-Za-z0-9][A-Za-z0-9._:~+-]*$ ]] ;;
     url)     [[ $2 =~ ^https://[A-Za-z0-9._~:/?#@!$\&\'*+,\;=%-]+$ ]] ;;
     fpr)     [[ $2 =~ ^[0-9A-Fa-f]{40}$ ]] ;;
@@ -45,7 +73,13 @@ _sa_repo_ftp() {  # <package> -> 0 if it is an FTP daemon
   return 1
 }
 
-_sa_repo_bad() { echo "repo: invalid $1: $2" >&2; return 64; }
+_sa_repo_bad() {
+  case ${1-} in
+    repo_url|key_url) echo "repo: invalid $1 (value redacted)" >&2 ;;
+    *) echo "repo: invalid $1: $2" >&2 ;;
+  esac
+  return 64
+}
 
 sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   [ $# -eq 4 ] || { echo "usage: sa_repo_setup <name> <repo_url> <fingerprint> <key_url>" >&2; return 64; }
@@ -56,11 +90,13 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   _sa_repo_valid url "$keyurl" || { _sa_repo_bad key_url "$keyurl"; return 64; }
   fpr=${fpr^^}
 
+  _sa_repo_path_policy || return $?
+
   local tmpd key
-  tmpd=$(mktemp -d) || return 1
+  tmpd=$(/usr/bin/mktemp -d) || return 1
   key="$tmpd/key.asc"
   if ! sa_fetch_gpg_key "$keyurl" "$fpr" "$key"; then
-    rm -rf -- "$tmpd"
+    /usr/bin/rm -rf -- "$tmpd"
     echo "repo: key fetch or primary fingerprint validation failed; nothing imported" >&2
     return 4
   fi
@@ -68,18 +104,18 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   local file="$SA_YUM_REPOS_DIR/stackalign-$name.repo" content
   content=$(printf '[stackalign-%s]\nname=StackAlign %s\nbaseurl=%s\nenabled=1\ngpgcheck=1\ngpgkey=%s\n' \
             "$name" "$name" "$url" "$keyurl"; printf x); content=${content%x}
-  mkdir -p -- "$SA_YUM_REPOS_DIR"
+  /usr/bin/mkdir -p -- "$SA_YUM_REPOS_DIR" || { /usr/bin/rm -rf -- "$tmpd"; return 1; }
   # Avoid process-substitution in cmp: under some environments /dev/fd compares
   # fail even when bytes are identical, which breaks setup idempotency.
   local cmpfile wrote=0
-  cmpfile=$(mktemp "$SA_YUM_REPOS_DIR/.sa-repo-cmp.XXXXXX") || { rm -rf -- "$tmpd"; return 1; }
-  printf '%s' "$content" > "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
-  if [ -f "$file" ] && cmp -s -- "$file" "$cmpfile"; then
-    rm -f -- "$cmpfile"
+  cmpfile=$(/usr/bin/mktemp "$SA_YUM_REPOS_DIR/.sa-repo-cmp.XXXXXX") || { rm -rf -- "$tmpd"; return 1; }
+  printf '%s' "$content" > "$cmpfile" || { /usr/bin/rm -rf -- "$tmpd" "$cmpfile"; return 1; }
+  if [ -f "$file" ] && /usr/bin/cmp -s -- "$file" "$cmpfile"; then
+    /usr/bin/rm -f -- "$cmpfile"
     echo "repo $name: unchanged"
   else
-    chmod 0644 -- "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
-    mv -f -- "$cmpfile" "$file" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
+    /usr/bin/chmod 0644 -- "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
+    /usr/bin/mv -f -- "$cmpfile" "$file" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
     echo "repo $name: written"
     wrote=1
   fi
@@ -87,7 +123,7 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   # A new or changed repo definition needs its validated signing key imported.
   # An unchanged definition does not repeat the rpmdb operation.
   if [ "$wrote" -eq 1 ]; then
-    rpm --import "$key" || {
+    sa_exec rpm -- --import "$key" || {
       rm -rf -- "$tmpd"
       echo "repo: rpm --import failed" >&2
       return 1
@@ -166,7 +202,7 @@ sa_repo_versionlock() {  # <name> <package> <version>
   _sa_repo_valid package "$2" || { _sa_repo_bad package "$2"; return 64; }
   _sa_repo_valid version "$3" || { _sa_repo_bad version "$3"; return 64; }
   if _sa_repo_ftp "$2"; then echo "error=ftp_daemon_refused" >&2; return 3; fi
-  dnf versionlock add -- "$2-$3"
+  sa_exec dnf -- versionlock add -- "$2-$3"
 }
 
 # _sa_repo_manifest_pin <component>   -> prints pinned_version on stdout
@@ -175,7 +211,7 @@ sa_repo_versionlock() {  # <name> <package> <version>
 # Matches the component by exact name; duplicates are rejected.
 _sa_repo_manifest_pin() {
   local comp=$1
-  local manifest=${SA_VERSIONS_TOML:-${SA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/vendor/versions.toml}
+  local manifest=${SA_VERSIONS_TOML:-${SA_ROOT:-$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}/vendor/versions.toml}
   local i=0 hits=0 pin=""
 
   [ -f "$manifest" ] || return 66
@@ -247,11 +283,11 @@ sa_repo_install() {
   elif [ ! -f "$SA_YUM_REPOS_DIR/stackalign-$name.repo" ]; then
     echo "repo: $name not set up and no repo args given; refusing" >&2; return 1
   fi
-  if rpm -q "$pkg-$ver" >/dev/null 2>&1; then
+  if sa_exec rpm -- -q -- "$pkg-$ver" >/dev/null 2>&1; then
     echo "$pkg-$ver: already installed"
   else
-    dnf install -y -- "$pkg-$ver" || return 1
+    sa_exec dnf -- install -y -- "$pkg-$ver" || return 1
   fi
   sa_repo_versionlock "$name" "$pkg" "$ver" || return $?
-  rpm -q "$pkg-$ver" >/dev/null 2>&1 || { echo "repo: health check failed: $pkg-$ver not installed" >&2; return 1; }
+  sa_exec rpm -- -q -- "$pkg-$ver" >/dev/null 2>&1 || { echo "repo: health check failed: $pkg-$ver not installed" >&2; return 1; }
 }

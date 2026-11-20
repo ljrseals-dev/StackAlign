@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+
 # lib/verify.sh -- verify a downloaded StackAlign release artifact. Offline, fail closed.
 #
 # Chain of trust: pinned fingerprint + LOCAL keyring --> detached signature over
@@ -20,7 +22,7 @@ _sa_verify_sig() {
     local sums=$1 sig=$2 ring=$3 fpr=${4^^} out home prim n
     [[ $fpr =~ ^[0-9A-F]{40}$ ]] || { echo "verify: pinned fingerprint must be 40 hex digits" >&2; return 64; }
     home="$(mktemp -d)" || return 4
-    out="$(gpgv --homedir "$home" --status-fd 1 --keyring "$ring" -- "$sig" "$sums" 2>/dev/null)" || { rm -rf "$home"; return 4; }
+    out="$(sa_exec_capture gpgv -- --homedir "$home" --status-fd 1 --keyring "$ring" -- "$sig" "$sums" 2>/dev/null)" || { rm -rf "$home"; return 4; }
     rm -rf "$home"
     grep -q '^\[GNUPG:\] GOODSIG ' <<<"$out" || return 4
     if grep -Eq '^\[GNUPG:\] (EXPKEYSIG|REVKEYSIG|EXPSIG|BADSIG|ERRSIG|NO_PUBKEY)' <<<"$out"; then return 4; fi
@@ -50,7 +52,7 @@ _sa_verify_hash() {
     [ "$n" -eq 1 ] || return 5
     want="$(awk -v f="$name" '$2==f {print $1}' "$sums")"
     [[ $want =~ ^[0-9a-f]{64}$ ]] || return 5
-    got="$(sha256sum -- "$file" | awk '{print $1}')"
+    got="$(sa_exec_capture sha256sum -- -- "$file" | awk '{print $1}')"
     [ "$want" = "$got" ] || return 5
 }
 

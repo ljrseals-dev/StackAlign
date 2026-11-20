@@ -4,6 +4,13 @@
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 source "$ROOT/lib/hosting.sh"
+# Test-only output fixture; production uses the trusted absolute executor.
+sa_exec_capture() {
+  local tool=$1; shift
+  [ "${1-}" = -- ] || return 64
+  shift
+  "$tool" "$@"
+}
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 pass=0 fail=0
 ok(){ pass=$((pass+1)); echo "ok   - $1"; }

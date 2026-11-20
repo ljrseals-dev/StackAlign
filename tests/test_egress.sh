@@ -17,6 +17,17 @@ mkfake logger 'echo "logger $*" >> "$CALLS"'
 mkfake getent 'if [ "$1" = ahostsv4 ] && [ "$2" = updates.example.com ]; then printf "%s\n" "203.0.113.10 STREAM $2" "203.0.113.11 STREAM $2" "203.0.113.10 DGRAM $2"; fi; exit 0'
 mkfake ip 'cat "$FAKE_NEIGH"'
 . "$ROOT/lib/egress.sh"
+# Test-only executor seam: preserve fixture environment and resolve mock tools
+# from this test's PATH. Production executor remains fixed-path when privileged.
+# Explicit fixture override for the root gate; no production bypass exists.
+_sa_eg_require_root() { return 0; }
+sa_exec() {
+  local tool=$1; shift
+  if [ "${1-}" = --timeout ]; then shift 2; fi
+  [ "${1-}" = -- ] || return 64
+  shift
+  "$tool" "$@"
+}
 has() { case "$R" in *"$1"*) return 0 ;; esac; return 1; }
 calls_has() { grep -q -- "$1" "$CALLS"; }
 line_of() { grep -n -- "$1" "$CALLS" | head -1 | cut -d: -f1; }

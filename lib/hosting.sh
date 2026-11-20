@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 #
+. "$(dirname "${BASH_SOURCE[0]}")/exec.sh"
+
 # Hosting mode planning, operator scope selection, and read-only inspection.
 # Runtime apply remains gated until isolation and EL9 acceptance tests pass.
 
@@ -105,7 +107,7 @@ sa_hosting_doctor() {
   case "$mode" in
     apache|hybrid)
       if command -v httpd >/dev/null 2>&1; then
-        if ! modules=$(httpd -M 2>&1); then
+        if ! modules=$(sa_exec_capture httpd -- -M 2>&1); then
           echo "apache module inspection: FAILED" >&2
           missing=1
         else

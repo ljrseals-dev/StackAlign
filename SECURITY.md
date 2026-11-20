@@ -1,0 +1,140 @@
+# Security policy
+
+## Project status
+
+StackAlign is an experimental beta Bash toolkit for EL-family Linux. It is
+**not production-ready** and must not be run against production systems or
+hosts containing valuable data. The project has not completed a comprehensive
+security assessment or real-host acceptance testing.
+
+## Threat model
+
+The codebase manages privileged operating-system state: packages, services,
+web-server configuration, databases, backups, firewall rules, and secrets.
+Relevant threats include:
+
+- command and argument injection through CLI, configuration, plan, or adapter data;
+- PATH and environment-variable hijacking when invoked with elevated privileges;
+- path traversal, symlink substitution, and time-of-check/time-of-use races;
+- disclosure of credentials through arguments, logs, traces, temporary files,
+  backups, or diagnostic output;
+- malicious or compromised adapters, downloaded artifacts, repositories, and
+  package metadata;
+- partial system changes and failed recovery during package or service changes.
+
+Bash quoting alone is not a complete trust boundary. Inputs must be validated
+for the semantic domain in which they are used; commands should be invoked
+with argument arrays and trusted executable paths; filesystem operations must
+account for symlinks and concurrent changes.
+
+## Mandatory feature gates
+
+The following capabilities remain disabled or restricted:
+
+- TLS issuance, renewal, and client migration;
+- database DROP;
+- site creation, removal, and tenant isolation;
+- real-host DNF transaction rollback.
+
+Do not bypass these gates by calling library functions directly. A plan is not
+authorization to apply. Do not interpret a successful fixture test as
+real-host acceptance evidence.
+
+## Supported hardening practices
+
+- Run tests and experiments only in disposable VMs or containers with
+  snapshots and no production credentials.
+- Keep ShellCheck and the repository test suite passing.
+- Validate package, database, service, domain, and path inputs before use.
+- Use private temporary directories and restrictive umasks for sensitive data.
+- Never enable shell tracing around secrets.
+- Keep repository signature verification enabled; SHA-256 alone proves byte
+  identity, not publisher identity.
+- Treat adapter output and plan files as untrusted data.
+- Review every privileged operation and its failure/rollback behavior.
+
+
+## Repair-branch implementation notes
+
+The current security repair branch adds a narrow allowlisted command executor
+(`lib/exec.sh`). It resolves selected system-management executables to fixed
+absolute paths, passes arguments as distinct Bash array elements, starts them
+with a minimal environment, and applies a timeout. Privileged calls always use
+fixed absolute paths; the non-root remote-client diagnostic may resolve `curl`
+from the caller's PATH, which cannot confer root privileges. It deliberately
+does not log argument vectors. The executor is integrated into the CLI update planner,
+LEMP package/service operations, repository package operations, database
+clients, site diagnostics, secret helpers, and selected SFTP account/sshd
+operations, backup clients, and firewall rule application. Firewall mutations now require root; privileged RPM cache writes are pinned to `/var/cache/stackalign/rpms`, owner-controlled mode 0700, and use no-overwrite publication. Privileged repository-definition writes are pinned to `/etc/yum.repos.d`, with ownership and write-permission checks.
+
+Shared semantic validators now cover package identifiers, database
+identifiers, site slugs, DNS names, service names, ports, and canonical paths
+beneath an approved root. The runtime INI parser accepts only the documented
+version-1 `meta` and `security` keys and rejects unknown keys and invalid
+types. Secret hash files are created through private same-directory temporary
+files and atomic no-overwrite publication; secret generation refuses to run when inherited xtrace is enabled, because a
+caller-side command-substitution assignment can itself expose the returned value. History storage now requires a
+canonical owner-controlled mode-0700 root, and secret-directory snapshots are
+refused unconditionally (the former environment override is ineffective).
+
+These measures are not a complete command-execution migration. Other modules
+still contain direct external-command calls and require individual review.
+The executor records the approved tool name and timeout to stderr and, when
+available, syslog; it deliberately does not log argv. Its opt-in capture helper
+stores combined output in a mode-0600 temporary file, rejects output above 1 MiB,
+removes its own audit banner, strips terminal control characters, and redacts
+common password/token/authorization/API-key/private-key assignments and URL
+credentials. This is a conservative diagnostic sanitizer, not a universal
+secret detector; callers must still avoid secret-bearing argv and must not treat
+captured output as trusted or executable. Some modules still stream child output
+and direct external-command call sites remain under review. The shell-level path checks
+cannot eliminate every filesystem race; high-assurance operations need
+directory-descriptor/openat-style implementations outside plain Bash.
+
+Test fixture overrides are defined inside test scripts after sourcing the
+production modules. Do not add a production environment variable that allows
+arbitrary PATH-based executable substitution.
+
+## Breaking and compatibility notes
+
+- Unknown runtime configuration keys are now rejected. Only `meta.config_version`,
+  `meta.allow_override`, `security.password_mode`, and
+  `security.passphrase_wordlist` are accepted in schema version 1. The
+  server/PHP/Redis/site examples in `docs/CONFIG-SCHEMA.md` remain proposals.
+- The privileged CLI entrypoints use an absolute Bash interpreter in
+  privileged mode and establish a predictable PATH before module dispatch.
+- LEMP writes are constrained to `/etc` and `/var/www`; SFTP mutation is
+  root-only and constrained to the approved `/srv/sftp`, `/etc/ssh/sftp_keys`,
+  and StackAlign sshd drop-in paths. The SFTP group is fixed to `sftponly`.
+- SFTP public-key inputs must be canonical, regular, non-symlink files; the
+  sshd drop-in directory must be owner-controlled and not group/world writable.
+- Passphrase wordlists must be canonical, regular, non-symlink, world-readable,
+  and not group/world writable. This prevents a root-run secret generator from
+  accidentally deriving passphrases from private files such as `/etc/shadow`.
+- The update apply function now returns exit code 2 without invoking package
+  or service tools. Update planning remains read-only and does not authorize
+  apply.
+
+## Operational mitigations
+
+1. Do not run StackAlign on production hosts.
+2. Patch Apache, NGINX, MySQL/MariaDB, PHP, Ruby, and their dependencies using
+   the distribution's supported security update process. StackAlign does not
+   mitigate upstream server vulnerabilities.
+3. Restrict administrative access and use a clean, known PATH and environment.
+4. Keep secrets outside source control, shell arguments, command output, and
+   world-readable files. Use dedicated least-privilege service accounts.
+5. Test changes in disposable EL-family VMs, including interrupted operations
+   and recovery paths.
+6. Review package signatures, repository configuration, and artifact hashes
+   independently before installation.
+7. Keep backups offline or separately protected and verify restoration before
+   relying on them.
+
+## Reporting a vulnerability
+
+Please do not publish exploitable details in a public issue. Contact the
+maintainer privately through the GitHub repository owner's available security
+contact channel. Include the affected revision, prerequisites, reproducible
+steps, impact, and any proposed mitigation. Do not include real credentials,
+private keys, or customer data in a report.
