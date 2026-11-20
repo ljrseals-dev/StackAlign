@@ -87,6 +87,15 @@ MOCK
     : >"$DESKTOP_HONEYTRAP_LOG"
     cat >"$HONEYTRAP_SS_BIN" <<'MOCK'
 #!/usr/bin/env bash
+printf '%s\\n' 'ESTAB 0 0 10.0.0.2:443 192.0.2.10:5555 users:(("worker",pid=6002,fd=3))'
+MOCK
+    chmod +x "$HONEYTRAP_SS_BIN"
+    event 6002 /tmp/rogue stackalign_model_tamper
+    grep -q '\\[BAN_SKIPPED\\]' "$DESKTOP_HONEYTRAP_LOG"
+    ! grep -q 'banip' "$DESKTOP_HONEYTRAP_LOG"
+    : >"$DESKTOP_HONEYTRAP_LOG"
+    cat >"$HONEYTRAP_SS_BIN" <<'MOCK'
+#!/usr/bin/env bash
 printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 198.51.100.9:5555 users:(("worker",pid=6001,fd=3))'
 printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 198.51.100.10:5555 users:(("worker",pid=6001,fd=4))'
 MOCK
