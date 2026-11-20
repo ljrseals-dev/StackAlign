@@ -9,7 +9,7 @@ SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh)
 all: lint headers test
 
 # Require SPDX, copyright, author, and canonical repository link in every tracked code/config source (first 6 lines).
-HDR_FILES := $(SH_FILES) tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml vendor/versions.toml templates/nginx/conf.d/00-performance.conf templates/nginx/site-wordpress.conf.tmpl
+HDR_FILES := Makefile $(SH_FILES) tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml vendor/versions.toml templates/nginx/conf.d/00-performance.conf templates/nginx/site-wordpress.conf.tmpl
 headers:
 	@bad=0; for f in $(HDR_FILES); do \
 	  head -6 "$f" | grep -q 'SPDX-License-Identifier: MIT' && head -6 "$f" | grep -q 'Copyright (c) 2026 Lewis James Seals Jr.' && head -6 "$f" | grep -q 'Author: Lewis James Seals Jr. (@ljrseals-dev)' && head -6 "$f" | grep -q 'Repository: https://github.com/ljrseals-dev/StackAlign' \
