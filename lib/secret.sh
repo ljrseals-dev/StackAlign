@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
 # lib/secret.sh -- password and secret policy. Written from master prompt v8 Part III.
 . "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
