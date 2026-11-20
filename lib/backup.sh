@@ -13,10 +13,14 @@ _sa_bk_dir_ok() {
 }
 
 _sa_bk_defaults_ok() {
-    local file=${SA_MYSQL_DEFAULTS_FILE:-} mode owner
-    [ -n "$file" ] && [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
-    read -r mode owner < <(stat -c '%a %u' -- "$file" 2>/dev/null) || return 1
-    [[ $mode == 400 || $mode == 600 ]] && [[ $owner == "$(/usr/bin/id -u)" ]]
+    # Absolute path; realpath -e equals supplied path; no final symlink; mode 400/600; euid owner.
+    local file=${SA_MYSQL_DEFAULTS_FILE:-} mode owner resolved
+    [[ $file == /* ]] || return 1
+    [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
+    resolved=$(/usr/bin/realpath -e -- "$file" 2>/dev/null) || return 1
+    [[ $resolved == "$file" ]] || return 1
+    read -r mode owner < <(/usr/bin/stat -c '%a %u' -- "$file" 2>/dev/null) || return 1
+    [[ ( $mode == 400 || $mode == 600 ) && $owner == "$(/usr/bin/id -u)" ]]
 }
 
 _sa_bk_artifact_ok() {
