@@ -92,7 +92,7 @@ _sa_cmd_list() {
     agent M2b 'Pinecone Neural planning sidecar: status or ask (read-only)' \
     sftp M3 'chrooted key-only SFTP account management' \
     egress M4 'outbound firewall and passive LAN audit' \
-    contain M4 'evidence preservation before rebuild' \\
+    contain M4 'evidence preservation before rebuild' \
     honeytrap M4 'Honey Trap lifecycle and credential/lockout guidance'
 }
 
