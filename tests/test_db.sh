@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # tests/test_db.sh -- isolated MariaDB helper tests; no live server is contacted.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
