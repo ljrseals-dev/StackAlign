@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
 # Internet access planning and operator-input capture. No network, DNS,
 # firewall, package, service, or tunnel changes are made by this module.
