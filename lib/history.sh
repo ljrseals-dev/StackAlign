@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
 # lib/history.sh -- snapshots. Written from master prompt v8 Part III.
 # Config (env, for tests): SA_HISTORY_ROOT (default /etc/stackalign/.history),

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/firewall.sh -- nftables/firewalld selection and intrusion tooling.
 # FTP package guard applies only to StackAlign-managed installation; it does not
 # disable an independently managed server or block ordinary client/server FTP.

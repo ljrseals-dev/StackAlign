@@ -1,5 +1,7 @@
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
 # WRITTEN, NOT RUN. This workflow has never executed on a real runner; M1's exit
 # criterion ("CI green on real runners") is NOT met by this file's existence.

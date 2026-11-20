@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/backup.sh -- guarded logical and physical MariaDB backup helpers.
 # Credentials come ONLY from an owner-only defaults file, never argv.
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"

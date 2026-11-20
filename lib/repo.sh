@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
 # lib/repo.sh -- package repository setup. Written from master prompt v8 Part III.
 # Every argument is DATA: validated against a strict allowlist, never eval'd,

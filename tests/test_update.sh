@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # The unverified real-host DNF apply/rollback boundary must stay blocked.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)

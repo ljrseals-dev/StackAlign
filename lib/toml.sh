@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # Parse a deliberately small TOML subset; this is not a full TOML implementation.
 #
 # Grammar: comments/blank lines, [table], [[array_table]], bare keys made of

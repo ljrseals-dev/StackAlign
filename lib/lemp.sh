@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
 # lib/lemp.sh -- guarded EL9 LEMP bootstrap (distribution repositories only).
 # This is a beta bootstrap: it creates a loopback-only HTTP endpoint on :8080.

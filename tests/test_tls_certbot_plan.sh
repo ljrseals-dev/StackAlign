@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # tests/test_tls_certbot_plan.sh -- plan-only Certbot HTTP-01 validation.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)

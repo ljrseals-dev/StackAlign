@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # Uses fake systemctl/nginx/mysqladmin/php-fpm in a private PATH. No real service is touched.
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)

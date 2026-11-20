@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # Fake curl (HIBP) and argon2 in a private PATH. No network. Real openssl/sha*sum.
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)

@@ -1,6 +1,8 @@
 #!/usr/bin/bash -p
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 
 # Establish a predictable environment before bootstrap operations.
 if [ "${EUID:-0}" -eq 0 ] || [ "${EUID:-0}" -ne "${UID:-${EUID:-0}}" ]; then

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/db.sh -- guarded MariaDB status, listing, and creation helpers.
 . "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/common.sh"
 . "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/exec.sh"
