@@ -10,7 +10,7 @@ set -o pipefail
 TAG=stackalign-honeytrap
 LOGGER_BIN="${DESKTOP_HONEYTRAP_LOGGER_BIN:-logger}"
 SS_BIN="${HONEYTRAP_SS_BIN:-ss}"
-AUTO_BAN="${HONEYTRAP_AUTO_BAN:-0}"
+AUTO_BAN="${HONEYTRAP_AUTO_BAN:-1}"
 
 log_event() {
     "$LOGGER_BIN" -t "$TAG" -- "$1" 2>/dev/null || :
@@ -92,17 +92,13 @@ handle_event() {
     # fail2ban-client here; that would duplicate the jail action.
     if [[ "$AUTO_BAN" == 1 ]]; then
         local ignore_ips="${HONEYTRAP_BAN_IGNORE_IPS:-}"
-        if [[ -z "$ignore_ips" ]]; then
-            log_event "[BAN_DISABLED] HONEYTRAP_BAN_IGNORE_IPS must list administrator and proxy addresses before automatic banning can run"
-            return 0
-        fi
-        if is_one_of "$remote" "$ignore_ips"; then
+        if [[ -n "$ignore_ips" ]] && is_one_of "$remote" "$ignore_ips"; then
             log_event "[BAN_SKIPPED] peer=$remote is in HONEYTRAP_BAN_IGNORE_IPS"
             return 0
         fi
         log_event "CORRELATED pid=$pid peer=$remote HONEYTRAP_ACCESS key=$key executable=$exe"
     else
-        log_event "[PEER_CORRELATED] pid=$pid peer=$remote key=$key; automatic ban is disabled"
+        log_event "[PEER_CORRELATED] pid=$pid peer=$remote key=$key; automatic ban is disabled by explicit override"
     fi
 }
 while IFS= read -r audit_record; do
