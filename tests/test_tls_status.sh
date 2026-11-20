@@ -26,6 +26,9 @@ make_lineage() {
 }
 
 source "$ROOT/lib/tls.sh"
+
+# These tests isolate plan/status behavior; dedicated tests exercise clock failures.
+sa_tls_clock_preflight() { printf '%s\\n' 'clock: synchronized=yes timezone=Etc/UTC'; }
 make_lineage "example.test" "example.test"
 out=$(sa_tls_status "example.test")
 printf '%s\n' "$out" | grep -q 'client: lego'
