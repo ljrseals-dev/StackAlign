@@ -64,4 +64,42 @@ sa_config_load "$T/missing.conf" 2>/dev/null
 sa_config_load 2>/dev/null
 { [ $? -ne 0 ] && [ "${#SA_CONF[@]}" -eq 0 ]; } && ok "missing argument rejected" || bad "missing argument rejected"
 
+# Atomic persistence primitive: schema validation remains the caller's job.
+# New files are private, existing metadata is preserved, and unsafe targets fail closed.
+newcfg="$T/new.conf"
+printf '[meta]\nconfig_version = 1\n' | sa_config_write_atomic "$newcfg"
+rc=$?
+{ [ "$rc" -eq 0 ] && [ -f "$newcfg" ] && [ ! -L "$newcfg" ] && [ "$(stat -c '%a' "$newcfg")" = 600 ]; } && ok "atomic writer creates owner-only file" || bad "atomic writer creates owner-only file"
+printf 'replacement\n' | sa_config_write_atomic "$newcfg"
+{ [ "$?" -eq 0 ] && [ "$(cat "$newcfg")" = replacement ]; } && ok "atomic writer replaces file contents" || bad "atomic writer replaces file contents"
+
+chmod 0640 "$newcfg"
+printf 'preserved\n' | sa_config_write_atomic "$newcfg"
+{ [ "$?" -eq 0 ] && [ "$(stat -c '%a' "$newcfg")" = 640 ] && [ "$(stat -c '%u:%g' "$newcfg")" = "$(id -u):$(id -g)" ]; } && ok "atomic writer preserves mode and ownership" || bad "atomic writer preserves mode and ownership"
+
+ln -s "$newcfg" "$T/link.conf"
+printf 'unsafe\n' | sa_config_write_atomic "$T/link.conf" >/dev/null 2>&1
+[ "$?" -ne 0 ] && ok "atomic writer refuses symlink target" || bad "atomic writer refuses symlink target"
+mkdir "$T/dir-target"
+printf 'unsafe\n' | sa_config_write_atomic "$T/dir-target" >/dev/null 2>&1
+[ "$?" -ne 0 ] && ok "atomic writer refuses directory target" || bad "atomic writer refuses directory target"
+printf 'unsafe\n' | sa_config_write_atomic "relative.conf" >/dev/null 2>&1
+[ "$?" -ne 0 ] && ok "atomic writer requires absolute target" || bad "atomic writer requires absolute target"
+
+lock="$T/.new.conf.stackalign.lock"
+mkdir "$lock"
+printf 'busy\n' | sa_config_write_atomic "$newcfg" >/dev/null 2>&1
+rc=$?
+rmdir "$lock"
+{ [ "$rc" -eq 75 ] && [ "$(cat "$newcfg")" = preserved ]; } && ok "atomic writer refuses concurrent/stale lock without changing target" || bad "atomic writer refuses concurrent/stale lock without changing target"
+
+# A scoped fake cat fails deterministically while staging; the old target must survive.
+mkdir "$T/failbin"
+printf '#!/bin/sh\nexit 1\n' > "$T/failbin/cat"
+chmod 0700 "$T/failbin/cat"
+PATH="$T/failbin:$PATH" sa_config_write_atomic "$newcfg" </dev/null >/dev/null 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ "$(cat "$newcfg")" = preserved ]; } && ok "atomic writer keeps old file after staged write failure" || bad "atomic writer keeps old file after staged write failure"
+[ -z "$(find "$T" -maxdepth 1 -name '.new.conf.stackalign.*' -print -quit)" ] && ok "atomic writer cleans staged files" || bad "atomic writer cleans staged files"
+
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
