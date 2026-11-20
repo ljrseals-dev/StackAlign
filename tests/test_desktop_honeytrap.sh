@@ -21,7 +21,6 @@ export DESKTOP_TRIGGER_SCRIPT="$TMP/bin/stackalign-desktop-trigger.sh"
 export DESKTOP_HONEYTRAP_LOGGER_BIN="$TMP/bin/logger"
 export DESKTOP_HONEYTRAP_LOG="$TMP/events.log"
 export HONEYTRAP_SS_BIN="$TMP/bin/ss"
-export HONEYTRAP_FAIL2BAN_BIN="$TMP/bin/fail2ban-client"
 mkdir -p "$TMP/bin"
 cat >"$DESKTOP_HONEYTRAP_LOGGER_BIN" <<'MOCK'
 #!/usr/bin/env bash
@@ -83,7 +82,7 @@ printf '%s\n' 'ESTAB 0 0 10.0.0.2:443 198.51.100.9:5555 users:(("worker",pid=600
 MOCK
     chmod +x "$HONEYTRAP_SS_BIN"
     event 6000 /tmp/rogue stackalign_model_tamper
-    grep -q 'set stackalign-honeytrap banip 198.51.100.9' "$DESKTOP_HONEYTRAP_LOG"
+    grep -q 'CORRELATED pid=6000 peer=198.51.100.9 HONEYTRAP_ACCESS' "$DESKTOP_HONEYTRAP_LOG"
     : >"$DESKTOP_HONEYTRAP_LOG"
     cat >"$HONEYTRAP_SS_BIN" <<'MOCK'
 #!/usr/bin/env bash
@@ -92,7 +91,7 @@ MOCK
     chmod +x "$HONEYTRAP_SS_BIN"
     event 6002 /tmp/rogue stackalign_model_tamper
     grep -q '\\[BAN_SKIPPED\\]' "$DESKTOP_HONEYTRAP_LOG"
-    ! grep -q 'banip' "$DESKTOP_HONEYTRAP_LOG"
+    ! grep -q 'CORRELATED pid=6001' "$DESKTOP_HONEYTRAP_LOG"
     : >"$DESKTOP_HONEYTRAP_LOG"
     cat >"$HONEYTRAP_SS_BIN" <<'MOCK'
 #!/usr/bin/env bash
