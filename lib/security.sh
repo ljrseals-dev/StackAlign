@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/security.sh -- advisory ClamAV scan of docroots. Never quarantines or deletes.
 # Findings are appended as JSON lines to SA_AUDIT_QUEUE. YARA is deferred to M7.
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
