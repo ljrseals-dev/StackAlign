@@ -63,6 +63,15 @@ remote_peer_for_pid() {
     [[ -n "$addr" && "$addr" != "*" && "$addr" != "0.0.0.0" && "$addr" != "::" && "$addr" != "127.0.0.1" && "$addr" != "::1" ]] || return 1
     # Restrict characters before passing the address as a single argument.
     [[ "$addr" =~ ^[0-9a-fA-F:.]+$ ]] || return 1
+    python3 - "$addr" <<'PY'
+import ipaddress
+import sys
+try:
+    address = ipaddress.ip_address(sys.argv[1])
+except ValueError:
+    raise SystemExit(1)
+raise SystemExit(0 if address.is_global else 1)
+PY
     printf '%s\n' "$addr"
 }
 handle_event() {
