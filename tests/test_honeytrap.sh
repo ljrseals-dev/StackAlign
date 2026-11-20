@@ -28,7 +28,8 @@ test_install_creates_all_artifacts() {
     grep -q -- '-w .* -p rwa -k stackalign_honeytrap' "$AUDIT_RULE_DEST"
     grep -q 'path = ' "$AUDIT_PLUGIN_DEST"
     # Assert the installed jail artifact, not merely the source template.
-    grep -q '^enabled = true
+    grep -q '^enabled = true$' "$FAIL2BAN_JAIL_DEST"
+}
 test_install_sets_permissions() {
     install_honeytrap
     [[ "$(stat -c '%a' "$TRAP_FILE")" == 400 ]]
