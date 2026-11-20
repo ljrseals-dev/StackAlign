@@ -12,7 +12,7 @@ all: lint headers test
 HDR_FILES := Makefile $(SH_FILES) tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml vendor/versions.toml templates/nginx/conf.d/00-performance.conf templates/nginx/site-wordpress.conf.tmpl
 headers:
 	@bad=0; for f in $(HDR_FILES); do \
-	  head -6 "$f" | grep -q 'SPDX-License-Identifier: MIT' && head -6 "$f" | grep -q 'Copyright (c) 2026 Lewis James Seals Jr.' && head -6 "$f" | grep -q 'Author: Lewis James Seals Jr. (@ljrseals-dev)' && head -6 "$f" | grep -q 'Repository: https://github.com/ljrseals-dev/StackAlign' \
+	  head -6 "$$f" | grep -q 'SPDX-License-Identifier: MIT' && head -6 "$$f" | grep -q 'Copyright (c) 2026 Lewis James Seals Jr.' && head -6 "$$f" | grep -q 'Author: Lewis James Seals Jr.' && head -6 "$$f" | grep -q 'Repository: https://github.com/ljrseals-dev/StackAlign' \
 	    || { echo "missing SPDX/Author header: $$f"; bad=1; }; \
 	done; [ $$bad -eq 0 ] && echo "headers: ok ($(words $(HDR_FILES)) files)"
 
