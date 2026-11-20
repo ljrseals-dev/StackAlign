@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # tests/test_site.sh -- isolated read-only site command tests.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
