@@ -171,7 +171,8 @@ uninstall_desktop_honeytrap() {
             augenrules --load
         elif command -v auditctl >/dev/null 2>&1; then
             # Remove the live key rule if the rule file was removed before reload.
-            auditctl -D -k stackalign_desktop_honeytrap
+            auditctl -d always,exit -F arch=b64 -S open,openat -F dir=/dev/input -F perm=r -k stackalign_desktop_honeytrap
+            auditctl -d always,exit -F arch=b32 -S open,openat -F dir=/dev/input -F perm=r -k stackalign_desktop_honeytrap
         fi
         command -v service >/dev/null 2>&1 && service auditd restart
     fi
