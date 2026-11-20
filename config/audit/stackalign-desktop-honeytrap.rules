@@ -1,0 +1,8 @@
+# Copyright (c) 2026 Lewis James Seals Jr.
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr. (@ljrseals-dev)
+# Repository: https://github.com/ljrseals-dev/StackAlign
+# Detect open/openat attempts beneath /dev/input. This records device opens,
+# not individual mouse movements or keystrokes. Installer substitutes key path.
+-a always,exit -F arch=b64 -S open,openat -F dir=/dev/input -F perm=r -F key=stackalign_desktop_honeytrap
+-a always,exit -F arch=b32 -S open,openat -F dir=/dev/input -F perm=r -F key=stackalign_desktop_honeytrap
