@@ -79,7 +79,7 @@ uninstall_honeytrap() {
 }
 status_honeytrap() {
     local state=0 path
-    for path in "$TRAP_FILE" "$AUDIT_RULE_DEST" "$AUDIT_PLUGIN_DEST" "$TRIGGER_SCRIPT" "$FAIL2BAN_FILTER_DEST" "$FAIL2BAN_JAIL_DEST"; do
+    for path in "$TRAP_FILE" "$AUDIT_RULE_DEST" "$AUDIT_PLUGIN_DEST" "$TRIGGER_SCRIPT" "$FAIL2BAN_FILTER_DEST" "$FAIL2BAN_JAIL_DEST" "$AUDIT_DESKTOP_DEST" "$AUDIT_DESKTOP_PLUGIN_DEST" "$DESKTOP_TRIGGER_SCRIPT"; do
         if [[ -e "$path" ]]; then printf 'present  %s\n' "$path"; else printf 'missing  %s\n' "$path"; state=1; fi
     done
     return "$state"
