@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
 # M3 performance planner. This module is intentionally plan-only: it delegates
 # all memory arithmetic to lib/tune.sh and performs no host mutation.
