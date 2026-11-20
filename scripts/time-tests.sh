@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # Run the canonical Makefile test target and report total wall-clock time.
 # Test discovery and execution remain owned entirely by `make test`.
 set -euo pipefail
