@@ -69,6 +69,12 @@ DECOY
             printf '%s\n' "Neither augenrules nor auditctl is available." >&2
             return 1
         fi
+        if command -v service >/dev/null 2>&1; then
+            service auditd restart
+        else
+            printf '%s\n' "service is unavailable; audit dispatcher activation is NOT verified." >&2
+            return 1
+        fi
         if command -v fail2ban-client >/dev/null 2>&1; then
             fail2ban-client reload
         else
@@ -83,6 +89,7 @@ uninstall_honeytrap() {
     rm -f -- "$TRAP_FILE" "$AUDIT_RULE_DEST" "$AUDIT_PLUGIN_DEST" "$TRIGGER_SCRIPT" "$FAIL2BAN_FILTER_DEST" "$FAIL2BAN_JAIL_DEST"
     if [[ "${MOCK_SYSTEM:-0}" != 1 ]] && command -v augenrules >/dev/null 2>&1; then
         augenrules --load
+        command -v service >/dev/null 2>&1 && service auditd restart
         command -v fail2ban-client >/dev/null 2>&1 && fail2ban-client reload
     fi
     printf '%s\n' "Honey Trap configuration removed."
