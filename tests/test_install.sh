@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # install.sh's pins are not env-overridable, so tests run a COPY with the SHA line
 # substituted. Fake curl serves fixtures; nothing touches the network.
 set -u
