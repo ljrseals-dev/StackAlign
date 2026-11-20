@@ -44,6 +44,10 @@ if sa_tls_clock_preflight >/dev/null 2>&1; then fail "unsynchronized clock must 
 [ "$rc" -eq 3 ] || fail "unsynchronized clock must return 3"
 pass "unsynchronized clock rejected"
 
+if sa_tls_certbot_http01_plan example.com /tmp admin@example.com >/dev/null 2>&1; then fail "certificate planning must be blocked before downstream validation"; else rc=$?; fi
+[ "$rc" -eq 3 ] || fail "certificate planning must return clock failure"
+pass "certificate planning is gated before downstream work"
+
 MOCK_SYNC=yes
 MOCK_TIMEDATECTL_FAIL=1
 if sa_tls_clock_preflight >/dev/null 2>&1; then fail "unverifiable clock must fail"; else rc=$?; fi
