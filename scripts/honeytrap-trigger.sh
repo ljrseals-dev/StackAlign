@@ -5,7 +5,7 @@
 # Repository: https://github.com/ljrseals-dev/StackAlign
 # Persistent audispd stdin consumer. Correlation is best-effort and fails closed.
 
-set -uo pipefail
+set -o pipefail
 TAG=stackalign-honeytrap
 MAX_ANCESTORS="${HONEYTRAP_MAX_ANCESTORS:-8}"
 SS_BIN="${HONEYTRAP_SS_BIN:-ss}"
