@@ -96,6 +96,15 @@ if sa_backup_dump "$TMP/backups-link" >/dev/null 2>&1; then
   echo "FAIL: symlinked destination accepted" >&2; exit 1
 fi
 
+# Credential paths must be absolute and canonical, matching lib/db.sh.
+relative_file=${TMP#/}/mysql.cnf
+if ( cd / && SA_MYSQL_DEFAULTS_FILE="$relative_file" _sa_bk_defaults_ok ); then
+  echo "FAIL: relative defaults-file path accepted" >&2; exit 1
+fi
+if SA_MYSQL_DEFAULTS_FILE="$TMP/./mysql.cnf" _sa_bk_defaults_ok; then
+  echo "FAIL: noncanonical defaults-file path accepted" >&2; exit 1
+fi
+
 chmod 644 "$TMP/mysql.cnf"
 if sa_backup_dump "$TMP/backups" >/dev/null 2>&1; then
   echo "FAIL: world-readable defaults file accepted" >&2; exit 1
