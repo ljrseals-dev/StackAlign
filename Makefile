@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 SHELL := /bin/bash
 SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh) $(wildcard tests/*.sh) scripts/time-tests.sh scripts/security-lint.sh tests/lib/timing.sh m2b/measure-php-child-rss.sh tests/vm_egress_smoke.sh
 
