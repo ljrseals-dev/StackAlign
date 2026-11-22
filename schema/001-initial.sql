@@ -1,9 +1,7 @@
-# Copyright (c) 2026 Lewis James Seals Jr.
-# SPDX-License-Identifier: MIT
-# Author: Lewis James Seals Jr.
-# Repository: https://github.com/ljrseals-dev/StackAlign
+-- Copyright (c) 2026 Lewis James Seals Jr.
 -- SPDX-License-Identifier: MIT
 -- Author: Lewis James Seals Jr.
+-- Repository: https://github.com/ljrseals-dev/StackAlign
 PRAGMA foreign_keys = ON;
 BEGIN IMMEDIATE;
 CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL, description TEXT NOT NULL);
