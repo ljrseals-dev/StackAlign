@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/state.sh -- local SQLite state store and deterministic task lifecycle.
 _sa_state_db_path() {
   SA_STATE_DB=${SA_STATE_DB:-/var/lib/stackalign/state.db}
@@ -8,6 +10,26 @@ _sa_state_db_path() {
   local parent
   parent=$(dirname -- "$SA_STATE_DB")
   [[ -d $parent && ! -L $parent && $(realpath -e -- "$parent") == "$parent" ]] || { echo "state: parent must be an existing, resolved, non-symlink directory" >&2; return 1; }
+  # Check every path component: a writable ancestor could otherwise replace
+  # the database directory after validation. Sticky root-owned directories
+  # (for example /tmp) are safe for distinct user-owned child directories.
+  local dir mode owner uid
+  uid=$(id -u) || return 1
+  dir=$parent
+  while :; do
+    [[ -d $dir && ! -L $dir ]] || { echo "state: unsafe database directory component: $dir" >&2; return 1; }
+    read -r mode owner < <(stat -c '%a %u' -- "$dir") || return 1
+    [[ $owner == "$uid" || $owner == 0 ]] || { echo "state: database directory component has an untrusted owner: $dir" >&2; return 1; }
+    if (( (8#$mode & 022) != 0 )); then
+      (( owner == 0 && (8#$mode & 01000) != 0 )) || {
+        echo "state: database directory component is writable by other users: $dir" >&2
+        return 1
+      }
+    fi
+    [[ $dir == / ]] && break
+    dir=${dir%/*}
+    [[ -n $dir ]] || dir=/
+  done
   [[ ! -L $SA_STATE_DB ]] || { echo "state: database symlink refused" >&2; return 1; }
   export SA_STATE_DB
 }
@@ -58,7 +80,8 @@ sa_state_status() {
 sa_task_create() {
   local kind=${1:-} description=${2:-} id qid qkind qdesc
   case "$kind" in health_check|website_deploy|database_backup|website_migration) ;; *) echo "task: unsupported type: $kind" >&2; return 64 ;; esac
-  [[ -n $description && ${#description} -le 500 ]] || { echo "task: description must contain 1-500 characters" >&2; return 64; }
+  [[ -n $description && ${#description} -le 500 && $description != *[[:cntrl:]]* ]] || { echo "task: description must contain 1-500 printable characters without control characters" >&2; return 64; }
+  _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
   _sa_state_existing_db || { echo "task: state database is not initialized or has unsafe permissions" >&2; return 1; }
   id=$(< /proc/sys/kernel/random/uuid) || return 1
@@ -70,17 +93,19 @@ COMMIT;" || return $?
   printf '%s\n' "$id"
 }
 sa_task_list() {
+  _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
-  [[ -f $SA_STATE_DB && ! -L $SA_STATE_DB ]] || { echo "task: state database is not initialized" >&2; return 1; }
+  _sa_state_existing_db || { echo "task: state database is not initialized or has unsafe permissions" >&2; return 1; }
   _sa_state_exec "SELECT id || char(9) || task_type || char(9) || status || char(9) || description FROM tasks ORDER BY created_at DESC,id;"
 }
 sa_task_transition() {
   local id=${1:-} target=${2:-} detail=${3:-} qid qdetail expected result
   [[ $id =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "task: invalid task id" >&2; return 64; }
   case "$target" in running) expected=pending ;; succeeded|failed) expected=running ;; *) return 64 ;; esac
-  [[ ${#detail} -le 500 ]] || { echo "task: detail exceeds 500 characters" >&2; return 64; }
+  [[ ${#detail} -le 500 && $detail != *[[:cntrl:]]* ]] || { echo "task: detail must contain at most 500 characters without control characters" >&2; return 64; }
+  _sa_state_require_sqlite || return $?
   _sa_state_db_path || return $?
-  [[ -f $SA_STATE_DB && ! -L $SA_STATE_DB ]] || { echo "task: state database is not initialized" >&2; return 1; }
+  _sa_state_existing_db || { echo "task: state database is not initialized or has unsafe permissions" >&2; return 1; }
   qid=$(_sa_state_sql_quote "$id"); qdetail=$(_sa_state_sql_quote "$detail")
   result=$(_sa_state_exec "BEGIN IMMEDIATE;
 CREATE TEMP TABLE _sa_transition_result(changed INTEGER);
