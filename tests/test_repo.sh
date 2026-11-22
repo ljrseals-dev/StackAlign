@@ -82,11 +82,11 @@ f="$SA_YUM_REPOS_DIR/stackalign-remi.repo"
 [ "$(stat -c %a "$f")" = 644 ] && ok "repo file mode 0644" || bad "repo file mode 0644"
 
 # A failed key import must not publish or replace an enabled repository definition.
-reset; FAKE_RPM_IMPORT_FAIL=1 sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; FAKE_RPM_IMPORT_FAIL=0
+reset; export FAKE_RPM_IMPORT_FAIL=1; sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; export FAKE_RPM_IMPORT_FAIL=0
 { [ "$rc" -ne 0 ] && [ ! -e "$SA_YUM_REPOS_DIR/stackalign-remi.repo" ]; } \
   && ok "key import failure leaves new repo unpublished" || bad "key import failure leaves new repo unpublished"
 reset; mkdir -p "$SA_YUM_REPOS_DIR"; printf 'old repo definition\n' > "$SA_YUM_REPOS_DIR/stackalign-remi.repo"; chmod 644 "$SA_YUM_REPOS_DIR/stackalign-remi.repo"
-FAKE_RPM_IMPORT_FAIL=1 sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; FAKE_RPM_IMPORT_FAIL=0
+export FAKE_RPM_IMPORT_FAIL=1; sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; export FAKE_RPM_IMPORT_FAIL=0
 { [ "$rc" -ne 0 ] && [ "$(cat "$SA_YUM_REPOS_DIR/stackalign-remi.repo")" = "old repo definition" ]; } \
   && ok "key import failure preserves prior repo definition" || bad "key import failure preserves prior repo definition"
 
