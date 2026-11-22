@@ -42,7 +42,7 @@ cat > "$T/bin/rpm" <<'EOF'
 #!/usr/bin/env bash
 echo "rpm $*" >> "$FAKE_LOG"
 case $1 in
-  --import) exit 0 ;;
+  --import) [ "${FAKE_RPM_IMPORT_FAIL:-0}" = 1 ] && exit 1; exit 0 ;;
   -q) shift; [ "${1-}" = -- ] && shift; [ -e "$FAKE_STATE/installed.$1" ] ;;
 esac
 EOF
@@ -80,6 +80,15 @@ f="$SA_YUM_REPOS_DIR/stackalign-remi.repo"
 { [ $rc -eq 0 ] && grep -q "baseurl=$URL" "$f" && grep -q 'gpgcheck=1' "$f" && grep -q 'rpm --import' "$FAKE_LOG"; } \
   && ok "setup writes repo file (gpgcheck=1) and imports key" || bad "setup writes repo file and imports key"
 [ "$(stat -c %a "$f")" = 644 ] && ok "repo file mode 0644" || bad "repo file mode 0644"
+
+# A failed key import must not publish or replace an enabled repository definition.
+reset; FAKE_RPM_IMPORT_FAIL=1 sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; FAKE_RPM_IMPORT_FAIL=0
+{ [ "$rc" -ne 0 ] && [ ! -e "$SA_YUM_REPOS_DIR/stackalign-remi.repo" ]; } \
+  && ok "key import failure leaves new repo unpublished" || bad "key import failure leaves new repo unpublished"
+reset; printf 'old repo definition\n' > "$SA_YUM_REPOS_DIR/stackalign-remi.repo"; chmod 644 "$SA_YUM_REPOS_DIR/stackalign-remi.repo"
+FAKE_RPM_IMPORT_FAIL=1 sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; FAKE_RPM_IMPORT_FAIL=0
+{ [ "$rc" -ne 0 ] && [ "$(cat "$SA_YUM_REPOS_DIR/stackalign-remi.repo")" = "old repo definition" ]; } \
+  && ok "key import failure preserves prior repo definition" || bad "key import failure preserves prior repo definition"
 
 # idempotent: unchanged repo file must not trigger another rpm import
 m1=$(stat -c %y "$f"); sleep 1.1; : > "$FAKE_LOG"

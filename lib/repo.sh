@@ -109,7 +109,7 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   /usr/bin/mkdir -p -- "$SA_YUM_REPOS_DIR" || { /usr/bin/rm -rf -- "$tmpd"; return 1; }
   # Avoid process-substitution in cmp: under some environments /dev/fd compares
   # fail even when bytes are identical, which breaks setup idempotency.
-  local cmpfile wrote=0
+  local cmpfile
   cmpfile=$(/usr/bin/mktemp "$SA_YUM_REPOS_DIR/.sa-repo-cmp.XXXXXX") || { rm -rf -- "$tmpd"; return 1; }
   printf '%s' "$content" > "$cmpfile" || { /usr/bin/rm -rf -- "$tmpd" "$cmpfile"; return 1; }
   if [ -L "$file" ] || { [ -e "$file" ] && [ ! -f "$file" ]; }; then
@@ -121,20 +121,16 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
     /usr/bin/rm -f -- "$cmpfile"
     echo "repo $name: unchanged"
   else
+    # Import the fingerprint-validated key before publishing an enabled repo.
+    # If rpm rejects it, leave any existing repo definition untouched.
+    sa_exec rpm -- --import "$key" || {
+      rm -rf -- "$tmpd" "$cmpfile"
+      echo "repo: rpm --import failed; repo definition was not changed" >&2
+      return 1
+    }
     /usr/bin/chmod 0644 -- "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
     /usr/bin/mv -fT -- "$cmpfile" "$file" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
     echo "repo $name: written"
-    wrote=1
-  fi
-
-  # A new or changed repo definition needs its validated signing key imported.
-  # An unchanged definition does not repeat the rpmdb operation.
-  if [ "$wrote" -eq 1 ]; then
-    sa_exec rpm -- --import "$key" || {
-      rm -rf -- "$tmpd"
-      echo "repo: rpm --import failed" >&2
-      return 1
-    }
   fi
   rm -rf -- "$tmpd"
 }
