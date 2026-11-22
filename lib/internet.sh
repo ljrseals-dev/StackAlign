@@ -9,6 +9,18 @@
 
 sa_internet_die() { echo "stackalign internet: $*" >&2; return 1; }
 
+# Publish a completed preferences file without following a final-component
+# symlink to a directory. GNU mv -T treats the destination as a file path.
+sa_internet_publish_config() {
+  local tmp=${1:-} config=${2:-}
+  [[ $config == /* && -f $tmp && ! -L $tmp ]] || return 64
+  if [[ -L $config ]] || { [[ -e $config ]] && [[ ! -f $config ]]; }; then
+    echo "stackalign internet: refusing symlink or non-regular config target" >&2
+    return 1
+  fi
+  /usr/bin/mv -fT -- "$tmp" "$config"
+}
+
 sa_internet_config_path() {
   local base
   if [[ -n ${XDG_CONFIG_HOME:-} ]]; then
@@ -166,7 +178,7 @@ sa_internet_setup() {
     printf 'purpose=%s\ndns_provider=%s\npublic_ingress=%s\nadmin_access=%s\ndomain=%s\nserver_ipv4=%s\n' "$purpose" "$dns_provider" "$public_ingress" "$admin_access" "$domain" "$ip"
   } > "$tmp" || { rm -f "$tmp"; return 1; }
   chmod 600 "$tmp" || { rm -f "$tmp"; return 1; }
-  mv -f "$tmp" "$config" || { rm -f "$tmp"; return 1; }
+  sa_internet_publish_config "$tmp" "$config" || { rm -f -- "$tmp"; return 1; }
   echo "Saved non-secret internet setup preferences to: $config"
   echo "No DNS, firewall, package, service, TLS, or tunnel changes were made."
   sa_internet_plan "$purpose" "$dns_provider" "$public_ingress" "$admin_access" "$domain" "$ip"
