@@ -169,8 +169,8 @@ _sa_parse() {
 }
 
 cmd_doctor() {
-  _sa_parse "" "$@"; [ ${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: ${POS[0]}"
-  local crit=0 daemon
+  _sa_parse "" "$@"; [ \${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: \${POS[0]}"
+  local crit=0 daemon rpm_output="" rpm_rc=0
   echo "doctor: read-only (no changes made)"
   if [ -f "$SA_CONF_PATH" ]; then
     source "$SA_ROOT/lib/config.sh"
@@ -180,17 +180,42 @@ cmd_doctor() {
     else
       echo "config: ERROR ($SA_CONF_PATH): $(tr '\n' ' ' <"$errf")"; crit=1
     fi
-    rm -f "$errf"
+    rm -f -- "$errf"
   else
     echo "config: not found ($SA_CONF_PATH), skipped"
   fi
-  for daemon in vsftpd pure-ftpd proftpd; do
-    if rpm -q "$daemon" >/dev/null 2>&1; then
-      echo "NOTICE: independently managed FTP daemon detected: $daemon (StackAlign does not install or configure it)"
+
+  # One bounded RPM query replaces three serial package-manager startups.
+  # RPM returns 1 when one or more requested packages are absent; its query
+  # output still lists packages that are installed.
+  if command -v rpm >/dev/null 2>&1; then
+    if [ -x /usr/bin/timeout ]; then
+      if rpm_output=$(/usr/bin/timeout --signal=TERM --kill-after=2 8s \
+          rpm -q --qf '%{NAME}\n' vsftpd pure-ftpd proftpd 2>/dev/null); then
+        rpm_rc=0
+      else
+        rpm_rc=$?
+      fi
+      case "$rpm_rc" in
+        0|1)
+          while IFS= read -r daemon; do
+            case "$daemon" in
+              vsftpd|pure-ftpd|proftpd)
+                echo "NOTICE: independently managed FTP daemon detected: $daemon (StackAlign does not install or configure it)" ;;
+            esac
+          done <<< "$rpm_output"
+          ;;
+        124|137)
+          echo "NOTICE: RPM package inspection timed out; FTP daemon check skipped" >&2 ;;
+        *)
+          echo "NOTICE: RPM package inspection failed (status $rpm_rc); FTP daemon check skipped" >&2 ;;
+      esac
+    else
+      echo "NOTICE: timeout utility unavailable; FTP daemon check skipped" >&2
     fi
-  done
-  [ $crit -eq 0 ] && echo "doctor: no critical findings" || echo "doctor: critical findings present"
-  return $crit
+  fi
+  [ "$crit" -eq 0 ] && echo "doctor: no critical findings" || echo "doctor: critical findings present"
+  return "$crit"
 }
 
 cmd_install() {
