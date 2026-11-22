@@ -73,26 +73,26 @@ _sa_cmd_list() {
     plan M1 'dry-run alias: plan <command> [args]' \
     install M2a 'plan then apply the full stack' \
     doctor M1 'read-only host and drift inspection' \
-    tune M2a 'sizing planner' \
+    tune M2a 'NOT IMPLEMENTED (stub); see docs/TUNING.md' \
     rollback M2a 'snapshot restore: rollback [--list] [--to <id>]' \
-    update M5 'update engine: check|plan|apply|pin|status' \
+    update M5 'plan only; check/apply/pin/status are not implemented' \
     site M3 'read-only vhost inventory/doctor; lifecycle actions gated' \
     db M3 'database status/list/user inventory/create; destructive drop blocked' \
     tls M3 'certificate status, client inventory, HTTP-01 plan, and scheduler preflight' \
     backup M4 'backup driver: run|list|verify' \
-    restore M4 'restore driver: --from <id>' \
-    bench M6 'reproducible benchmark' \
+    restore M4 'BLOCKED: restore execution and verified rollback are not implemented' \
+    bench M6 'NOT IMPLEMENTED (stub)' \
     secret M2a 'password and token generation: gen|list' \
     repo M2a 'read-only package repository inventory' \
     optimize M3 'read-only performance plan; apply is gated' \
-    xcart M3 'guarded X-Cart profile: plan|preflight|build|deploy' \
-    routine M3 'routine subsystem: plan|install|doctor|run|run-builtin' \
+    xcart M3 'NOT IMPLEMENTED (stub)' \
+    routine M3 'NOT IMPLEMENTED (stub)' \
     internet M2b 'interactive internet access preferences and read-only planning' \
     hosting M2b 'hosting scope prompt, plans, and read-only inspection' \
     agent M2b 'Pinecone Neural planning sidecar: status or ask (read-only)' \
     sftp M3 'chrooted key-only SFTP account management' \
     egress M4 'outbound firewall and passive LAN audit' \
-    contain M4 'evidence preservation before rebuild'
+    contain M4 'NOT IMPLEMENTED (stub)'
 }
 
 _sa_cmd_help() {
@@ -102,26 +102,26 @@ _sa_cmd_help() {
     plan) printf 'stackalign plan  [M1]\n  dry-run alias: plan <command> [args]\n' ;;
     install) printf 'stackalign install  [M2a]\n  plan then apply the full stack\n' ;;
     doctor) printf 'stackalign doctor  [M1]\n  read-only host and drift inspection\n' ;;
-    tune) printf 'stackalign tune  [M2a]\n  sizing planner\n' ;;
+    tune) printf 'stackalign tune  [M2a]\n  NOT IMPLEMENTED: sizing design only; no command workflow is wired.\n' ;;
     rollback) printf 'stackalign rollback  [M2a]\n  snapshot restore: rollback [--list] [--to <id>]\n' ;;
-    update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
+    update) printf 'stackalign update  [M5]\n  plan <component> <version> only; check/apply/pin/status are not implemented.\n' ;;
     site) printf 'stackalign site  [M3]\n  read-only vhost inventory/doctor; lifecycle actions gated\n' ;;
     db) printf 'stackalign db  [M3]\n  database status/list/user inventory/create; destructive drop blocked\n' ;;
     tls) printf 'stackalign tls  [M3]\n  status, clients, plan-issue (Certbot HTTP-01 only), and scheduler preflight\n' ;;
     backup) printf 'stackalign backup  [M4]\n  backup driver: run|list|verify\n' ;;
-    restore) printf 'stackalign restore  [M4]\n  restore driver: --from <id>\n' ;;
-    bench) printf 'stackalign bench  [M6]\n  reproducible benchmark\n' ;;
+    restore) printf 'stackalign restore  [M4]\n  BLOCKED: restore execution, pre-restore snapshot, and verified rollback are not implemented.\n' ;;
+    bench) printf 'stackalign bench  [M6]\n  NOT IMPLEMENTED: recognized stub; no benchmark runs.\n' ;;
     secret) printf 'stackalign secret  [M2a]\n  password and token generation: gen|list\n' ;;
     repo) printf 'stackalign repo  [M2a]\n  read-only package repository inventory\n' ;;
     optimize) printf 'stackalign optimize  [M3]\n  read-only performance plan; apply is gated\n' ;;
-    xcart) printf 'stackalign xcart  [M3]\n  guarded X-Cart profile: plan|preflight|build|deploy\n' ;;
-    routine) printf 'stackalign routine  [M3]\n  routine subsystem: plan|install|doctor|run|run-builtin\n' ;;
+    xcart) printf 'stackalign xcart  [M3]\n  NOT IMPLEMENTED: recognized stub; no X-Cart workflow runs.\n' ;;
+    routine) printf 'stackalign routine  [M3]\n  NOT IMPLEMENTED: recognized stub; no routine workflow runs.\n' ;;
     internet) printf 'stackalign internet  [M2b]\n  interactive internet access preferences and read-only planning\n' ;;
     hosting) printf 'stackalign hosting  [M2b]\n  hosting scope prompt, plans, and read-only inspection\n' ;;
     agent) printf 'stackalign agent  [M2b]\n  Pinecone Neural planning sidecar: status or ask (read-only)\n' ;;
     sftp) printf 'stackalign sftp  [M3]\n  chrooted key-only SFTP account management\n' ;;
     egress) printf 'stackalign egress  [M4]\n  outbound firewall and passive LAN audit\n' ;;
-    contain) printf 'stackalign contain  [M4]\n  evidence preservation before rebuild\n' ;;
+    contain) printf 'stackalign contain  [M4]\n  NOT IMPLEMENTED: recognized stub; no evidence-preservation workflow runs.\n' ;;
     *) return 1 ;;
   esac
 }
