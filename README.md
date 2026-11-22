@@ -20,11 +20,13 @@ StackAlign is an experimental project for EL-family Linux systems. It provides a
 
 | Area | Current state | Important limitation |
 |---|---|---|
-| CLI and host diagnostics | Version/help, read-only doctor, planning, and subsystem commands | Some recognized commands remain stubs or explicitly gated. |
+| CLI and host diagnostics | Version/help, read-only doctor, planning, and subsystem commands; doctor batches the optional FTP-daemon RPM probe into one bounded query | Some recognized commands remain stubs or explicitly gated; a timed-out/failed RPM probe is reported as skipped. |
 | EL9 LEMP bootstrap | Plan/apply path for distribution-packaged Nginx, MariaDB, and PHP-FPM | EL9 x86_64 scope; experimental and not production-validated. |
 | Hosting and vhosts | Read-only Nginx/Apache inventory and diagnostics; hosting plans | Site lifecycle and independent-tenant isolation remain gated. |
 | Database | Read-only inventory and guarded database creation | User grants and destructive drop are not implemented. |
 | Backups | Logical/physical backup creation, listing, and limited artifact checks | Restore, encryption, retention, off-host replication, and disaster recovery remain gated. |
+| Configuration | INI configuration is parsed as data; `sa_config_write_atomic` provides a schema-agnostic atomic file-replacement primitive | The writer is not wired to a CLI or finalized product schema; it does not provide fsync/power-loss durability. |
+| Agent integration | Optional `stackalign agent ask` sends read-only doctor/inventory context to a configured sidecar; model output is displayed, never executed | This is a planning-only client, not an LLM hosting/runtime manager or autonomous host agent. Remote HTTPS requires explicit opt-in. |
 | TLS | Read-only certificate status, client inventory, and renewal-scheduler preflight | Issuance, renewal, migration, and scheduler activation remain blocked. |
 | Credential preflight | MySQL defaults-file checks require an absolute canonical path, regular non-symlink file, owner match, and mode 400 or 600 | Does not replace a real-host credential and recovery review. |
 | Egress and SFTP | Guarded modules and fixture/integration test paths | Real-kernel firewall behavior and real-host SFTP acceptance remain unverified. |
@@ -33,6 +35,8 @@ StackAlign is an experimental project for EL-family Linux systems. It provides a
 The TLS clock gate requires `timedatectl` to report `NTPSynchronized=yes` before TLS preflight or Certbot HTTP-01 planning proceeds. It reports timezone separately and does not change system time, enable NTP, or modify timezone settings. See [TLS clock preflight](docs/TLS-CLOCK-PREFLIGHT.md).
 
 TLS issuance and renewal remain blocked because protected secret transport, atomic certificate/key activation, crash recovery, scheduler isolation, and real-host acceptance are not yet established. A plan preview is not certificate issuance.
+
+The configuration writer is deliberately lower-level than a configuration-management feature: callers must validate the complete content before using it. The accepted runtime keys and the writer's precise guarantees are documented in [Configuration schema](docs/CONFIG-SCHEMA.md).
 
 ## Requirements
 
@@ -64,6 +68,8 @@ bash bin/stackalign tls status
 bash bin/stackalign tls preflight
 ```
 
+The optional sidecar client is planning-only. Configure its endpoint and API key according to [Agent integration boundaries](docs/MASTER-PROMPT-COVERAGE-AUDIT-2026-11-18.md) before using it. Do not send secrets, credentials, customer data, private keys, or sensitive logs to an external model provider.
+
 The LEMP installer is plan-first. Review its output and [LEMP beta guide](docs/LEMP-BETA.md) before considering an explicitly mutating apply:
 
 ```bash
@@ -90,23 +96,29 @@ Keep the file outside the repository. Do not put credentials in shell history, c
 Run the standard checks:
 
 ```bash
+make security
 make lint
 make headers
 make test
 ```
 
-- `make lint` runs Bash syntax checks and ShellCheck when installed.
+- `make security` runs the repository's security lint checks.
+- `make lint` runs security lint, Bash syntax checks, and ShellCheck when installed.
 - `make headers` checks configured SPDX/author headers.
 - `make test` runs the shell test suites and Python tuning tests.
 - A failure in any suite means the overall test run is not green.
 
 CI workflows cover Ubuntu, AlmaLinux 9, and CentOS Stream 9 fixture environments. CI is revision-specific evidence, not proof of successful deployment, live package transactions, firewall behavior, recovery, or production readiness. Report checks as **PASS**, **FAIL**, **NOT RUN**, or **UNVERIFIED** and identify the exact commit/environment.
 
-## Documentation
+## Engineering assessments and documentation
 
 - [LEMP beta guide](docs/LEMP-BETA.md) — supported scope, apply behavior, and recovery limitations.
 - [Beta hosting scope](docs/BETA-SCOPE-AND-HOSTING.md) — vhosts, hosting modes, and isolation boundaries.
 - [Hosting modes](docs/HOSTING-MODES.md) — Nginx, Apache, and hybrid plans.
+- [Configuration schema](docs/CONFIG-SCHEMA.md) — accepted runtime keys, design-only settings, and atomic persistence guarantees.
+- [Engineering gap assessment](docs/ENGINEERING-GAP-ASSESSMENT-2026-11-18.md) — evidence-pinned initial comparison with Centmin Mod; not a parity or production-readiness claim.
+- [Master prompt coverage audit](docs/MASTER-PROMPT-COVERAGE-AUDIT-2026-11-18.md) — first-pass A–O coverage classification and remaining work.
+- [Quantized LLM footprint assessment](docs/QUANTIZED-LLM-FOOTPRINT.md) — ONNX-to-Cmajor limitations and model-deployment validation gates; no model is bundled or deployed.
 - [Internet access](docs/INTERNET-ACCESS.md) — access preferences and planning boundaries.
 - [TLS client design](docs/TLS-CLIENTS.md) — client/lineage ownership and orchestration limits.
 - [TLS clock preflight](docs/TLS-CLOCK-PREFLIGHT.md) — synchronized-clock gate and validation scope.
