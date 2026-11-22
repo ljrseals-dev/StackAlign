@@ -85,7 +85,7 @@ f="$SA_YUM_REPOS_DIR/stackalign-remi.repo"
 reset; FAKE_RPM_IMPORT_FAIL=1 sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; FAKE_RPM_IMPORT_FAIL=0
 { [ "$rc" -ne 0 ] && [ ! -e "$SA_YUM_REPOS_DIR/stackalign-remi.repo" ]; } \
   && ok "key import failure leaves new repo unpublished" || bad "key import failure leaves new repo unpublished"
-reset; printf 'old repo definition\n' > "$SA_YUM_REPOS_DIR/stackalign-remi.repo"; chmod 644 "$SA_YUM_REPOS_DIR/stackalign-remi.repo"
+reset; mkdir -p "$SA_YUM_REPOS_DIR"; printf 'old repo definition\n' > "$SA_YUM_REPOS_DIR/stackalign-remi.repo"; chmod 644 "$SA_YUM_REPOS_DIR/stackalign-remi.repo"
 FAKE_RPM_IMPORT_FAIL=1 sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; FAKE_RPM_IMPORT_FAIL=0
 { [ "$rc" -ne 0 ] && [ "$(cat "$SA_YUM_REPOS_DIR/stackalign-remi.repo")" = "old repo definition" ]; } \
   && ok "key import failure preserves prior repo definition" || bad "key import failure preserves prior repo definition"
