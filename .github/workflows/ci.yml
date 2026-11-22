@@ -1,14 +1,9 @@
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 #
-# Historical CI evidence: run 43351689173 completed successfully for commit
-# ea0f816df44372a658bfb1fc100d7142053e584a (pull_request event; Ubuntu and
-# AlmaLinux 9 jobs). This is not evidence for every revision or a live-host test.
-#
-# VERSION PIN: actions/checkout@v6 is TO_BE_VERIFIED. It comes from a third-party
-# registry (packages.ecosyste.ms: latest_release_number v6.0.2, published
-# 2026-01-09) whose own tag list was inconsistent. Confirm on
-# https://github.com/actions/checkout/releases before relying on it.
+# CI checks are revision-specific and are not real-host deployment acceptance.
 name: ci
 on:
   push:
@@ -19,21 +14,77 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Install shellcheck
+      - name: Install test dependencies
         run: sudo apt-get update && sudo apt-get install -y shellcheck gnupg openssh-server openssh-client openssl sqlite3
-      - run: make lint
-      - run: make headers
-      - run: make test
+      - name: Run security, lint, headers, and tests
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            printf 'commit=%s\nrun_id=%s\njob=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_JOB"
+            make security
+            make lint
+            make headers
+            make test
+          } 2>&1 | tee stackalign-ci-evidence.log
+      - name: Upload CI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stackalign-ci-${{ github.job }}-${{ github.sha }}
+          path: stackalign-ci-evidence.log
+          if-no-files-found: warn
 
   almalinux9:
-    # The project targets EL-family; this runs the same suites in an EL9 userland.
-    # (Container tests of real nginx/PHP/MariaDB are M2b, not this job.)
     runs-on: ubuntu-latest
     container: almalinux:9
     steps:
       - name: Install test dependencies
-        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl sqlite
+        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl sqlite shellcheck
       - uses: actions/checkout@v6
-      - run: make lint
-      - run: make headers
-      - run: make test
+      - name: Run security, lint, headers, and tests
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            printf 'commit=%s\nrun_id=%s\njob=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_JOB"
+            make security
+            make lint
+            make headers
+            chown -R nobody:nobody "$GITHUB_WORKSPACE"
+            su -s /bin/bash nobody -c "cd '$GITHUB_WORKSPACE' && make test"
+          } 2>&1 | tee stackalign-ci-evidence.log
+      - name: Upload CI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stackalign-ci-${{ github.job }}-${{ github.sha }}
+          path: stackalign-ci-evidence.log
+          if-no-files-found: warn
+
+  centos_stream9:
+    runs-on: ubuntu-latest
+    container: quay.io/centos/centos:stream9
+    steps:
+      - name: Install test dependencies
+        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl sqlite shellcheck
+      - uses: actions/checkout@v6
+      - name: Run security, lint, headers, and tests
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            printf 'commit=%s\nrun_id=%s\njob=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_JOB"
+            make security
+            make lint
+            make headers
+            chown -R nobody:nobody "$GITHUB_WORKSPACE"
+            su -s /bin/bash nobody -c "cd '$GITHUB_WORKSPACE' && make test"
+          } 2>&1 | tee stackalign-ci-evidence.log
+      - name: Upload CI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stackalign-ci-${{ github.job }}-${{ github.sha }}
+          path: stackalign-ci-evidence.log
+          if-no-files-found: warn
