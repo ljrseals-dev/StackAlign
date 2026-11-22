@@ -96,14 +96,12 @@ Keep the file outside the repository. Do not put credentials in shell history, c
 Run the standard checks:
 
 ```bash
-make security
 make lint
 make headers
 make test
 ```
 
-- `make security` runs the repository's security lint checks.
-- `make lint` runs security lint, Bash syntax checks, and ShellCheck when installed.
+- `make lint` runs security lint, Bash syntax checks, and ShellCheck when installed. Run `make security` separately only when you want the security-lint check by itself.
 - `make headers` checks configured SPDX/author headers.
 - `make test` runs the shell test suites and Python tuning tests.
 - A failure in any suite means the overall test run is not green.

@@ -13,9 +13,9 @@ IFS=$' \t\n'
 umask 077
 unset BASH_ENV ENV CDPATH GLOBIGNORE LD_PRELOAD LD_LIBRARY_PATH
 #
-# bin/stackalign -- CLI dispatcher. Written from master prompt v8 Part III.
-# Implemented now: version, help, plan (alias), doctor (read-only), rollback.
-# Every other subcommand is a recognised STUB that refuses with rc 2.
+# bin/stackalign -- CLI dispatcher.
+# Command handlers below define current behavior: implemented, read-only, plan-only, gated, or stub.
+# Check each handler before treating a recognized command as an implemented workflow.
 #
 # ASSUMPTIONS (spec is partly contradictory/silent; unmeasured design choices):
 #   * "--plan before command" and "each command has --plan" are reconciled as:
@@ -24,7 +24,7 @@ unset BASH_ENV ENV CDPATH GLOBIGNORE LD_PRELOAD LD_LIBRARY_PATH
 #     rollback's --list/--to). Any other trailing option => "unexpected argument".
 #   * Mutating commands default to plan mode; --apply is required to mutate.
 #   * VERSION is a placeholder constant, not a release claim.
-#   * `tune` is NOT wired: its config keys live in docs/TUNING.md (unavailable).
+#   * `tune` is not wired to this dispatcher; see docs/TUNING.md for its design.
 set -u
 
 SA_VERSION="0.0.0-dev"

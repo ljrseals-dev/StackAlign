@@ -16,7 +16,6 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck gnupg openssh-server openssh-client openssl
-      - run: make security
       - run: make lint
       - run: make headers
       - run: make test
@@ -29,7 +28,6 @@ jobs:
       - name: Install test dependencies
         run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl
       - uses: actions/checkout@v6
-      - run: make security
       - run: make lint
       - run: make headers
       - name: Run fixture tests as unprivileged user
@@ -45,7 +43,6 @@ jobs:
       - name: Install test dependencies
         run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl
       - uses: actions/checkout@v6
-      - run: make security
       - run: make lint
       - run: make headers
       - name: Run fixture tests as unprivileged user
