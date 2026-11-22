@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # lib/llm_host.sh -- guarded local Ollama runtime discovery and model pulls.
 
 _sa_llm_host_endpoint() {
