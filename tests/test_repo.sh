@@ -90,7 +90,7 @@ out=$(sa_repo_setup remi "$URL" "$FPR" "$KEY")
   || bad "setup idempotent"
 
 # A final symlink must never redirect repo-file publication outside the repo directory.
-reset; mkdir -p "$T/outside"; ln -s "$T/outside" "$SA_YUM_REPOS_DIR/stackalign-escape.repo"
+reset; mkdir -p "$T/outside" "$SA_YUM_REPOS_DIR"; ln -s "$T/outside" "$SA_YUM_REPOS_DIR/stackalign-escape.repo"
 sa_repo_setup escape "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?
 { [ "$rc" -ne 0 ] && [ -L "$SA_YUM_REPOS_DIR/stackalign-escape.repo" ] && [ -z "$(find "$T/outside" -mindepth 1 -maxdepth 1 -print -quit)" ] && ! grep -q 'rpm --import' "$FAKE_LOG"; } \
   && ok "refuses symlink-to-directory repo target" || bad "symlink-to-directory repo target"
