@@ -41,7 +41,7 @@ _sa_hist_root_prepare() {
 
 # sa_history_snapshot <path> [slug] -> prints snapshot id
 sa_history_snapshot() {
-  local path slug=${2:-snap} ts id dir path_real secret_real
+  local path slug=${2-snap} ts id dir path_real secret_real
   [ $# -ge 1 ] || { echo "sa_history_snapshot: path required" >&2; return 64; }
   path=$(_sa_hist_abs "$1")
   [[ $path != *[[:cntrl:]]* ]] || { echo "sa_history_snapshot: refusing control characters in path" >&2; return 64; }
