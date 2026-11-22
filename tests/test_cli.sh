@@ -8,12 +8,30 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CLI="$ROOT/bin/stackalign"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export SA_HISTORY_ROOT="$T/hist" SA_SECRETS_DIR="$T/secrets"
-mkdir -p "$T/bin"; export FAKE_RPM_INSTALLED=""
+mkdir -p "$T/bin"; export FAKE_RPM_INSTALLED="" FAKE_RPM_CALL_LOG="$T/rpm.calls"
 cat > "$T/bin/rpm" <<'EOF'
 #!/usr/bin/env bash
-# fake: succeeds only for names listed in FAKE_RPM_INSTALLED
-[ "$1" = -q ] || exit 1
-for n in $FAKE_RPM_INSTALLED; do [ "$n" = "$2" ] && exit 0; done; exit 1
+# Fixture for the batched doctor query; record calls and report installed names.
+printf '%s\n' "$*" >> "$FAKE_RPM_CALL_LOG"
+[ "${1-}" = -q ] || exit 1
+shift
+if [ "${1-}" = --qf ]; then
+  [ $# -ge 2 ] || exit 2
+  shift 2
+fi
+rc=0
+for requested in "$@"; do
+  found=0
+  for installed in $FAKE_RPM_INSTALLED; do
+    if [ "$installed" = "$requested" ]; then
+      printf '%s\n' "$installed"
+      found=1
+      break
+    fi
+  done
+  [ "$found" -eq 1 ] || rc=1
+done
+exit "$rc"
 EOF
 chmod +x "$T/bin/rpm"; export PATH="$T/bin:$PATH"
 pass=0; fail=0
@@ -85,10 +103,18 @@ run optimize --apply
 { [ "$RC" -eq 2 ] && [[ "$OUT" == *"not implemented"* ]] && [[ "$OUT" == *"no changes made"* ]]; } && ok "optimize apply refuses without mutation implementation" || bad "optimize apply refuses without mutation implementation"
 
 # doctor
+: > "$FAKE_RPM_CALL_LOG"
 run --config "$T/none.conf" doctor
-{ [ $RC -eq 0 ] && [[ $OUT == *"no critical findings"* ]]; } && ok "doctor clean host: rc 0" || bad "doctor clean host: rc 0 (rc=$RC)"
-FAKE_RPM_INSTALLED="vsftpd" run doctor
-{ [ $RC -eq 0 ] && [[ $OUT == *"NOTICE: independently managed FTP daemon detected: vsftpd"* ]] && [[ $OUT == *"no critical findings"* ]]; } && ok "doctor: independent FTP daemon is informational, rc 0" || bad "doctor: independent FTP daemon is informational"
+{ [ $RC -eq 0 ] && [[ $OUT == *"no critical findings"* ]] && [ "$(wc -l < "$FAKE_RPM_CALL_LOG")" -eq 1 ]; } && ok "doctor clean host: rc 0 with one bounded RPM query" || bad "doctor clean host/batched RPM query (rc=$RC)"
+: > "$FAKE_RPM_CALL_LOG"
+FAKE_RPM_INSTALLED="vsftpd pure-ftpd" run doctor
+{
+  [ $RC -eq 0 ] &&
+  [[ $OUT == *"NOTICE: independently managed FTP daemon detected: vsftpd"* ]] &&
+  [[ $OUT == *"NOTICE: independently managed FTP daemon detected: pure-ftpd"* ]] &&
+  [[ $OUT == *"no critical findings"* ]] &&
+  [ "$(wc -l < "$FAKE_RPM_CALL_LOG")" -eq 1 ]
+} && ok "doctor: batched RPM query detects multiple FTP daemons in one call" || bad "doctor: batched FTP daemon detection"
 # SA_CONF_PATH is internal; test config check via --config
 printf '[meta]\nconfig_version = 1\n' > "$T/ok.conf"; printf '[meta]\nconfig_version = 9\n' > "$T/badver.conf"
 run --config "$T/ok.conf" doctor;     { [ $RC -eq 0 ] && [[ $OUT == *"config: ok"* ]]; } && ok "doctor validates good config" || bad "doctor validates good config"
