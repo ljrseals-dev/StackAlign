@@ -169,7 +169,7 @@ _sa_parse() {
 }
 
 cmd_doctor() {
-  _sa_parse "" "$@"; [ \${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: \${POS[0]}"
+  _sa_parse "" "$@"; [ ${#POS[@]} -eq 0 ] || _sa_die "unexpected argument: ${POS[0]}"
   local crit=0 daemon rpm_output="" rpm_rc=0
   echo "doctor: read-only (no changes made)"
   if [ -f "$SA_CONF_PATH" ]; then
