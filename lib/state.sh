@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 # Repository: https://github.com/ljrseals-dev/StackAlign
-# SPDX-License-Identifier: MIT
-# Author: Lewis James Seals Jr.
 # lib/state.sh -- local SQLite state store and deterministic task lifecycle.
 _sa_state_db_path() {
   SA_STATE_DB=${SA_STATE_DB:-/var/lib/stackalign/state.db}
