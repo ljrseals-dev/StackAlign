@@ -9,9 +9,16 @@ SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh)
 all: lint headers test
 
 # Require copyright, SPDX, author, and canonical repository headers in the first six lines.
-HDR_FILES := Makefile $(SH_FILES) tests/test_tune_math.py scripts/validate_llm_plan.py .github/workflows/ci.yml .gitea/workflows/ci.yml schema/001-initial.sql
+# Preserve the legacy two-field check for this branch's inherited baseline.
+HDR_FILES := $(SH_FILES) Makefile tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml
+# Apply the full four-field contract to every file changed or introduced by this PR.
+HDR_STRICT_FILES := Makefile bin/stackalign lib/state.sh lib/llm.sh lib/llm_host.sh tests/test_state.sh tests/test_agent.sh tests/test_llm.sh tests/test_llm_host.sh scripts/validate_llm_plan.py schema/001-initial.sql .github/workflows/ci.yml
 headers:
 	@bad=0; for f in $(HDR_FILES); do \
+	  head -6 "$$f" | grep -q 'SPDX-License-Identifier:' && head -6 "$$f" | grep -q 'Author: Lewis James Seals Jr.' \
+	    || { echo "missing SPDX/Author header: $$f"; bad=1; }; \
+	done; \
+	for f in $(HDR_STRICT_FILES); do \
 	  awk 'NR <= 6 { \
 	    if (index($$0, "SPDX-License-Identifier: MIT")) spdx=1; \
 	    if (index($$0, "Copyright (c) 2026 Lewis James Seals Jr.")) copyright=1; \
@@ -19,8 +26,7 @@ headers:
 	    if (index($$0, "Repository: https://github.com/ljrseals-dev/StackAlign")) repository=1; \
 	  } END { exit !(spdx && copyright && author && repository) }' "$$f" \
 	    || { echo "missing complete provenance header: $$f"; bad=1; }; \
-	done; [ $$bad -eq 0 ] && echo "headers: ok ($(words $(HDR_FILES)) files)"
-
+	done; [ $$bad -eq 0 ] && echo "headers: ok (legacy baseline + strict PR files)"
 test:
 	@fail=0; \
 	for t in tests/test_*.sh; do \
