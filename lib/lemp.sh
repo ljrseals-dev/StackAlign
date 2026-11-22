@@ -69,14 +69,14 @@ sa_lemp_path_components_safe() {
 # Refuse symlink/non-regular managed targets before DNF or file writes.
 sa_lemp_targets_safe() {
   local path
-  for path in "$SA_LEMP_ETC_ROOT/php-fpm.d" "$SA_LEMP_ETC_ROOT/nginx/conf.d" "$SA_LEMP_WEB_ROOT" "$SA_LEMP_WEB_ROOT/public"; do
+  for path in "$SA_LEMP_ETC_ROOT/php-fpm.d" "$SA_LEMP_ETC_ROOT/nginx/conf.d" "$SA_LEMP_ETC_ROOT/my.cnf.d" "$SA_LEMP_WEB_ROOT" "$SA_LEMP_WEB_ROOT/public"; do
     sa_lemp_path_components_safe "$path" || return $?
     if [ -e "$path" ] && [ ! -d "$path" ]; then
       echo "stackalign install: managed directory path is not a directory: $path" >&2
       return 64
     fi
   done
-  for path in "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
+  for path in "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/my.cnf.d/99-stackalign.cnf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
     if [ -L "$path" ]; then
       echo "stackalign install: refusing symlinked managed target: $path" >&2
       return 64
@@ -121,6 +121,7 @@ StackAlign LEMP beta plan (no changes made)
   Services: mariadb, php-fpm, nginx (enable and start)
   Configuration: PHP-FPM www pool and isolated Nginx server block
   Safety: existing configuration files are snapshotted before edits
+  MariaDB: TCP bound to 127.0.0.1; local Unix-socket access remains available
   Excluded: TLS, firewall, DNS, public listener, database/user provisioning,
             tenant isolation, backups, and production hardening
 Re-run as root with: stackalign install --apply
@@ -129,7 +130,7 @@ EOF
 
 sa_lemp_restore() {
   local backup=$1 path
-  for path in "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
+  for path in "$SA_LEMP_ETC_ROOT/nginx/conf.d/stackalign.conf" "$SA_LEMP_ETC_ROOT/php-fpm.d/www.conf" "$SA_LEMP_ETC_ROOT/my.cnf.d/99-stackalign.cnf" "$SA_LEMP_WEB_ROOT/public/index.php"; do
     if [ -e "$backup$path" ] || [ -L "$backup$path" ]; then
       /usr/bin/cp -a -- "$backup$path" "$path" || return 1
     else
@@ -143,16 +144,18 @@ sa_lemp_apply() {
   sa_lemp_targets_safe || return $?
   local etc="$SA_LEMP_ETC_ROOT" web="$SA_LEMP_WEB_ROOT"
   local pool="$etc/php-fpm.d/www.conf" site="$etc/nginx/conf.d/stackalign.conf"
+  local dbconf="$etc/my.cnf.d/99-stackalign.cnf" health="$web/public/index.php"
   local backup failed=0
   echo "Installing distro-provided LEMP packages (no third-party repositories added)"
   sa_exec dnf --timeout 1800 -- -y install -- nginx mariadb-server php-fpm php-mysqlnd || { sa_lemp_die "DNF package installation failed"; return 1; }
 
   backup=$(mktemp -d) || return 1
-  /usr/bin/mkdir -p -- "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d" "$backup$web/public"
+  /usr/bin/mkdir -p -- "$backup$etc/php-fpm.d" "$backup$etc/nginx/conf.d" "$backup$etc/my.cnf.d" "$backup$web/public"
   [ ! -e "$pool" ] && [ ! -L "$pool" ] || /usr/bin/cp -a -- "$pool" "$backup$pool" || { /usr/bin/rm -rf -- "$backup"; return 1; }
   [ ! -e "$site" ] && [ ! -L "$site" ] || /usr/bin/cp -a -- "$site" "$backup$site" || { /usr/bin/rm -rf -- "$backup"; return 1; }
-  [ ! -e "$web/public/index.php" ] && [ ! -L "$web/public/index.php" ] || /usr/bin/cp -a -- "$web/public/index.php" "$backup$web/public/index.php" || { /usr/bin/rm -rf -- "$backup"; return 1; }
-  /usr/bin/mkdir -p -- "$etc/php-fpm.d" "$etc/nginx/conf.d" "$web/public" || failed=1
+  [ ! -e "$dbconf" ] && [ ! -L "$dbconf" ] || /usr/bin/cp -a -- "$dbconf" "$backup$dbconf" || { /usr/bin/rm -rf -- "$backup"; return 1; }
+  [ ! -e "$health" ] && [ ! -L "$health" ] || /usr/bin/cp -a -- "$health" "$backup$health" || { /usr/bin/rm -rf -- "$backup"; return 1; }
+  /usr/bin/mkdir -p -- "$etc/php-fpm.d" "$etc/nginx/conf.d" "$etc/my.cnf.d" "$web/public" || failed=1
 
   if [ "$failed" -eq 0 ]; then
     [ -f "$pool" ] || failed=1
@@ -171,10 +174,24 @@ sa_lemp_apply() {
   fi
 
   if [ "$failed" -eq 0 ]; then
+    cat > "$dbconf" <<'MYSQL'
+# StackAlign single-host database policy.
+# Applications use the local Unix socket; TCP is loopback-only.
+[mysqld]
+bind-address=127.0.0.1
+local-infile=0
+symbolic-links=0
+MYSQL
+    /usr/bin/chmod 0644 -- "$dbconf" || failed=1
+  fi
+
+  if [ "$failed" -eq 0 ]; then
     cat > "$site" <<'NGINX'
 server {
     listen 127.0.0.1:8080;
     server_name localhost;
+    server_tokens off;
+    client_max_body_size 16m;
     root /var/www/stackalign/public;
     index index.php index.html;
 
@@ -189,7 +206,7 @@ server {
         fastcgi_pass unix:/run/php-fpm/www.sock;
     }
 
-    location ~ /\. {
+    location ~ /\.(?!well-known/) {
         deny all;
     }
 }
@@ -204,6 +221,7 @@ PHP
   fi
 
   if [ "$failed" -eq 0 ]; then sa_exec php-fpm -- -t || failed=1; fi
+  if [ "$failed" -eq 0 ]; then sa_exec mariadbd -- --validate-config || failed=1; fi
   if [ "$failed" -eq 0 ]; then sa_exec nginx -- -t || failed=1; fi
   if [ "$failed" -eq 0 ]; then
     sa_exec systemctl -- enable --now mariadb || failed=1
@@ -236,7 +254,8 @@ StackAlign LEMP beta installed.
   Local endpoint: http://127.0.0.1:8080/
   Document root: $web/public
   Services: nginx, php-fpm, mariadb (enabled and active)
-  Note: MariaDB is running but no database/user was created or secured for an application.
+  MariaDB TCP bind: 127.0.0.1 (local Unix socket remains available)
+  Note: no application database/user was created or secured for an application.
   Note: endpoint is loopback-only; TLS, public ingress, firewall, backups and tenant
         isolation are outside this beta bootstrap.
 EOF
