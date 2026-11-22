@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 command -v sqlite3 >/dev/null 2>&1 || { echo "state tests: sqlite3 missing" >&2; exit 69; }
@@ -38,6 +40,16 @@ if sa_task_transition "$id" failed "must not write" >/dev/null 2>&1; then echo "
 if sa_task_create health_check "must not write" >/dev/null 2>&1; then echo "FAIL: task create accepted a world-readable database" >&2; exit 1; fi
 chmod 0600 "$SA_STATE_DB"
 [[ $(sqlite3 "$SA_STATE_DB" "SELECT status FROM tasks WHERE id='$id';") == succeeded ]]
-echo "state database permissions enforced for list, transition, and create"
+# A group-writable parent directory permits another account to replace the DB entry.
+chmod 0770 "$TMP/state"
+if sa_task_list >/dev/null 2>&1; then
+  echo "FAIL: task list accepted a group-writable state directory" >&2; exit 1
+fi
+if sa_task_create health_check "must not write" >/dev/null 2>&1; then
+  echo "FAIL: task create accepted a group-writable state directory" >&2; exit 1
+fi
+chmod 0700 "$TMP/state"
+[[ $(sqlite3 "$SA_STATE_DB" 'PRAGMA integrity_check;') == ok ]]
+echo "state database and parent-directory permissions enforced for list, transition, and create"
 
 echo "state database and task lifecycle tests: PASS"
