@@ -12,7 +12,7 @@ mkdir -p "$T/bin"; export FAKE_RPM_INSTALLED="" FAKE_RPM_CALL_LOG="$T/rpm.calls"
 cat > "$T/bin/rpm" <<'EOF'
 #!/usr/bin/env bash
 # Fixture for the batched doctor query; record calls and report installed names.
-printf '%s\\n' "$*" >> "$FAKE_RPM_CALL_LOG"
+printf '%s\n' "$*" >> "$FAKE_RPM_CALL_LOG"
 [ "${1-}" = -q ] || exit 1
 shift
 if [ "${1-}" = --qf ]; then
@@ -24,7 +24,7 @@ for requested in "$@"; do
   found=0
   for installed in $FAKE_RPM_INSTALLED; do
     if [ "$installed" = "$requested" ]; then
-      printf '%s\\n' "$installed"
+      printf '%s\n' "$installed"
       found=1
       break
     fi
