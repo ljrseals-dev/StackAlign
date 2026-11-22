@@ -25,6 +25,7 @@ _sa_exec_binary() {
         apachectl) printf '%s\n' /usr/sbin/apachectl ;;
         php-fpm) printf '%s\n' /usr/sbin/php-fpm ;;
         mysql) if [ -x /usr/bin/mysql ]; then printf '%s\n' /usr/bin/mysql; else printf '%s\n' /usr/bin/mariadb; fi ;;
+        mariadbd) printf '%s\n' /usr/sbin/mariadbd ;;
         mariadb) printf '%s\n' /usr/bin/mariadb ;;
         mysqladmin) printf '%s\n' /usr/bin/mysqladmin ;;
         mysqldump) if [ -x /usr/bin/mysqldump ]; then printf '%s\n' /usr/bin/mysqldump; else printf '%s\n' /usr/bin/mariadb-dump; fi ;;

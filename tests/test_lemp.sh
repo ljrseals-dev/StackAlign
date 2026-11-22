@@ -6,9 +6,9 @@
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
-mkdir -p "$T/bin" "$T/etc/php-fpm.d" "$T/etc/nginx/conf.d" "$T/web"
+mkdir -p "$T/bin" "$T/etc/php-fpm.d" "$T/etc/nginx/conf.d" "$T/etc/my.cnf.d" "$T/web"
 export PATH="$T/bin:$PATH" SA_LEMP_ETC_ROOT="$T/etc" SA_LEMP_WEB_ROOT="$T/web"
-export LOG="$T/actions.log"
+export LOG="$T/actions.log" FAKE_MARIADBD_RC=0
 cat > "$T/etc/php-fpm.d/www.conf" <<'EOF'
 user = apache
 group = apache
@@ -17,13 +17,14 @@ listen = /run/php-fpm/www.sock
 ;listen.group = nobody
 ;listen.mode = 0660
 EOF
-for tool in dnf systemctl php-fpm nginx; do
+for tool in dnf systemctl php-fpm nginx mariadbd; do
   cat > "$T/bin/$tool" <<'SH'
 #!/usr/bin/env bash
 printf '%s %s\n' "$(basename "$0")" "$*" >> "$LOG"
 case "$(basename "$0"):$1" in
   systemctl:is-active) exit 0 ;;
   nginx:-t) exit "${FAKE_NGINX_TEST_RC:-0}" ;;
+  mariadbd:--validate-config) exit "${FAKE_MARIADBD_RC:-0}" ;;
   *) exit 0 ;;
 esac
 SH
@@ -56,7 +57,7 @@ ok(){ pass=$((pass+1)); echo "ok   - $1"; }
 bad(){ fail=$((fail+1)); echo "FAIL - $1"; }
 
 plan=$(sa_lemp_plan 2>&1); rc=$?
-{ [ "$rc" -eq 0 ] && [[ "$plan" == *"127.0.0.1:8080"* ]] && [[ "$plan" == *"no changes made"* ]] && [ ! -s "$LOG" ]; } && ok "plan is loopback-only and makes no calls" || bad "plan behavior"
+{ [ "$rc" -eq 0 ] && [[ "$plan" == *"127.0.0.1:8080"* ]] && [[ "$plan" == *"MariaDB: TCP bound to 127.0.0.1"* ]] && [[ "$plan" == *"no changes made"* ]] && [ ! -s "$LOG" ]; } && ok "plan is loopback-only and makes no calls" || bad "plan behavior"
 
 for bad_root in relative "$T/web|injected" "$T/web/../escape" "$T/web;worker_processes" "$T/web//duplicate" "$T/web/"; do
   SA_LEMP_WEB_ROOT="$bad_root" sa_lemp_plan >/dev/null 2>&1
@@ -98,8 +99,156 @@ sa_lemp_apply >"$T/apply.out" 2>&1; rc=$?
 grep -q '^user = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^group = nginx$' "$T/etc/php-fpm.d/www.conf" &&
 grep -q '^listen.owner = nginx$' "$T/etc/php-fpm.d/www.conf" &&
-grep -q '^listen.group = nginx$' "$T/etc/php-fpm.d/www.conf" &&
+grep -q '^listen.group = nginx "$T/etc/nginx/conf.d/stackalign.conf" &&
+grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
+ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
+[ -f "$T/web/public/index.php" ] &&
+grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
+ok "PHP health page created" || bad "PHP health page"
+grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
+grep -q 'systemctl enable --now mariadb' "$LOG" &&
+grep -q 'systemctl enable --now php-fpm' "$LOG" &&
+grep -q 'systemctl enable --now nginx' "$LOG" &&
+ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
+
+# A failed post-generation Nginx check must restore the prior health page.
+printf '%s\n' 'operator-owned health page' > "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ "$(cat "$T/web/public/index.php")" = "operator-owned health page" ]; } && ok "failed config validation restores pre-existing health page" || bad "failed config validation did not restore health page"
+
+# If the health page did not exist before apply, rollback must remove the new file.
+rm -f "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure-new.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ ! -e "$T/web/public/index.php" ]; } && ok "failed config validation removes newly created health page" || bad "failed config validation left new health page"
+
+# A failed rollback must preserve the snapshot instead of deleting the
+# only recovery copy. Override the restore helper to inject that failure.
+sa_lemp_restore() { return 1; }
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/restore-failure.out" 2>&1
+rc=$?
+backup=$(sed -n 's/.*backup preserved at \(.*\) for manual recovery/\1/p' "$T/restore-failure.out" | tail -n 1)
+{ [ "$rc" -ne 0 ] && [ -n "$backup" ] && [ -d "$backup" ] && [ -f "$backup$T/etc/php-fpm.d/www.conf" ]; } && ok "incomplete rollback preserves recovery snapshot" || bad "incomplete rollback deleted recovery snapshot"
+[ -z "$backup" ] || rm -rf -- "$backup"
+
+echo "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
+ "$T/etc/php-fpm.d/www.conf" &&
 ok "PHP-FPM pool runs as nginx with matching socket ownership" || bad "PHP-FPM pool configuration"
+grep -q '^bind-address=127.0.0.1 "$T/etc/nginx/conf.d/stackalign.conf" &&
+grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
+ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
+[ -f "$T/web/public/index.php" ] &&
+grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
+ok "PHP health page created" || bad "PHP health page"
+grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
+grep -q 'systemctl enable --now mariadb' "$LOG" &&
+grep -q 'systemctl enable --now php-fpm' "$LOG" &&
+grep -q 'systemctl enable --now nginx' "$LOG" &&
+ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
+
+# A failed post-generation Nginx check must restore the prior health page.
+printf '%s\n' 'operator-owned health page' > "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ "$(cat "$T/web/public/index.php")" = "operator-owned health page" ]; } && ok "failed config validation restores pre-existing health page" || bad "failed config validation did not restore health page"
+
+# If the health page did not exist before apply, rollback must remove the new file.
+rm -f "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure-new.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ ! -e "$T/web/public/index.php" ]; } && ok "failed config validation removes newly created health page" || bad "failed config validation left new health page"
+
+# A failed rollback must preserve the snapshot instead of deleting the
+# only recovery copy. Override the restore helper to inject that failure.
+sa_lemp_restore() { return 1; }
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/restore-failure.out" 2>&1
+rc=$?
+backup=$(sed -n 's/.*backup preserved at \(.*\) for manual recovery/\1/p' "$T/restore-failure.out" | tail -n 1)
+{ [ "$rc" -ne 0 ] && [ -n "$backup" ] && [ -d "$backup" ] && [ -f "$backup$T/etc/php-fpm.d/www.conf" ]; } && ok "incomplete rollback preserves recovery snapshot" || bad "incomplete rollback deleted recovery snapshot"
+[ -z "$backup" ] || rm -rf -- "$backup"
+
+echo "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
+ "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+grep -q '^local-infile=0 "$T/etc/nginx/conf.d/stackalign.conf" &&
+grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
+ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
+[ -f "$T/web/public/index.php" ] &&
+grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
+ok "PHP health page created" || bad "PHP health page"
+grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
+grep -q 'systemctl enable --now mariadb' "$LOG" &&
+grep -q 'systemctl enable --now php-fpm' "$LOG" &&
+grep -q 'systemctl enable --now nginx' "$LOG" &&
+ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
+
+# A failed post-generation Nginx check must restore the prior health page.
+printf '%s\n' 'operator-owned health page' > "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ "$(cat "$T/web/public/index.php")" = "operator-owned health page" ]; } && ok "failed config validation restores pre-existing health page" || bad "failed config validation did not restore health page"
+
+# If the health page did not exist before apply, rollback must remove the new file.
+rm -f "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure-new.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ ! -e "$T/web/public/index.php" ]; } && ok "failed config validation removes newly created health page" || bad "failed config validation left new health page"
+
+# A failed rollback must preserve the snapshot instead of deleting the
+# only recovery copy. Override the restore helper to inject that failure.
+sa_lemp_restore() { return 1; }
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/restore-failure.out" 2>&1
+rc=$?
+backup=$(sed -n 's/.*backup preserved at \(.*\) for manual recovery/\1/p' "$T/restore-failure.out" | tail -n 1)
+{ [ "$rc" -ne 0 ] && [ -n "$backup" ] && [ -d "$backup" ] && [ -f "$backup$T/etc/php-fpm.d/www.conf" ]; } && ok "incomplete rollback preserves recovery snapshot" || bad "incomplete rollback deleted recovery snapshot"
+[ -z "$backup" ] || rm -rf -- "$backup"
+
+echo "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
+ "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+grep -q '^symbolic-links=0 "$T/etc/nginx/conf.d/stackalign.conf" &&
+grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
+ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
+[ -f "$T/web/public/index.php" ] &&
+grep -q 'StackAlign LEMP beta' "$T/web/public/index.php" &&
+ok "PHP health page created" || bad "PHP health page"
+grep -q 'php-fpm -t' "$LOG" && grep -q 'nginx -t' "$LOG" &&
+grep -q 'systemctl enable --now mariadb' "$LOG" &&
+grep -q 'systemctl enable --now php-fpm' "$LOG" &&
+grep -q 'systemctl enable --now nginx' "$LOG" &&
+ok "configuration tests and all service activation commands run" || bad "validation/service activation sequence"
+
+# A failed post-generation Nginx check must restore the prior health page.
+printf '%s\n' 'operator-owned health page' > "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ "$(cat "$T/web/public/index.php")" = "operator-owned health page" ]; } && ok "failed config validation restores pre-existing health page" || bad "failed config validation did not restore health page"
+
+# If the health page did not exist before apply, rollback must remove the new file.
+rm -f "$T/web/public/index.php"
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/failure-new.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ ! -e "$T/web/public/index.php" ]; } && ok "failed config validation removes newly created health page" || bad "failed config validation left new health page"
+
+# A failed rollback must preserve the snapshot instead of deleting the
+# only recovery copy. Override the restore helper to inject that failure.
+sa_lemp_restore() { return 1; }
+FAKE_NGINX_TEST_RC=1 sa_lemp_apply >"$T/restore-failure.out" 2>&1
+rc=$?
+backup=$(sed -n 's/.*backup preserved at \(.*\) for manual recovery/\1/p' "$T/restore-failure.out" | tail -n 1)
+{ [ "$rc" -ne 0 ] && [ -n "$backup" ] && [ -d "$backup" ] && [ -f "$backup$T/etc/php-fpm.d/www.conf" ]; } && ok "incomplete rollback preserves recovery snapshot" || bad "incomplete rollback deleted recovery snapshot"
+[ -z "$backup" ] || rm -rf -- "$backup"
+
+echo "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
+ "$T/etc/my.cnf.d/99-stackalign.cnf" &&
+ok "MariaDB TCP is loopback-only and risky features are disabled" || bad "MariaDB policy"
+grep -q 'server_tokens off' "$T/etc/nginx/conf.d/stackalign.conf" &&
+grep -q 'client_max_body_size 16m' "$T/etc/nginx/conf.d/stackalign.conf" &&
+grep -Fq 'location ~ /\.(?!well-known/)' "$T/etc/nginx/conf.d/stackalign.conf" &&
+ok "Nginx version disclosure, body size, and dotfile policy are hardened" || bad "Nginx hardening"
 grep -q 'listen 127.0.0.1:8080' "$T/etc/nginx/conf.d/stackalign.conf" &&
 grep -q "root $T/web/public" "$T/etc/nginx/conf.d/stackalign.conf" &&
 ok "Nginx binds loopback and uses configured document root" || bad "Nginx site configuration"
@@ -132,6 +281,17 @@ rc=$?
 backup=$(sed -n 's/.*backup preserved at \(.*\) for manual recovery/\1/p' "$T/restore-failure.out" | tail -n 1)
 { [ "$rc" -ne 0 ] && [ -n "$backup" ] && [ -d "$backup" ] && [ -f "$backup$T/etc/php-fpm.d/www.conf" ]; } && ok "incomplete rollback preserves recovery snapshot" || bad "incomplete rollback deleted recovery snapshot"
 [ -z "$backup" ] || rm -rf -- "$backup"
+
+# MariaDB config-validation failure must restore all four managed files.
+mkdir -p "$T/etc/my.cnf.d"
+printf '%s\n' 'previous database policy' > "$T/etc/my.cnf.d/99-stackalign.cnf"
+printf '%s\n' 'previous site' > "$T/etc/nginx/conf.d/stackalign.conf"
+printf '%s\n' 'previous health page' > "$T/web/public/index.php"
+printf '%s\n' 'user = apache' 'group = apache' 'listen = /run/php-fpm/www.sock' > "$T/etc/php-fpm.d/www.conf"
+FAKE_MARIADBD_RC=1 sa_lemp_apply >"$T/mariadb-failure.out" 2>&1
+rc=$?
+{ [ "$rc" -ne 0 ] && [ "$(cat "$T/etc/my.cnf.d/99-stackalign.cnf")" = "previous database policy" ] && [ "$(cat "$T/etc/nginx/conf.d/stackalign.conf")" = "previous site" ] && [ "$(cat "$T/web/public/index.php")" = "previous health page" ] && grep -qx 'user = apache' "$T/etc/php-fpm.d/www.conf"; } && ok "MariaDB validation failure restores every managed file" || bad "MariaDB validation rollback"
+FAKE_MARIADBD_RC=0
 
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]

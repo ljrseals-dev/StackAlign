@@ -17,6 +17,7 @@ chmod 700 "$T/bin/openssl"
 PATH="$T/bin"
 export PATH
 sa_exec openssl -- version >/dev/null
+[ "$(_sa_exec_binary mariadbd)" = /usr/sbin/mariadbd ] || { echo "mariadbd executable mapping: FAIL" >&2; exit 1; }
 
 set +e
 sa_exec openssl -- version '$(touch '"$marker"')' >/dev/null 2>&1
