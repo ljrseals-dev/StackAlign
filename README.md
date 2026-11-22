@@ -68,7 +68,7 @@ bash bin/stackalign tls status
 bash bin/stackalign tls preflight
 ```
 
-The optional sidecar client is planning-only. Configure its endpoint and API key according to [Agent integration boundaries](docs/MASTER-PROMPT-COVERAGE-AUDIT-2026-11-18.md) before using it. Do not send secrets, credentials, customer data, private keys, or sensitive logs to an external model provider.
+The optional sidecar client is planning-only. Review [Pinecone Neural integration](docs/PINECONE-AGENT-INTEGRATION.md) before connecting it. Do not send secrets, credentials, customer data, private keys, or sensitive logs to an external model provider.
 
 The LEMP installer is plan-first. Review its output and [LEMP beta guide](docs/LEMP-BETA.md) before considering an explicitly mutating apply:
 
@@ -119,6 +119,7 @@ CI workflows cover Ubuntu, AlmaLinux 9, and CentOS Stream 9 fixture environments
 - [Engineering gap assessment](docs/ENGINEERING-GAP-ASSESSMENT-2026-11-18.md) — evidence-pinned initial comparison with Centmin Mod; not a parity or production-readiness claim.
 - [Master prompt coverage audit](docs/MASTER-PROMPT-COVERAGE-AUDIT-2026-11-18.md) — first-pass A–O coverage classification and remaining work.
 - [Quantized LLM footprint assessment](docs/QUANTIZED-LLM-FOOTPRINT.md) — ONNX-to-Cmajor limitations and model-deployment validation gates; no model is bundled or deployed.
+- [Pinecone Neural integration](docs/PINECONE-AGENT-INTEGRATION.md) — optional planning-only sidecar, deployment gate, and authority boundary.
 - [Internet access](docs/INTERNET-ACCESS.md) — access preferences and planning boundaries.
 - [TLS client design](docs/TLS-CLIENTS.md) — client/lineage ownership and orchestration limits.
 - [TLS clock preflight](docs/TLS-CLOCK-PREFLIGHT.md) — synchronized-clock gate and validation scope.
