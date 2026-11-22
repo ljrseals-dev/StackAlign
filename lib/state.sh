@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Lewis James Seals Jr.
+# SPDX-License-Identifier: MIT
+# Author: Lewis James Seals Jr.
+# Repository: https://github.com/ljrseals-dev/StackAlign
 # SPDX-License-Identifier: MIT
 # Author: Lewis James Seals Jr.
 # lib/state.sh -- local SQLite state store and deterministic task lifecycle.
@@ -8,6 +12,26 @@ _sa_state_db_path() {
   local parent
   parent=$(dirname -- "$SA_STATE_DB")
   [[ -d $parent && ! -L $parent && $(realpath -e -- "$parent") == "$parent" ]] || { echo "state: parent must be an existing, resolved, non-symlink directory" >&2; return 1; }
+  # Check every path component: a writable ancestor could otherwise replace
+  # the database directory after validation. Sticky root-owned directories
+  # (for example /tmp) are safe for distinct user-owned child directories.
+  local dir mode owner uid
+  uid=$(id -u) || return 1
+  dir=$parent
+  while :; do
+    [[ -d $dir && ! -L $dir ]] || { echo "state: unsafe database directory component: $dir" >&2; return 1; }
+    read -r mode owner < <(stat -c '%a %u' -- "$dir") || return 1
+    [[ $owner == "$uid" || $owner == 0 ]] || { echo "state: database directory component has an untrusted owner: $dir" >&2; return 1; }
+    if (( (8#$mode & 022) != 0 )); then
+      (( owner == 0 && (8#$mode & 01000) != 0 )) || {
+        echo "state: database directory component is writable by other users: $dir" >&2
+        return 1
+      }
+    fi
+    [[ $dir == / ]] && break
+    dir=${dir%/*}
+    [[ -n $dir ]] || dir=/
+  done
   [[ ! -L $SA_STATE_DB ]] || { echo "state: database symlink refused" >&2; return 1; }
   export SA_STATE_DB
 }
