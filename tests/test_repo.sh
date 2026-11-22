@@ -94,7 +94,7 @@ reset; mkdir -p "$T/outside" "$SA_YUM_REPOS_DIR"; ln -s "$T/outside" "$SA_YUM_RE
 sa_repo_setup escape "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?
 { [ "$rc" -ne 0 ] && [ -L "$SA_YUM_REPOS_DIR/stackalign-escape.repo" ] && [ -z "$(find "$T/outside" -mindepth 1 -maxdepth 1 -print -quit)" ] && ! grep -q 'rpm --import' "$FAKE_LOG"; } \
   && ok "refuses symlink-to-directory repo target" || bad "symlink-to-directory repo target"
-reset; mkdir -p "$T/outside"; printf 'outside sentinel\\n' > "$T/outside/target.repo"
+reset; mkdir -p "$T/outside" "$SA_YUM_REPOS_DIR"; printf 'outside sentinel\n' > "$T/outside/target.repo"
 ln -s "$T/outside/target.repo" "$SA_YUM_REPOS_DIR/stackalign-escape.repo"
 sa_repo_setup escape "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?
 { [ "$rc" -ne 0 ] && [ -L "$SA_YUM_REPOS_DIR/stackalign-escape.repo" ] && [ "$(cat "$T/outside/target.repo")" = "outside sentinel" ]; } \
