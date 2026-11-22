@@ -1,0 +1,40 @@
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+.secrets/
+secrets/
+
+# Private keys and certificate containers
+*.pem
+*.key
+*.p12
+*.pfx
+*.p7b
+*.p7c
+*.jks
+*.keystore
+id_rsa
+id_ed25519
+
+# Local database, state, and backup artifacts
+*.sqlite
+*.sqlite3
+*.db
+*.sql.gz
+*.dump
+*.tfstate
+*.tfstate.*
+
+# Build, test, and editor artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+.DS_Store
+.idea/
+.vscode/
