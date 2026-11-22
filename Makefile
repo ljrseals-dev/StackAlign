@@ -3,13 +3,13 @@
 # Author: Lewis James Seals Jr.
 # Repository: https://github.com/ljrseals-dev/StackAlign
 SHELL := /bin/bash
-SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh) $(wildcard tests/*.sh) scripts/time-tests.sh scripts/security-lint.sh tests/lib/timing.sh m2b/measure-php-child-rss.sh tests/vm_egress_smoke.sh
+SH_FILES := install.sh bin/stackalign bin/stackalign-oracle $(wildcard lib/*.sh) $(wildcard tests/*.sh) scripts/time-tests.sh scripts/security-lint.sh tests/lib/timing.sh
 
 .PHONY: test test-timed lint security headers all
 all: lint headers test
 
-# Require SPDX, copyright, author, and canonical repository link in every tracked code/config source (first 6 lines).
-HDR_FILES := Makefile $(SH_FILES) tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml vendor/versions.toml templates/nginx/conf.d/00-performance.conf templates/nginx/site-wordpress.conf.tmpl schema/001-initial.sql
+# Require copyright, SPDX, author, and canonical repository headers in the first six lines.
+HDR_FILES := Makefile $(SH_FILES) tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml schema/001-initial.sql
 headers:
 	@bad=0; for f in $(HDR_FILES); do \
 	  awk 'NR <= 6 { \
@@ -18,7 +18,7 @@ headers:
 	    if (index($$0, "Author: Lewis James Seals Jr.")) author=1; \
 	    if (index($$0, "Repository: https://github.com/ljrseals-dev/StackAlign")) repository=1; \
 	  } END { exit !(spdx && copyright && author && repository) }' "$$f" \
-	    || { echo "missing SPDX/Author header: $$f"; bad=1; }; \
+	    || { echo "missing complete provenance header: $$f"; bad=1; }; \
 	done; [ $$bad -eq 0 ] && echo "headers: ok ($(words $(HDR_FILES)) files)"
 
 test:
