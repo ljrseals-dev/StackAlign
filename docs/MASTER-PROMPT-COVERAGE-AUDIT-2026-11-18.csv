@@ -1,0 +1,16 @@
+id,area,status,priority,main_evidence,primary_gap,confidence
+A,Installation and bootstrap,Partial / validation gap,P1,"install.sh; lib/lemp.sh; lib/repo.sh; docs/BETA-SCOPE-AND-HOSTING.md","Fresh-host and failure/retry matrix not validated on disposable supported hosts",medium
+B,Operating-system integration,Partial / integration gap,P1,"lib/service.sh; lib/firewall.sh; .github/workflows/ci.yml","systemd SELinux firewall reboot timer and logrotate integration not established",medium
+C,Nginx and HTTP serving,Partial,P1,"lib/site.sh; templates/nginx; tests/test_site.sh","Safe vhost lifecycle and staged activation/rollback incomplete",high
+D,PHP and PHP-FPM,Partial / major lifecycle gap,P0/P1,"lib/lemp.sh; lib/extensions.sh; docs/CENTMINMOD-CAPABILITY-GAP.md","Per-site pool identity/resource isolation and measured worker budgets incomplete",high
+E,Database operations,Partial / recovery gap,P0,"lib/db.sh; lib/backup.sh; tests/test_db.sh","Least-privilege user/grant lifecycle and clean-target restore not proven",high
+F,TLS lifecycle,Partial / planning only,P1,"lib/tls.sh; tests/test_tls_clients.sh; docs/TLS-CLIENTS.md","Issuance renewal atomic deployment and scheduler/recovery not complete",high
+G,WordPress and application workflows,Partial / scope not fully validated,P2,"templates/nginx/site-wordpress.conf.tmpl; docs/CENTMINMOD-CAPABILITY-GAP.md","Secure app install/update/cache/cron/restore workflow not complete",medium
+H,Caching,Partial / limited,P2,"templates/nginx; docs/CENTMINMOD-CAPABILITY-GAP.md","Per-site cache correctness invalidation isolation and load validation absent",medium
+I,Security,Partial / test-boundary gap,P0,"lib/secret.sh; lib/security.sh; lib/sftp.sh; docs/ISOLATION.md","Threat-boundary and hostile-input/full-host tests incomplete",medium
+J,Configuration and state,Partial / foundational gap,P0,"lib/config.sh; tests/test_config.sh; docs/CONFIG-SCHEMA.md","Typed schema and safe atomic persistence/migration absent",high
+K,Reliability and lifecycle,Partial / major validation gap,P0/P1,"lib/update.sh; lib/history.sh; lib/service.sh; docs/STATUS.md","Crash recovery, transactional activation, retry/rollback and full lifecycle validation incomplete",medium
+L,Backup restore and migration,Partial / critical recovery gap,P0,"lib/backup.sh; tests/test_backup_cli.sh; PR #79","Restore execution, encryption/manifest/retention and clean-target drills not established",high
+M,Observability and diagnostics,Partial,P1,"lib/watchtower.sh; lib/verify.sh; lib/site.sh; bin/stackalign","Structured operation IDs, redacted support bundle and complete component health diagnostics incomplete",medium
+N,Performance and resource efficiency,Unknown / measurement gap,P2,"docs/TUNING.md; docs/M3-PERFORMANCE-ARCHITECTURE.md; m2b/measure-php-child-rss.sh","No comparable workload/host measurements in inspected evidence",high
+O,Engineering and delivery,Partial / CI scope gap,P1,"Makefile; .github/workflows/ci.yml; tests/","No full supported-OS VM matrix, privileged failure injection or release provenance evidence",high
