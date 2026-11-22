@@ -40,7 +40,7 @@ jobs:
     container: almalinux:9
     steps:
       - name: Install test dependencies
-        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl sqlite shellcheck
+        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl sqlite
       - uses: actions/checkout@v6
       - name: Run security, lint, headers, and tests
         shell: bash
@@ -67,7 +67,7 @@ jobs:
     container: quay.io/centos/centos:stream9
     steps:
       - name: Install test dependencies
-        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl sqlite shellcheck
+        run: dnf install -y bash python3 tar gzip gawk diffutils findutils make git gnupg2 openssh-server openssh-clients openssl sqlite
       - uses: actions/checkout@v6
       - name: Run security, lint, headers, and tests
         shell: bash
