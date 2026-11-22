@@ -7,6 +7,23 @@ StackAlign is an experimental project for EL-family Linux systems. Its current L
 > [!WARNING]
 > **Experimental beta — not production-ready.** Use disposable virtual machines or containers only. Do not run this project on production hosts, machines containing important data, or systems with real credentials. A passing test suite is not proof of safe real-host operation.
 
+
+## Project description
+
+**Title:** StackAlign: A Guarded Bash Toolkit for Safe Linux Host Inspection and Administration
+
+**Abstract**
+
+StackAlign is an experimental, open-source command-line toolkit for EL-family Linux systems. It follows a conservative rule: inspect first, produce a plan before any change, and keep high-risk operations blocked until their safety and recovery contracts are implemented and validated. Current capabilities include read-only host diagnostics, a plan-first LEMP (Nginx, MariaDB, PHP-FPM) bootstrap for EL9, hosting and vhost inventory, guarded database and backup functions, and TLS status and preflight checks. Credentials are handled through permission-checked defaults files, never process arguments.
+
+Additional engineering work includes an atomic configuration-write primitive, an automated security lint step, and an optional planning-only sidecar client. The sidecar sends read-only host context to a configured model and only displays the output; it never executes model output. Related documentation covers an engineering gap assessment, requirements coverage audit, and quantized-model footprint assessment.
+
+The project's defining feature is evidence discipline. It separates implemented behavior, mock-test coverage, CI results, and real-host acceptance, and reports checks as **PASS**, **FAIL**, **NOT RUN**, or **UNVERIFIED**. It has no hidden telemetry, requires explicit opt-in for mutating actions, is MIT-licensed, and is labeled beta for disposable test environments only.
+
+**Zenodo keywords:** Linux administration; Bash; infrastructure safety; human-in-the-loop AI; auditability; EL9; open source.
+
+**Portfolio context:** Together with 5-Senses, StackAlign shows a consistent governance-first approach: provenance and truth-status labels for knowledge, and gated actions with honest validation reporting for infrastructure. This applies Public Policy and Administration principles to technical systems.
+
 ## What StackAlign is
 
 StackAlign combines a Bash CLI, operational shell libraries, tests, and documentation. Its design emphasizes:
