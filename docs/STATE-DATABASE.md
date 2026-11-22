@@ -14,7 +14,7 @@ sudo bash bin/stackalign state init --apply
 sudo bash bin/stackalign state status
 ```
 
-The default database is /var/lib/stackalign/state.db. Tests and isolated installs may override SA_STATE_DB with an absolute path whose parent already exists and is not a symlink. The database is created with mode 0600. Existing files must be regular, non-symlink files owned by the invoking user and mode 0600 or 0400. The parent directory is intentionally not created implicitly.
+The default database is /var/lib/stackalign/state.db. Tests and isolated installs may override SA_STATE_DB with an absolute path whose parent already exists and is not a symlink. Every resolved directory component must be owned by root or the invoking user and must not be group/other-writable; the root-owned sticky /tmp directory is permitted for private per-user child directories. The database is created with mode 0600. Existing files must be regular, non-symlink files owned by the invoking user and mode 0600 or 0400. The parent directory is intentionally not created implicitly.
 
 ## Task lifecycle
 
