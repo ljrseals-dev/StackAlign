@@ -89,6 +89,17 @@ out=$(sa_repo_setup remi "$URL" "$FPR" "$KEY")
   && ok "setup idempotent (file untouched, no redundant key import)" \
   || bad "setup idempotent"
 
+# A final symlink must never redirect repo-file publication outside the repo directory.
+reset; mkdir -p "$T/outside"; ln -s "$T/outside" "$SA_YUM_REPOS_DIR/stackalign-escape.repo"
+sa_repo_setup escape "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?
+{ [ "$rc" -ne 0 ] && [ -L "$SA_YUM_REPOS_DIR/stackalign-escape.repo" ] && [ -z "$(find "$T/outside" -mindepth 1 -maxdepth 1 -print -quit)" ] && ! grep -q 'rpm --import' "$FAKE_LOG"; } \
+  && ok "refuses symlink-to-directory repo target" || bad "symlink-to-directory repo target"
+reset; mkdir -p "$T/outside"; printf 'outside sentinel\\n' > "$T/outside/target.repo"
+ln -s "$T/outside/target.repo" "$SA_YUM_REPOS_DIR/stackalign-escape.repo"
+sa_repo_setup escape "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?
+{ [ "$rc" -ne 0 ] && [ -L "$SA_YUM_REPOS_DIR/stackalign-escape.repo" ] && [ "$(cat "$T/outside/target.repo")" = "outside sentinel" ]; } \
+  && ok "refuses symlink-to-file repo target" || bad "symlink-to-file repo target"
+
 # fingerprint with spaces + lowercase accepted
 reset; sa_repo_setup remi "$URL" "0123 4567 89ab cdef 0123 4567 89ab cdef 0123 4567" "$KEY" >/dev/null 2>&1; rc=$?
 [ $rc -eq 0 ] && ok "fingerprint spaces/case normalised" || bad "fingerprint spaces/case normalised (rc=$rc)"

@@ -112,12 +112,17 @@ sa_repo_setup() {  # <name> <repo_url> <gpg_fingerprint> <gpg_key_url>
   local cmpfile wrote=0
   cmpfile=$(/usr/bin/mktemp "$SA_YUM_REPOS_DIR/.sa-repo-cmp.XXXXXX") || { rm -rf -- "$tmpd"; return 1; }
   printf '%s' "$content" > "$cmpfile" || { /usr/bin/rm -rf -- "$tmpd" "$cmpfile"; return 1; }
+  if [ -L "$file" ] || { [ -e "$file" ] && [ ! -f "$file" ]; }; then
+    /usr/bin/rm -rf -- "$tmpd" "$cmpfile"
+    echo "repo: refusing symlink or non-regular repo target: $file" >&2
+    return 1
+  fi
   if [ -f "$file" ] && /usr/bin/cmp -s -- "$file" "$cmpfile"; then
     /usr/bin/rm -f -- "$cmpfile"
     echo "repo $name: unchanged"
   else
     /usr/bin/chmod 0644 -- "$cmpfile" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
-    /usr/bin/mv -f -- "$cmpfile" "$file" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
+    /usr/bin/mv -fT -- "$cmpfile" "$file" || { rm -rf "$tmpd" "$cmpfile"; return 1; }
     echo "repo $name: written"
     wrote=1
   fi
