@@ -81,6 +81,14 @@ f="$SA_YUM_REPOS_DIR/stackalign-remi.repo"
   && ok "setup writes repo file (gpgcheck=1) and imports key" || bad "setup writes repo file and imports key"
 [ "$(stat -c %a "$f")" = 644 ] && ok "repo file mode 0644" || bad "repo file mode 0644"
 
+# idempotent: unchanged repo file must not trigger another rpm import
+m1=$(stat -c %y "$f"); sleep 1.1; : > "$FAKE_LOG"
+out=$(sa_repo_setup remi "$URL" "$FPR" "$KEY")
+{ [ "$out" = "repo remi: unchanged" ] && [ "$m1" = "$(stat -c %y "$f")" ] \
+  && ! grep -q 'rpm --import' "$FAKE_LOG"; } \
+  && ok "setup idempotent (file untouched, no redundant key import)" \
+  || bad "setup idempotent"
+
 # A failed key import must not publish or replace an enabled repository definition.
 reset; export FAKE_RPM_IMPORT_FAIL=1; sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; export FAKE_RPM_IMPORT_FAIL=0
 { [ "$rc" -ne 0 ] && [ ! -e "$SA_YUM_REPOS_DIR/stackalign-remi.repo" ]; } \
@@ -89,14 +97,6 @@ reset; mkdir -p "$SA_YUM_REPOS_DIR"; printf 'old repo definition\n' > "$SA_YUM_R
 export FAKE_RPM_IMPORT_FAIL=1; sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; export FAKE_RPM_IMPORT_FAIL=0
 { [ "$rc" -ne 0 ] && [ "$(cat "$SA_YUM_REPOS_DIR/stackalign-remi.repo")" = "old repo definition" ]; } \
   && ok "key import failure preserves prior repo definition" || bad "key import failure preserves prior repo definition"
-
-# idempotent: unchanged repo file must not trigger another rpm import
-m1=$(stat -c %y "$f"); sleep 1.1; : > "$FAKE_LOG"
-out=$(sa_repo_setup remi "$URL" "$FPR" "$KEY")
-{ [ "$out" = "repo remi: unchanged" ] && [ "$m1" = "$(stat -c %y "$f")" ] \
-  && ! grep -q 'rpm --import' "$FAKE_LOG"; } \
-  && ok "setup idempotent (file untouched, no redundant key import)" \
-  || bad "setup idempotent"
 
 # A final symlink must never redirect repo-file publication outside the repo directory.
 reset; mkdir -p "$T/outside" "$SA_YUM_REPOS_DIR"; ln -s "$T/outside" "$SA_YUM_REPOS_DIR/stackalign-escape.repo"
