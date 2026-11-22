@@ -87,7 +87,7 @@ bash "$pid_undo" >/dev/null 2>&1 || rc=1
 if find "$root" -name '.*.stackalign-*' -print -quit | grep -q .; then rc=1; fi
 [ "$rc" -eq 0 ] && ok "undo stage/backup names are PID-scoped" || bad "undo stage/backup names are PID-scoped"
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
-\\n'"0"
+\n'"0"
 # idempotent within the same second for the same path+slug
 a=$(sa_history_snapshot "$T/etc/a.conf" same); b=$(sa_history_snapshot "$T/etc/a.conf" same)
 if [ "$a" = "$b" ]; then ok "idempotent same path+slug"; else
@@ -129,7 +129,7 @@ bash "$pid_undo" >/dev/null 2>&1 || rc=1
 if find "$root" -name '.*.stackalign-*' -print -quit | grep -q .; then rc=1; fi
 [ "$rc" -eq 0 ] && ok "undo stage/backup names are PID-scoped" || bad "undo stage/backup names are PID-scoped"
 echo "passed=$pass failed=$fail"; [ "$fail" -eq 0 ]
-\\t'"/etc/passwd"
+\t'"/etc/passwd"
 sa_history_snapshot "$bad_path" injection >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 64 ] && ok "snapshot path control characters rejected" || bad "snapshot path control characters rejected"
 sa_history_snapshot "$T/etc/a.conf" "" >/dev/null 2>&1; rc=$?
