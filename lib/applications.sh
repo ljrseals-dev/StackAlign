@@ -299,11 +299,10 @@ sa_db_doctor() {
     local root=${1-} config=${2-} server_output app_output
     local server_engine server_distribution server_version server_port
     local server_socket server_bind app_status app_db_name app_db_host
-    local app_db_user matches="UNKNOWN"
+    local app_db_user app_db_port app_db_socket matches="UNKNOWN"
     local server_engine_conf server_distribution_conf server_version_conf
     local server_port_conf server_socket_conf server_bind_conf
     local app_db_name_conf app_db_host_conf app_db_port_conf app_db_socket_conf app_db_user_conf
-    local app_db_port app_db_socket matches="UNKNOWN"
 
     [ "$#" -eq 2 ] || {
         echo "db: usage: sa_db_doctor <root> <wp-config.php>" >&2
