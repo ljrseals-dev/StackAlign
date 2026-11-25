@@ -143,7 +143,7 @@ sa_db_discover() {
         socket_conf="CONFIRMED"
     fi
 
-    if [[ $bind_address =~ ^[A-Za-z0-9_.:,*-]+$ ]]; then
+    if [[ -n $bind_address && ${bind_address,,} != "null" && $bind_address =~ ^[A-Za-z0-9_.:,*-]+$ ]]; then
         bind_out=$bind_address
         bind_conf="CONFIRMED"
     fi
