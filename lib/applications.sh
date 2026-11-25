@@ -7,8 +7,12 @@
 #
 # WordPress only in v1. This module never executes or sources application files.
 _sa_app_lib_dir=$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")
-. "$_sa_app_lib_dir/exec.sh"
-. "$_sa_app_lib_dir/validate.sh"
+if ! declare -F sa_exec >/dev/null 2>&1; then
+    . "$_sa_app_lib_dir/exec.sh"
+fi
+if ! declare -F sa_validate_text_file_under_root >/dev/null 2>&1; then
+    . "$_sa_app_lib_dir/validate.sh"
+fi
 unset _sa_app_lib_dir
 
 SA_WP_LITERAL_VALUE=""
