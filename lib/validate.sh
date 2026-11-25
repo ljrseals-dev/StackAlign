@@ -80,6 +80,7 @@ SA_VALIDATE_FILE_METADATA=""
 # Call directly in the current shell, never via command substitution/subshell.
 # On success SA_VALIDATE_FILE_FD remains open; callers must read through
 # /proc/$BASHPID/fd/$SA_VALIDATE_FILE_FD and call sa_validate_close_text_file.
+# A close result of 75 means metadata changed while parsing; discard all findings.
 # This pins the inspected inode so a path swap after validation cannot redirect
 # the parser to a different file. The caller must source lib/exec.sh first.
 # od receives only the pinned descriptor path and emits hexadecimal, not plaintext.
