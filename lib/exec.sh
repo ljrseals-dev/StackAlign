@@ -28,6 +28,7 @@ _sa_exec_binary() {
         mariadbd) printf '%s\n' /usr/sbin/mariadbd ;;
         mariadb) printf '%s\n' /usr/bin/mariadb ;;
         mysqladmin) printf '%s\n' /usr/bin/mysqladmin ;;
+        od) printf '%s\n' /usr/bin/od ;;
         mysqldump) if [ -x /usr/bin/mysqldump ]; then printf '%s\n' /usr/bin/mysqldump; else printf '%s\n' /usr/bin/mariadb-dump; fi ;;
         mariabackup) printf '%s\n' /usr/bin/mariabackup ;;
         rclone) printf '%s\n' /usr/bin/rclone ;;
