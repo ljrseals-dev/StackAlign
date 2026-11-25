@@ -5,6 +5,7 @@
 # Repository: https://github.com/ljrseals-dev/StackAlign
 # tests/test_applications.sh -- WordPress-only static inventory fixtures.
 set -euo pipefail
+trap 'printf "test_applications: failure at line %s\\n" "$LINENO" >&2' ERR
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd -P)
 TMP=$(/usr/bin/mktemp -d)
