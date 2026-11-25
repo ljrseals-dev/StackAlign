@@ -72,6 +72,7 @@ sa_validate_path_under_root() {
 
 
 # Stable reason and open descriptor from sa_validate_text_file_under_root.
+# shellcheck disable=SC2034 # Public result consumed by callers of this validator.
 SA_VALIDATE_FILE_REASON=""
 SA_VALIDATE_FILE_FD=""
 SA_VALIDATE_FILE_METADATA=""
