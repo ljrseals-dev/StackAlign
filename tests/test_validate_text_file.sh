@@ -103,7 +103,12 @@ mv -- "$pinned" "$pinned.original"
 printf '%s\n' 'replacement-content' > "$pinned"
 IFS= read -r pinned_line < "/proc/$BASHPID/fd/$pinned_fd"
 [ "$pinned_line" = original-content ]
-sa_validate_close_text_file
+if sa_validate_close_text_file; then
+    echo "FAIL: changed file metadata was accepted" >&2; exit 1
+else
+    [ "$?" -eq 75 ]
+    [ "$SA_VALIDATE_FILE_REASON" = changed_during_read ]
+fi
 
 parent_link="$TMP/root-link"
 ln -s -- "$APP_ROOT" "$parent_link"
