@@ -46,15 +46,33 @@ for args in "extra" "--apply"; do
     grep -Fxq 'stackalign: usage: stackalign db discover' "$TMP/discover.out"
 done
 
+for mode in apply missing_root; do
+    case "$mode" in
+        apply)
+            set +e
+            bash "$ROOT/bin/stackalign" db doctor --root "$TMP" --wordpress "$wp_config" --apply >"$TMP/doctor-cli.out" 2>&1
+            doctor_rc=$?
+            set -e ;;
+        missing_root)
+            set +e
+            bash "$ROOT/bin/stackalign" db doctor --wordpress "$wp_config" >"$TMP/doctor-cli.out" 2>&1
+            doctor_rc=$?
+            set -e ;;
+    esac
+    [ "$doctor_rc" -eq 64 ]
+    grep -Fq "usage: stackalign db doctor" "$TMP/doctor-cli.out"
+done
+
 help_db=$(bash "$ROOT/bin/stackalign" help db)
 printf '%s\n' "$help_db" | grep -q 'discover'
+printf '%s\n' "$help_db" | grep -q "doctor --root"
 
 set +e
 bash "$ROOT/bin/stackalign" db unknown >"$TMP/unknown-db.out" 2>&1
 unknown_db_rc=$?
 set -e
 [ "$unknown_db_rc" -eq 64 ]
-grep -Fq 'status|discover|applications|list|user list' "$TMP/unknown-db.out"
+grep -Fq 'status|discover|applications|doctor|list|user list' "$TMP/unknown-db.out"
 
 wp_config="$TMP/wp-config.php"
 wp_canary='password=cli-canary-must-not-print'
