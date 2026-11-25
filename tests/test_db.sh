@@ -28,6 +28,16 @@ case "$query" in
     printf 'information_schema\nmysql\napp_db\n' ;;
   'SELECT VERSION(), CURRENT_USER();') printf '10.11.6-MariaDB\tstackalign@localhost\n' ;;
   'SELECT User, Host FROM mysql.user ORDER BY User, Host;') printf 'stackalign\tlocalhost\nroot\tlocalhost\n' ;;
+  'SELECT @@version_comment, @@version, @@port, @@socket, @@bind_address;')
+    case "${FAKE_DISCOVER_MODE:-mariadb}" in
+      mariadb) printf 'MariaDB Server\t10.11.6-MariaDB\t3306\t/var/lib/mysql/mysql.sock\t127.0.0.1\n' ;;
+      mysql) printf 'MySQL Community Server - GPL\t8.0.36\t3307\t/var/lib/mysql/mysql.sock\t127.0.0.1\n' ;;
+      percona) printf 'Percona Server (GPL), Release 27\t8.0.35-27\t3306\t/var/lib/mysql/mysql.sock\t*\n' ;;
+      unknown) printf 'Unrecognized vendor\t8.0.0\tNULL\t\tNULL\n' ;;
+      badvar) echo "Unknown system variable 'bind_address'" >&2; exit 1 ;;
+      fail) echo 'Access denied password=hunter2' >&2; exit 1 ;;
+      *) echo "unexpected discovery mode" >&2; exit 64 ;;
+    esac ;;
   SELECT*)
     if [ "${FAKE_DB_EXISTS:-0}" = 1 ]; then printf 'app_db\n'; fi ;;
   'CREATE DATABASE '*)
@@ -56,6 +66,40 @@ printf '%s\n' "$status" | grep -q 'server_version: 10.11.6-MariaDB'
 printf '%s\n' "$status" | grep -q 'authenticated_account: stackalign@localhost'
 users=$(sa_db_user_list)
 printf '%s\n' "$users" | grep -q 'stackalign'
+
+discovery=$(sa_db_discover)
+printf '%s\n' "$discovery" | grep -q '^engine: MariaDB$'
+printf '%s\n' "$discovery" | grep -q '^distribution: MariaDB Server$'
+printf '%s\n' "$discovery" | grep -q '^version: 10.11.6-MariaDB$'
+printf '%s\n' "$discovery" | grep -q '^server_port: 3306$'
+printf '%s\n' "$discovery" | grep -q '^configured_bind_address: 127.0.0.1$'
+printf '%s\n' "$discovery" | grep -q '^actual_listener: UNKNOWN$'
+! printf '%s\n' "$discovery" | grep -q 'not-a-real-secret'
+
+mysql_discovery=$(FAKE_DISCOVER_MODE=mysql sa_db_discover)
+printf '%s\n' "$mysql_discovery" | grep -q '^engine: MySQL$'
+printf '%s\n' "$mysql_discovery" | grep -q '^distribution: MySQL Community Server - GPL$'
+
+percona_discovery=$(FAKE_DISCOVER_MODE=percona sa_db_discover)
+printf '%s\n' "$percona_discovery" | grep -q '^engine: MySQL$'
+printf '%s\n' "$percona_discovery" | grep -q '^distribution: Percona Server$'
+
+unknown_discovery=$(FAKE_DISCOVER_MODE=unknown sa_db_discover)
+printf '%s\n' "$unknown_discovery" | grep -q '^engine: UNKNOWN$'
+printf '%s\n' "$unknown_discovery" | grep -q '^distribution: UNKNOWN$'
+printf '%s\n' "$unknown_discovery" | grep -q '^server_port: UNKNOWN$'
+printf '%s\n' "$unknown_discovery" | grep -q '^server_socket: UNKNOWN$'
+printf '%s\n' "$unknown_discovery" | grep -q '^configured_bind_address: UNKNOWN$'
+
+for mode in badvar fail; do
+    if output=$(FAKE_DISCOVER_MODE="$mode" sa_db_discover 2>"$TMP/$mode.err"); then
+        echo "FAIL: discovery mode $mode unexpectedly succeeded" >&2; exit 1
+    fi
+    [ -z "$output" ]
+    grep -Fxq 'db: discovery query failed' "$TMP/$mode.err"
+    [ "$(wc -l < "$TMP/$mode.err")" -eq 1 ]
+    ! grep -Eiq 'hunter2|access denied|unknown system variable|password=' "$TMP/$mode.err"
+done
 
 sa_db_create app_db
 grep -Fq 'CREATE DATABASE IF NOT EXISTS `app_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;' "$TMP/sql.log"
