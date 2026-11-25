@@ -85,7 +85,7 @@ SA_VALIDATE_FILE_FD=""
 # 66 missing/unreadable, 69 required helper unavailable, 74 metadata failure,
 # 75 oversized or changed during inspection.
 _sa_validate_text_file_fail() {
-    local fd=\${1-} reason=\${2-} rc=\${3-}
+    local fd=${1-} reason=${2-} rc=${3-}
     if [[ $fd =~ ^[0-9]+$ ]] && (( fd >= 10 )); then
         exec {fd}<&- 2>/dev/null || :
     fi
@@ -95,7 +95,7 @@ _sa_validate_text_file_fail() {
 }
 
 sa_validate_close_text_file() {
-    local fd=\${SA_VALIDATE_FILE_FD-}
+    local fd=${SA_VALIDATE_FILE_FD-}
     if [[ $fd =~ ^[0-9]+$ ]] && (( fd >= 10 )); then
         exec {fd}<&- 2>/dev/null || :
     fi
@@ -104,7 +104,7 @@ sa_validate_close_text_file() {
 }
 
 sa_validate_text_file_under_root() {
-    local root=\${1-} candidate=\${2-} metadata_path metadata_fd metadata_after
+    local root=${1-} candidate=${2-} metadata_path metadata_fd metadata_after
     local fd_type fd_meta rest size bytes file_fd="" fd_path
 
     SA_VALIDATE_FILE_REASON="invalid_arguments"
@@ -148,8 +148,8 @@ sa_validate_text_file_under_root() {
         _sa_validate_text_file_fail "$file_fd" "descriptor_metadata_unavailable" 74
         return $?
     }
-    fd_type=\${metadata_fd%%|*}
-    fd_meta=\${metadata_fd#*|}
+    fd_type=${metadata_fd%%|*}
+    fd_meta=${metadata_fd#*|}
     if [[ $fd_type != "regular file" || $fd_meta != "$metadata_path" ]]; then
         _sa_validate_text_file_fail "$file_fd" "file_changed_during_open" 75
         return $?
@@ -168,9 +168,9 @@ sa_validate_text_file_under_root() {
         return $?
     fi
 
-    rest=\${fd_meta#*:}
-    rest=\${rest#*:}
-    size=\${rest%%:*}
+    rest=${fd_meta#*:}
+    rest=${rest#*:}
+    size=${rest%%:*}
     [[ $size =~ ^[0-9]+$ ]] || {
         _sa_validate_text_file_fail "$file_fd" "invalid_size_metadata" 74
         return $?
@@ -197,8 +197,8 @@ sa_validate_text_file_under_root() {
         _sa_validate_text_file_fail "$file_fd" "descriptor_metadata_unavailable" 74
         return $?
     }
-    fd_type=\${metadata_fd%%|*}
-    metadata_after=\${metadata_fd#*|}
+    fd_type=${metadata_fd%%|*}
+    metadata_after=${metadata_fd#*|}
     if [[ $fd_type != "regular file" || $metadata_after != "$fd_meta" ]]; then
         _sa_validate_text_file_fail "$file_fd" "file_changed_during_validation" 75
         return $?
