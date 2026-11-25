@@ -79,7 +79,7 @@ SA_VALIDATE_FILE_REASON=""
 # 66 missing/unreadable, 69 required helper unavailable, 74 metadata failure,
 # 75 oversized or changed during inspection.
 sa_validate_text_file_under_root() {
-    local root=\${1-} candidate=\${2-} metadata_before metadata_after
+    local root=${1-} candidate=${2-} metadata_before metadata_after
     local rest size bytes
 
     SA_VALIDATE_FILE_REASON="invalid_arguments"
@@ -111,9 +111,9 @@ sa_validate_text_file_under_root() {
         SA_VALIDATE_FILE_REASON="metadata_unavailable"
         return 74
     }
-    rest=\${metadata_before#*:}
-    rest=\${rest#*:}
-    size=\${rest%%:*}
+    rest=${metadata_before#*:}
+    rest=${rest#*:}
+    size=${rest%%:*}
     [[ $size =~ ^[0-9]+$ ]] || {
         SA_VALIDATE_FILE_REASON="invalid_size_metadata"
         return 74
