@@ -74,6 +74,7 @@ sa_validate_path_under_root() {
 # Stable reason and open descriptor from sa_validate_text_file_under_root.
 SA_VALIDATE_FILE_REASON=""
 SA_VALIDATE_FILE_FD=""
+SA_VALIDATE_FILE_METADATA=""
 
 # Validate and open a bounded text file under an approved root.
 # On success SA_VALIDATE_FILE_FD remains open; callers must read through
@@ -90,17 +91,37 @@ _sa_validate_text_file_fail() {
         exec {fd}<&- 2>/dev/null || :
     fi
     SA_VALIDATE_FILE_FD=""
+    SA_VALIDATE_FILE_METADATA=""
     SA_VALIDATE_FILE_REASON=$reason
     return "$rc"
 }
 
 sa_validate_close_text_file() {
-    local fd=${SA_VALIDATE_FILE_FD-}
+    local fd=${SA_VALIDATE_FILE_FD-} fd_path metadata fd_type fd_meta rc=0
     if [[ $fd =~ ^[0-9]+$ ]] && (( fd >= 10 )); then
-        exec {fd}<&- 2>/dev/null || :
+        fd_path="/proc/$BASHPID/fd/$fd"
+        metadata=$(/usr/bin/stat -Lc '%F|%d:%i:%s:%y:%z' -- "$fd_path" 2>/dev/null) || {
+            SA_VALIDATE_FILE_REASON="descriptor_metadata_unavailable"
+            rc=74
+            metadata=""
+        }
+        if [[ -n $metadata ]]; then
+            fd_type=${metadata%%|*}
+            fd_meta=${metadata#*|}
+            if { [[ $fd_type != "regular file" && $fd_type != "regular empty file" ]] ||
+                 [[ $fd_meta != "$SA_VALIDATE_FILE_METADATA" ]]; }; then
+                SA_VALIDATE_FILE_REASON="changed_during_read"
+                rc=75
+            fi
+        fi
+        exec {fd}<&- 2>/dev/null || {
+            SA_VALIDATE_FILE_REASON="descriptor_close_failed"
+            rc=74
+        }
     fi
     SA_VALIDATE_FILE_FD=""
-    return 0
+    SA_VALIDATE_FILE_METADATA=""
+    return "$rc"
 }
 
 sa_validate_text_file_under_root() {
@@ -205,6 +226,7 @@ sa_validate_text_file_under_root() {
     fi
 
     SA_VALIDATE_FILE_FD=$file_fd
+    SA_VALIDATE_FILE_METADATA=$fd_meta
     SA_VALIDATE_FILE_REASON="ok"
     return 0
 }
