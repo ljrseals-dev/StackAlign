@@ -57,29 +57,6 @@ sa_db_status() {
     printf 'server_version: %s\nauthenticated_account: %s\n' "$version" "$account"
 }
 
-# sa_db_connections -- read-only server endpoint diagnostics from the configured client target.
-# Reports server metadata only; it never reads or prints credential-file contents.
-sa_db_connections() {
-    local result version host port socket bind
-    _sa_db_require_client || return $?
-    result=$(sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT VERSION(), @@hostname, @@port, @@socket, @@bind_address;') || {
-        echo "db: connection endpoint query failed" >&2
-        return 1
-    }
-    IFS=$'\\t' read -r version host port socket bind <<< "$result"
-    [ -n "$version" ] && [ -n "$host" ] && [ -n "$port" ] || {
-        echo "db: endpoint query returned incomplete server metadata" >&2
-        return 1
-    }
-    # Strip control characters from values before emitting diagnostics.
-    version=$(printf '%s' "$version" | tr -d '\\000-\\037\\177')
-    host=$(printf '%s' "$host" | tr -d '\\000-\\037\\177')
-    port=$(printf '%s' "$port" | tr -d '\\000-\\037\\177')
-    socket=$(printf '%s' "$socket" | tr -d '\\000-\\037\\177')
-    bind=$(printf '%s' "$bind" | tr -d '\\000-\\037\\177')
-    printf 'engine_version: %s\\nserver_hostname: %s\\ntcp_port: %s\\nunix_socket: %s\\nbind_address: %s\\n' \\
-        "$version" "$host" "$port" "$socket" "$bind"
-}
 # sa_db_list -- read-only schema inventory.
 sa_db_list() {
     _sa_db_require_client || return $?
