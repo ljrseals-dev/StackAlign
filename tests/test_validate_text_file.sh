@@ -115,6 +115,17 @@ else
     [ "$SA_VALIDATE_FILE_REASON" = changed_during_read ]
 fi
 
+mutated="$APP_ROOT/mutated.php"
+printf '%s\n' 'original-content' > "$mutated"
+sa_validate_text_file_under_root "$APP_ROOT" "$mutated"
+printf '%s\n' 'changed-content' >> "$mutated"
+if sa_validate_close_text_file; then
+    echo "FAIL: content mutation was not detected" >&2; exit 1
+else
+    [ "$?" -eq 75 ]
+    [ "$SA_VALIDATE_FILE_REASON" = changed_during_read ]
+fi
+
 parent_link="$TMP/root-link"
 ln -s -- "$APP_ROOT" "$parent_link"
 if sa_validate_text_file_under_root "$parent_link" "$parent_link/wp-config.php"; then
