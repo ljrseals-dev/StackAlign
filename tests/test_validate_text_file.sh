@@ -92,6 +92,11 @@ trace_err="$TMP/trace.err"
 if /usr/bin/grep -Fq -- "$canary" "$trace_out" "$trace_err"; then
     echo "FAIL: canary leaked during xtrace preflight" >&2; exit 1
 fi
+canary_hex=$(/usr/bin/printf '%s' "$canary" | /usr/bin/od -An -v -t x1 | /usr/bin/tr -d '[:space:]')
+trace_hex=$(/usr/bin/tr -d '[:space:]' < "$trace_err")
+if [[ $trace_hex == *"$canary_hex"* ]]; then
+    echo "FAIL: reversible canary bytes leaked during xtrace preflight" >&2; exit 1
+fi
 [ ! -s "$trace_out" ]
 
 
