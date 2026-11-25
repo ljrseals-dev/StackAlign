@@ -54,7 +54,7 @@ bash "$ROOT/bin/stackalign" db unknown >"$TMP/unknown-db.out" 2>&1
 unknown_db_rc=$?
 set -e
 [ "$unknown_db_rc" -eq 64 ]
-grep -Fq 'status|discover|list|user list' "$TMP/unknown-db.out"
+grep -Fq 'status|discover|applications|list|user list' "$TMP/unknown-db.out"
 
 wp_config="$TMP/wp-config.php"
 wp_canary='password=cli-canary-must-not-print'
