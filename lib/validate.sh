@@ -242,6 +242,7 @@ sa_validate_text_file_under_root() {
 
     SA_VALIDATE_FILE_FD=$file_fd
     SA_VALIDATE_FILE_METADATA=$fd_meta
+    # shellcheck disable=SC2034 # Public result consumed by validation callers.
     SA_VALIDATE_FILE_REASON="ok"
     return 0
 }
