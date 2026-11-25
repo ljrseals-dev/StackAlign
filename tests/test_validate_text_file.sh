@@ -62,7 +62,8 @@ else
     [ "$SA_VALIDATE_FILE_REASON" = invalid_path ]
 fi
 
-if sa_validate_text_file_under_root "$APP_ROOT" "$APP_ROOT"; then
+mkdir "$APP_ROOT/subdir"
+if sa_validate_text_file_under_root "$APP_ROOT" "$APP_ROOT/subdir"; then
     echo "FAIL: directory accepted as file" >&2; exit 1
 else
     [ "$?" -eq 65 ]
