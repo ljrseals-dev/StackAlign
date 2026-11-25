@@ -166,7 +166,7 @@ sa_db_parse_wordpress_config() {
             '/*'*|'*'*|'*/'*) continue ;;
         esac
 
-        include_pattern="^([!][Ii][Nn][Cc][Ll][Uu][Dd][Ee]([Dd][Ii][Rr])?|[Ii][Nn][Cc][Ll][Uu][Dd][Ee](_[Oo][Nn][Cc][Ee])?|[Rr][Ee][Qq][Uu][Ii][Rr][Ee](_[Oo][Nn][Cc][Ee])?)([[:space:]]|\\\\(|$)"
+        include_pattern="^([!][Ii][Nn][Cc][Ll][Uu][Dd][Ee]([Dd][Ii][Rr])?|[Ii][Nn][Cc][Ll][Uu][Dd][Ee](_[Oo][Nn][Cc][Ee])?|[Rr][Ee][Qq][Uu][Ii][Rr][Ee](_[Oo][Nn][Cc][Ee])?)([[:space:]]|\\(|$)"
         if [[ $trimmed =~ $include_pattern ]]; then
             effective="UNKNOWN"
             continue
