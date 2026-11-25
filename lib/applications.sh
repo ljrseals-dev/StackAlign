@@ -118,7 +118,7 @@ sa_db_parse_wordpress_config() {
     local db_socket="UNKNOWN" db_socket_conf="UNKNOWN"
     local db_user="UNKNOWN" db_user_conf="UNKNOWN"
     local trace_enabled=0 close_rc=0
-    local fd_path user_pattern
+    local fd_path user_pattern include_pattern
 
     [ "$#" -eq 2 ] || {
         echo "applications: usage: sa_db_parse_wordpress_config <root> <wp-config.php>" >&2
@@ -166,7 +166,8 @@ sa_db_parse_wordpress_config() {
             '/*'*|'*'*|'*/'*) continue ;;
         esac
 
-        if [[ $trimmed =~ ^([!][Ii][Nn][Cc][Ll][Uu][Dd][Ee]([Dd][Ii][Rr])?|[Ii][Nn][Cc][Ll][Uu][Dd][Ee](_[Oo][Nn][Cc][Ee])?|[Rr][Ee][Qq][Uu][Ii][Rr][Ee](_[Oo][Nn][Cc][Ee])?)([[:space:]]|\\(|$) ]]; then
+        include_pattern="^([!][Ii][Nn][Cc][Ll][Uu][Dd][Ee]([Dd][Ii][Rr])?|[Ii][Nn][Cc][Ll][Uu][Dd][Ee](_[Oo][Nn][Cc][Ee])?|[Rr][Ee][Qq][Uu][Ii][Rr][Ee](_[Oo][Nn][Cc][Ee])?)([[:space:]]|\\\\(|$)"
+        if [[ $trimmed =~ $include_pattern ]]; then
             effective="UNKNOWN"
             continue
         fi
