@@ -75,7 +75,7 @@ _sa_wp_parse_db_host() {
     if [[ $value =~ ^([^:]+):(/[^[:space:]]+)$ ]]; then
         host=${BASH_REMATCH[1]}
         socket=${BASH_REMATCH[2]}
-    elif [[ $value =~ ^\\[([0-9A-Fa-f:.]+)\\](:([0-9]{1,5}))?$ ]]; then
+    elif [[ $value =~ ^\[([0-9A-Fa-f:.]+)\](:([0-9]{1,5}))?$ ]]; then
         host=${BASH_REMATCH[1]}
         port=${BASH_REMATCH[3]-}
     elif [[ $value =~ ^([^:]+):([0-9]{1,5})$ ]]; then
