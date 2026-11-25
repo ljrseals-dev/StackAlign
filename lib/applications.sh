@@ -171,7 +171,7 @@ sa_db_parse_wordpress_config() {
             effective="UNKNOWN"
             continue
         fi
-        user_pattern='^define[[:space:]]*\\([[:space:]]*"DB_USER"[[:space:]]*,'
+        user_pattern="^define[[:space:]]*\\([[:space:]]*\\"DB_USER\\"[[:space:]]*,"
         if [[ $trimmed =~ $user_pattern ]]; then
             db_user="PRESENT"
             db_user_conf="CONFIRMED"
