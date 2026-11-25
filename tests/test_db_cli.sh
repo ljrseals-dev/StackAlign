@@ -50,12 +50,12 @@ for mode in apply missing_root; do
     case "$mode" in
         apply)
             set +e
-            bash "$ROOT/bin/stackalign" db doctor --root "$TMP" --wordpress "$wp_config" --apply >"$TMP/doctor-cli.out" 2>&1
+            bash "$ROOT/bin/stackalign" db doctor --root "$TMP" --wordpress "$TMP/wp-config.php" --apply >"$TMP/doctor-cli.out" 2>&1
             doctor_rc=$?
             set -e ;;
         missing_root)
             set +e
-            bash "$ROOT/bin/stackalign" db doctor --wordpress "$wp_config" >"$TMP/doctor-cli.out" 2>&1
+            bash "$ROOT/bin/stackalign" db doctor --wordpress "$TMP/wp-config.php" >"$TMP/doctor-cli.out" 2>&1
             doctor_rc=$?
             set -e ;;
     esac
