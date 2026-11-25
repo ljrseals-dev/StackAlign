@@ -171,7 +171,7 @@ sa_validate_text_file_under_root() {
     }
     fd_type=${metadata_fd%%|*}
     fd_meta=${metadata_fd#*|}
-    if [[ $( fd_type != "regular file" && fd_type != "regular empty file" ) || $fd_meta != "$metadata_path" ]]; then
+    if [[ ( $fd_type != "regular file" && fd_type != "regular empty file" ) || $fd_meta != "$metadata_path" ]]; then
         _sa_validate_text_file_fail "$file_fd" "file_changed_during_open" 75
         return $?
     fi
@@ -220,7 +220,7 @@ sa_validate_text_file_under_root() {
     }
     fd_type=${metadata_fd%%|*}
     metadata_after=${metadata_fd#*|}
-    if [[ $( fd_type != "regular file" && fd_type != "regular empty file" ) || $metadata_after != "$fd_meta" ]]; then
+    if [[ ( $fd_type != "regular file" && fd_type != "regular empty file" ) || $metadata_after != "$fd_meta" ]]; then
         _sa_validate_text_file_fail "$file_fd" "file_changed_during_validation" 75
         return $?
     fi
