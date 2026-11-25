@@ -123,6 +123,10 @@ sa_db_parse_wordpress_config() {
 
     # Keep raw config lines and extracted values out of xtrace.
     case $- in *x*) trace_enabled=1; set +x ;; esac
+    unset SA_WP_LITERAL_VALUE SA_WP_HOST SA_WP_PORT SA_WP_SOCKET
+    SA_WP_LITERAL_VALUE=""
+    SA_WP_HOST="UNKNOWN"; SA_WP_PORT="UNKNOWN"; SA_WP_SOCKET="UNKNOWN"
+    SA_WP_HOST_CONFIDENCE="UNKNOWN"; SA_WP_PORT_CONFIDENCE="UNKNOWN"; SA_WP_SOCKET_CONFIDENCE="UNKNOWN"
 
     if ! sa_validate_text_file_under_root "$root" "$config"; then
         reason=$SA_VALIDATE_FILE_REASON
