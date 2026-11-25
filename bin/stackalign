@@ -77,7 +77,7 @@ _sa_cmd_list() {
     rollback M2a 'snapshot restore: rollback [--list] [--to <id>]' \
     update M5 'update engine: check|plan|apply|pin|status' \
     site M3 'read-only vhost inventory/doctor; lifecycle actions gated' \
-    db M3 'database status/list/user inventory/create; destructive drop blocked' \
+    db M3 'read-only database discovery/status/list/user inventory; create gated, drop blocked' \
     tls M3 'certificate status, client inventory, HTTP-01 plan, and scheduler preflight' \
     backup M4 'backup driver: run|list|verify' \
     restore M4 'restore driver: --from <id>' \
@@ -106,7 +106,7 @@ _sa_cmd_help() {
     rollback) printf 'stackalign rollback  [M2a]\n  snapshot restore: rollback [--list] [--to <id>]\n' ;;
     update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
     site) printf 'stackalign site  [M3]\n  read-only vhost inventory/doctor; lifecycle actions gated\n' ;;
-    db) printf 'stackalign db  [M3]\n  database status/list/user inventory/create; destructive drop blocked\n' ;;
+    db) printf 'stackalign db  [M3]\n  read-only discovery/status/list/user inventory; create gated, drop blocked\n' ;;
     tls) printf 'stackalign tls  [M3]\n  status, clients, plan-issue (Certbot HTTP-01 only), and scheduler preflight\n' ;;
     backup) printf 'stackalign backup  [M4]\n  backup driver: run|list|verify\n' ;;
     restore) printf 'stackalign restore  [M4]\n  restore driver: --from <id>\n' ;;
@@ -301,6 +301,9 @@ cmd_db() {
     status)
       [ "${#POS[@]}" -eq 1 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign db status"
       sa_db_status ;;
+    discover)
+      [ "${#POS[@]}" -eq 1 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign db discover"
+      sa_db_discover ;;
     user)
       [ "${#POS[@]}" -eq 2 ] && [ "${POS[1]}" = list ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign db user list"
       sa_db_user_list ;;
@@ -317,7 +320,7 @@ cmd_db() {
     drop)
       [ "${#POS[@]}" -eq 2 ] || _sa_die "usage: stackalign db drop <database-name> [--apply]"
       sa_db_drop "${POS[1]}" ;;
-    *) _sa_die "usage: stackalign db <status|list|user list|create <name> [--apply]|drop <name>>" ;;
+    *) _sa_die "usage: stackalign db <status|discover|list|user list|create <name> [--apply]|drop <name>>" ;;
   esac
 }
 
