@@ -279,3 +279,100 @@ sa_db_parse_wordpress_config() {
     printf 'application_connection: UNKNOWN\napplication_connection_confidence: UNKNOWN\n'
     return 0
 }
+
+
+# Extract one already-sanitized key:value field from a diagnostic result.
+_sa_wp_output_value() {
+    local output=${1-} key=${2-} line
+    while IFS= read -r line; do
+        case $line in
+            "$key: "*) printf '%s' "${line#"$key: "}"; return 0 ;;
+        esac
+    done <<< "$output"
+    return 1
+}
+
+# sa_db_doctor <approved-root> <absolute-wp-config.php>
+# Cross-checks static application settings against server metadata only.
+# A candidate match is never proof of a live application connection.
+sa_db_doctor() {
+    local root=${1-} config=${2-} server_output app_output
+    local server_engine server_distribution server_version server_port
+    local server_socket server_bind app_status app_db_name app_db_host
+    local app_db_port app_db_socket matches="UNKNOWN"
+
+    [ "$#" -eq 2 ] || {
+        echo "db: usage: sa_db_doctor <root> <wp-config.php>" >&2
+        return 64
+    }
+    if ! declare -F sa_db_discover >/dev/null 2>&1; then
+        echo "db: doctor requires database discovery" >&2
+        return 69
+    fi
+
+    if ! server_output=$(sa_db_discover); then
+        return 1
+    fi
+    if ! app_output=$(sa_db_parse_wordpress_config "$root" "$config"); then
+        return 1
+    fi
+
+    server_engine=$(_sa_wp_output_value "$server_output" engine || printf 'UNKNOWN')
+    server_distribution=$(_sa_wp_output_value "$server_output" distribution || printf 'UNKNOWN')
+    server_version=$(_sa_wp_output_value "$server_output" version || printf 'UNKNOWN')
+    server_port=$(_sa_wp_output_value "$server_output" server_port || printf 'UNKNOWN')
+    server_socket=$(_sa_wp_output_value "$server_output" server_socket || printf 'UNKNOWN')
+    server_bind=$(_sa_wp_output_value "$server_output" configured_bind_address || printf 'UNKNOWN')
+    app_status=$(_sa_wp_output_value "$app_output" status || printf 'UNKNOWN')
+    app_db_name=$(_sa_wp_output_value "$app_output" app_db_name || printf 'UNKNOWN')
+    app_db_host=$(_sa_wp_output_value "$app_output" app_db_host || printf 'UNKNOWN')
+    app_db_port=$(_sa_wp_output_value "$app_output" app_db_port || printf 'UNKNOWN')
+    app_db_socket=$(_sa_wp_output_value "$app_output" app_db_socket || printf 'UNKNOWN')
+
+    if [[ $app_db_socket != UNKNOWN && $server_socket != UNKNOWN ]]; then
+        if [[ $app_db_socket == "$server_socket" ]]; then
+            matches="POSSIBLE_MATCH"
+        else
+            matches="MISMATCH_CANDIDATE"
+        fi
+    elif [[ $app_db_port != UNKNOWN && $server_port != UNKNOWN ]]; then
+        if [[ $app_db_port != "$server_port" ]]; then
+            matches="MISMATCH_CANDIDATE"
+        elif [[ $app_db_host != UNKNOWN && $server_bind != UNKNOWN ]]; then
+            case $app_db_host in
+                "$server_bind") matches="POSSIBLE_MATCH" ;;
+                localhost)
+                    case $server_bind in
+                        127.0.0.1|::1|0.0.0.0|::|'*') matches="POSSIBLE_MATCH" ;;
+                    esac
+                    ;;
+                127.0.0.1)
+                    case $server_bind in 127.0.0.1|0.0.0.0|'*') matches="POSSIBLE_MATCH" ;; esac
+                    ;;
+                ::1)
+                    case $server_bind in ::1|::|'*') matches="POSSIBLE_MATCH" ;; esac
+                    ;;
+            esac
+        fi
+    fi
+
+    printf 'database_engine: %s\n' "$server_engine"
+    printf 'database_distribution: %s\n' "$server_distribution"
+    printf 'database_version: %s\n' "$server_version"
+    printf 'database_server_port: %s\n' "$server_port"
+    printf 'database_server_socket: %s\n' "$server_socket"
+    printf 'database_configured_bind_address: %s\n' "$server_bind"
+    printf 'application: WordPress\n'
+    printf 'application_inventory_status: %s\n' "$app_status"
+    printf 'application_db_name: %s\n' "$app_db_name"
+    printf 'application_db_host: %s\n' "$app_db_host"
+    printf 'application_db_port: %s\n' "$app_db_port"
+    printf 'application_db_socket: %s\n' "$app_db_socket"
+    printf 'matches_server: %s\n' "$matches"
+    printf 'matches_server_confidence: UNKNOWN\n'
+    printf 'application_connection: UNKNOWN\n'
+    printf 'application_connection_confidence: UNKNOWN\n'
+    printf 'actual_listener: UNKNOWN\n'
+    printf 'actual_listener_confidence: UNKNOWN\n'
+    return 0
+}
