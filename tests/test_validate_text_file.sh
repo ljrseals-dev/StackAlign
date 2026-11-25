@@ -21,11 +21,13 @@ chmod 600 "$valid"
 
 sa_validate_text_file_under_root "$APP_ROOT" "$valid"
 [ "$SA_VALIDATE_FILE_REASON" = ok ]
+sa_validate_close_text_file
 
 empty="$APP_ROOT/empty.php"
 : > "$empty"
 sa_validate_text_file_under_root "$APP_ROOT" "$empty"
 [ "$SA_VALIDATE_FILE_REASON" = ok ]
+sa_validate_close_text_file
 
 missing="$APP_ROOT/missing.php"
 if sa_validate_text_file_under_root "$APP_ROOT" "$missing"; then
@@ -85,10 +87,31 @@ trace_err="$TMP/trace.err"
 (
     set -x
     sa_validate_text_file_under_root "$APP_ROOT" "$secret" > "$trace_out" 2> "$trace_err"
+    sa_validate_close_text_file
 )
 if /usr/bin/grep -Fq -- "$canary" "$trace_out" "$trace_err"; then
     echo "FAIL: canary leaked during xtrace preflight" >&2; exit 1
 fi
 [ ! -s "$trace_out" ]
+
+
+pinned="$APP_ROOT/pinned.php"
+printf '%s\n' 'original-content' > "$pinned"
+sa_validate_text_file_under_root "$APP_ROOT" "$pinned"
+pinned_fd=$SA_VALIDATE_FILE_FD
+mv -- "$pinned" "$pinned.original"
+printf '%s\n' 'replacement-content' > "$pinned"
+IFS= read -r pinned_line < "/proc/$BASHPID/fd/$pinned_fd"
+[ "$pinned_line" = original-content ]
+sa_validate_close_text_file
+
+parent_link="$TMP/root-link"
+ln -s -- "$APP_ROOT" "$parent_link"
+if sa_validate_text_file_under_root "$parent_link" "$parent_link/wp-config.php"; then
+    echo "FAIL: symlinked root accepted" >&2; exit 1
+else
+    [ "$?" -eq 64 ]
+    [ "$SA_VALIDATE_FILE_REASON" = invalid_path ]
+fi
 
 echo "text file validation tests: PASS"
