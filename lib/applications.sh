@@ -299,6 +299,10 @@ sa_db_doctor() {
     local root=${1-} config=${2-} server_output app_output
     local server_engine server_distribution server_version server_port
     local server_socket server_bind app_status app_db_name app_db_host
+    local app_db_user matches="UNKNOWN"
+    local server_engine_conf server_distribution_conf server_version_conf
+    local server_port_conf server_socket_conf server_bind_conf
+    local app_db_name_conf app_db_host_conf app_db_port_conf app_db_socket_conf app_db_user_conf
     local app_db_port app_db_socket matches="UNKNOWN"
 
     [ "$#" -eq 2 ] || {
@@ -323,11 +327,23 @@ sa_db_doctor() {
     server_port=$(_sa_wp_output_value "$server_output" server_port || printf 'UNKNOWN')
     server_socket=$(_sa_wp_output_value "$server_output" server_socket || printf 'UNKNOWN')
     server_bind=$(_sa_wp_output_value "$server_output" configured_bind_address || printf 'UNKNOWN')
+    server_engine_conf=$(_sa_wp_output_value "$server_output" engine_confidence || printf "UNKNOWN")
+    server_distribution_conf=$(_sa_wp_output_value "$server_output" distribution_confidence || printf "UNKNOWN")
+    server_version_conf=$(_sa_wp_output_value "$server_output" version_confidence || printf "UNKNOWN")
+    server_port_conf=$(_sa_wp_output_value "$server_output" server_port_confidence || printf "UNKNOWN")
+    server_socket_conf=$(_sa_wp_output_value "$server_output" server_socket_confidence || printf "UNKNOWN")
+    server_bind_conf=$(_sa_wp_output_value "$server_output" configured_bind_address_confidence || printf "UNKNOWN")
     app_status=$(_sa_wp_output_value "$app_output" status || printf 'UNKNOWN')
     app_db_name=$(_sa_wp_output_value "$app_output" app_db_name || printf 'UNKNOWN')
     app_db_host=$(_sa_wp_output_value "$app_output" app_db_host || printf 'UNKNOWN')
     app_db_port=$(_sa_wp_output_value "$app_output" app_db_port || printf 'UNKNOWN')
     app_db_socket=$(_sa_wp_output_value "$app_output" app_db_socket || printf 'UNKNOWN')
+    app_db_user=$(_sa_wp_output_value "$app_output" app_db_user || printf "UNKNOWN")
+    app_db_name_conf=$(_sa_wp_output_value "$app_output" app_db_name_confidence || printf "UNKNOWN")
+    app_db_host_conf=$(_sa_wp_output_value "$app_output" app_db_host_confidence || printf "UNKNOWN")
+    app_db_port_conf=$(_sa_wp_output_value "$app_output" app_db_port_confidence || printf "UNKNOWN")
+    app_db_socket_conf=$(_sa_wp_output_value "$app_output" app_db_socket_confidence || printf "UNKNOWN")
+    app_db_user_conf=$(_sa_wp_output_value "$app_output" app_db_user_confidence || printf "UNKNOWN")
 
     if [[ $app_db_socket != UNKNOWN && $server_socket != UNKNOWN ]]; then
         if [[ $app_db_socket == "$server_socket" ]]; then
@@ -356,20 +372,21 @@ sa_db_doctor() {
         fi
     fi
 
-    printf 'database_engine: %s\n' "$server_engine"
-    printf 'database_distribution: %s\n' "$server_distribution"
-    printf 'database_version: %s\n' "$server_version"
-    printf 'database_server_port: %s\n' "$server_port"
-    printf 'database_server_socket: %s\n' "$server_socket"
-    printf 'database_configured_bind_address: %s\n' "$server_bind"
+    printf 'database_engine: %s\ndatabase_engine_confidence: %s\n' "$server_engine" "$server_engine_conf"
+    printf 'database_distribution: %s\ndatabase_distribution_confidence: %s\n' "$server_distribution" "$server_distribution_conf"
+    printf 'database_version: %s\ndatabase_version_confidence: %s\n' "$server_version" "$server_version_conf"
+    printf 'database_server_port: %s\ndatabase_server_port_confidence: %s\n' "$server_port" "$server_port_conf"
+    printf 'database_server_socket: %s\ndatabase_server_socket_confidence: %s\n' "$server_socket" "$server_socket_conf"
+    printf 'database_configured_bind_address: %s\ndatabase_configured_bind_address_confidence: %s\n' "$server_bind" "$server_bind_conf"
     printf 'application: WordPress\n'
     printf 'application_inventory_status: %s\n' "$app_status"
-    printf 'application_db_name: %s\n' "$app_db_name"
-    printf 'application_db_host: %s\n' "$app_db_host"
-    printf 'application_db_port: %s\n' "$app_db_port"
-    printf 'application_db_socket: %s\n' "$app_db_socket"
+    printf 'application_db_name: %s\napplication_db_name_confidence: %s\n' "$app_db_name" "$app_db_name_conf"
+    printf 'application_db_host: %s\napplication_db_host_confidence: %s\n' "$app_db_host" "$app_db_host_conf"
+    printf 'application_db_port: %s\napplication_db_port_confidence: %s\n' "$app_db_port" "$app_db_port_conf"
+    printf 'application_db_socket: %s\napplication_db_socket_confidence: %s\n' "$app_db_socket" "$app_db_socket_conf"
+    printf 'application_db_user: %s\napplication_db_user_confidence: %s\n' "$app_db_user" "$app_db_user_conf"
     printf 'matches_server: %s\n' "$matches"
-    printf 'matches_server_confidence: UNKNOWN\n'
+    printf 'matches_server_confidence: UNKNOWN\nmatches_server_note: static endpoint comparison only; not proof of a live connection\n'
     printf 'application_connection: UNKNOWN\n'
     printf 'application_connection_confidence: UNKNOWN\n'
     printf 'actual_listener: UNKNOWN\n'
