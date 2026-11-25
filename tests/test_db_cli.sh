@@ -30,4 +30,30 @@ set -e
 [ "$drop_rc" -eq 2 ]
 grep -q 'DROP BLOCKED' "$TMP/drop.out"
 
+for args in "extra" "--apply"; do
+    if [ "$args" = extra ]; then
+        set +e
+        bash "$ROOT/bin/stackalign" db discover extra >"$TMP/discover.out" 2>&1
+        discover_rc=$?
+        set -e
+    else
+        set +e
+        bash "$ROOT/bin/stackalign" db discover --apply >"$TMP/discover.out" 2>&1
+        discover_rc=$?
+        set -e
+    fi
+    [ "$discover_rc" -eq 64 ]
+    grep -Fxq 'stackalign: usage: stackalign db discover' "$TMP/discover.out"
+done
+
+help_db=$(bash "$ROOT/bin/stackalign" help db)
+printf '%s\n' "$help_db" | grep -q 'discover'
+
+set +e
+bash "$ROOT/bin/stackalign" db unknown >"$TMP/unknown-db.out" 2>&1
+unknown_db_rc=$?
+set -e
+[ "$unknown_db_rc" -eq 64 ]
+grep -Fq 'status|discover|list|user list' "$TMP/unknown-db.out"
+
 echo "database CLI plan/validation/drop-gate tests: PASS"
