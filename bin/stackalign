@@ -317,7 +317,7 @@ cmd_db() {
       [ "${#POS[@]}" -eq 1 ] && [ "$APPLY" = 0 ] || _sa_die "usage: stackalign db discover"
       sa_db_discover ;;
     applications)
-      [ "${#POS[@]}" -eq 0 ] && [ "$APPLY" = 0 ] && [ -n "$APP_CONFIG_ROOT" ] && [ -n "$WORDPRESS_CONFIG" ] || _sa_die "usage: stackalign db applications --root <approved-root> --wordpress <wp-config.php>"
+      [ "${#POS[@]}" -eq 1 ] && [ "${POS[0]}" = applications ] && [ "$APPLY" = 0 ] && [ -n "$APP_CONFIG_ROOT" ] && [ -n "$WORDPRESS_CONFIG" ] || _sa_die "usage: stackalign db applications --root <approved-root> --wordpress <wp-config.php>"
       source "$SA_ROOT/lib/applications.sh"
       sa_db_parse_wordpress_config "$APP_CONFIG_ROOT" "$WORDPRESS_CONFIG" ;;
     user)
