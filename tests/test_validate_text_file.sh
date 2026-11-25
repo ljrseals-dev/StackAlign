@@ -119,4 +119,14 @@ else
     [ "$SA_VALIDATE_FILE_REASON" = invalid_path ]
 fi
 
+parent_component="$APP_ROOT/parent-link"
+mkdir "$APP_ROOT/real-parent"
+ln -s -- "$APP_ROOT/real-parent" "$parent_component"
+if sa_validate_text_file_under_root "$APP_ROOT" "$parent_component/config.php"; then
+    echo "FAIL: symlinked parent component accepted" >&2; exit 1
+else
+    [ "$?" -eq 64 ]
+    [ "$SA_VALIDATE_FILE_REASON" = invalid_path ]
+fi
+
 echo "text file validation tests: PASS"
