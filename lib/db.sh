@@ -58,7 +58,7 @@ sa_db_status() {
 }
 
 # sa_db_connections -- read-only server endpoint diagnostics from the configured client target.
-# This reports server metadata only; it never reads or prints credential-file contents.
+# Reports server metadata only; it never reads or prints credential-file contents.
 sa_db_connections() {
     local result version host port socket bind
     _sa_db_require_client || return $?
@@ -66,186 +66,20 @@ sa_db_connections() {
         echo "db: connection endpoint query failed" >&2
         return 1
     }
-    IFS=
-sa_db_list() {
-    _sa_db_require_client || return $?
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SHOW DATABASES;'
-}
-
-# sa_db_user_list -- read-only database account inventory; never selects password hashes.
-sa_db_user_list() {
-    _sa_db_require_client || return $?
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT User, Host FROM mysql.user ORDER BY User, Host;'
-}
-
-# sa_db_create <database-name> -- idempotent utf8mb4 database creation.
-sa_db_create() {
-    local name=${1:-} existing query
-    sa_db_validate_name "$name" || return $?
-    _sa_db_require_client || return $?
-    query="SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$name' LIMIT 1;"
-    existing=$(sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query") || {
-        echo "db: could not check whether database exists" >&2
-        return 1
-    }
-    if [ "$existing" = "$name" ]; then
-        printf 'database already exists: %s\n' "$name"
-        return 0
-    fi
-    query="CREATE DATABASE IF NOT EXISTS \`$name\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query" || {
-        echo "db: create failed for $name" >&2
-        return 1
-    }
-    printf 'database created or already present: %s\n' "$name"
-}
-
-# Drop remains blocked until pre-drop backup and recovery are verified.
-sa_db_drop() {
-    local name=${1:-}
-    sa_db_validate_name "$name" || return $?
-    echo "db: DROP BLOCKED — pre-drop backup, dependency checks, confirmation, and verified rollback are not implemented; no database changes made" >&2
-    return 2
-}
-\t' read -r version host port socket bind <<< "$result"
+    IFS=$'\\t' read -r version host port socket bind <<< "$result"
     [ -n "$version" ] && [ -n "$host" ] && [ -n "$port" ] || {
         echo "db: endpoint query returned incomplete server metadata" >&2
         return 1
     }
-    # Avoid control-character injection in diagnostic output.
-    for value in "$version" "$host" "$port" "$socket" "$bind"; do
-        [[ $value != *[
-sa_db_list() {
-    _sa_db_require_client || return $?
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SHOW DATABASES;'
-}
-
-# sa_db_user_list -- read-only database account inventory; never selects password hashes.
-sa_db_user_list() {
-    _sa_db_require_client || return $?
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT User, Host FROM mysql.user ORDER BY User, Host;'
-}
-
-# sa_db_create <database-name> -- idempotent utf8mb4 database creation.
-sa_db_create() {
-    local name=${1:-} existing query
-    sa_db_validate_name "$name" || return $?
-    _sa_db_require_client || return $?
-    query="SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$name' LIMIT 1;"
-    existing=$(sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query") || {
-        echo "db: could not check whether database exists" >&2
-        return 1
-    }
-    if [ "$existing" = "$name" ]; then
-        printf 'database already exists: %s\n' "$name"
-        return 0
-    fi
-    query="CREATE DATABASE IF NOT EXISTS \`$name\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query" || {
-        echo "db: create failed for $name" >&2
-        return 1
-    }
-    printf 'database created or already present: %s\n' "$name"
-}
-
-# Drop remains blocked until pre-drop backup and recovery are verified.
-sa_db_drop() {
-    local name=${1:-}
-    sa_db_validate_name "$name" || return $?
-    echo "db: DROP BLOCKED — pre-drop backup, dependency checks, confirmation, and verified rollback are not implemented; no database changes made" >&2
-    return 2
-}
-\n'
-sa_db_list() {
-    _sa_db_require_client || return $?
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SHOW DATABASES;'
-}
-
-# sa_db_user_list -- read-only database account inventory; never selects password hashes.
-sa_db_user_list() {
-    _sa_db_require_client || return $?
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT User, Host FROM mysql.user ORDER BY User, Host;'
-}
-
-# sa_db_create <database-name> -- idempotent utf8mb4 database creation.
-sa_db_create() {
-    local name=${1:-} existing query
-    sa_db_validate_name "$name" || return $?
-    _sa_db_require_client || return $?
-    query="SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$name' LIMIT 1;"
-    existing=$(sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query") || {
-        echo "db: could not check whether database exists" >&2
-        return 1
-    }
-    if [ "$existing" = "$name" ]; then
-        printf 'database already exists: %s\n' "$name"
-        return 0
-    fi
-    query="CREATE DATABASE IF NOT EXISTS \`$name\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query" || {
-        echo "db: create failed for $name" >&2
-        return 1
-    }
-    printf 'database created or already present: %s\n' "$name"
-}
-
-# Drop remains blocked until pre-drop backup and recovery are verified.
-sa_db_drop() {
-    local name=${1:-}
-    sa_db_validate_name "$name" || return $?
-    echo "db: DROP BLOCKED — pre-drop backup, dependency checks, confirmation, and verified rollback are not implemented; no database changes made" >&2
-    return 2
-}
-\r'
-sa_db_list() {
-    _sa_db_require_client || return $?
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SHOW DATABASES;'
-}
-
-# sa_db_user_list -- read-only database account inventory; never selects password hashes.
-sa_db_user_list() {
-    _sa_db_require_client || return $?
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute='SELECT User, Host FROM mysql.user ORDER BY User, Host;'
-}
-
-# sa_db_create <database-name> -- idempotent utf8mb4 database creation.
-sa_db_create() {
-    local name=${1:-} existing query
-    sa_db_validate_name "$name" || return $?
-    _sa_db_require_client || return $?
-    query="SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$name' LIMIT 1;"
-    existing=$(sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query") || {
-        echo "db: could not check whether database exists" >&2
-        return 1
-    }
-    if [ "$existing" = "$name" ]; then
-        printf 'database already exists: %s\n' "$name"
-        return 0
-    fi
-    query="CREATE DATABASE IF NOT EXISTS \`$name\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    sa_exec mysql -- --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" --batch --skip-column-names --execute="$query" || {
-        echo "db: create failed for $name" >&2
-        return 1
-    }
-    printf 'database created or already present: %s\n' "$name"
-}
-
-# Drop remains blocked until pre-drop backup and recovery are verified.
-sa_db_drop() {
-    local name=${1:-}
-    sa_db_validate_name "$name" || return $?
-    echo "db: DROP BLOCKED — pre-drop backup, dependency checks, confirmation, and verified rollback are not implemented; no database changes made" >&2
-    return 2
-}
-\t']* ]] || {
-            echo "db: refusing server metadata containing control characters" >&2
-            return 1
-        }
-    done
-    printf 'engine_version: %s\nserver_hostname: %s\ntcp_port: %s\nunix_socket: %s\nbind_address: %s\n' \
+    # Strip control characters from values before emitting diagnostics.
+    version=$(printf '%s' "$version" | tr -d '\\000-\\037\\177')
+    host=$(printf '%s' "$host" | tr -d '\\000-\\037\\177')
+    port=$(printf '%s' "$port" | tr -d '\\000-\\037\\177')
+    socket=$(printf '%s' "$socket" | tr -d '\\000-\\037\\177')
+    bind=$(printf '%s' "$bind" | tr -d '\\000-\\037\\177')
+    printf 'engine_version: %s\\nserver_hostname: %s\\ntcp_port: %s\\nunix_socket: %s\\nbind_address: %s\\n' \\
         "$version" "$host" "$port" "$socket" "$bind"
 }
-
 # sa_db_list -- read-only schema inventory.
 sa_db_list() {
     _sa_db_require_client || return $?
