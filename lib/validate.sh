@@ -129,6 +129,7 @@ sa_validate_close_text_file() {
 sa_validate_text_file_under_root() {
     local root=${1-} candidate=${2-} metadata_path metadata_fd metadata_after
     local fd_type fd_meta rest size bytes file_fd="" fd_path
+    local trace_enabled=0 scan_rc=0 binary_found=0
 
     SA_VALIDATE_FILE_REASON="invalid_arguments"
     [ "$#" -eq 2 ] || return 64
@@ -205,16 +206,27 @@ sa_validate_text_file_under_root() {
 
     # od opens the pinned /proc descriptor independently; it does not advance
     # the descriptor offset that the caller will use to parse the file.
-    bytes=$(sa_exec od -- -An -v -t x1 -N "$size" -- "$fd_path" 2>/dev/null) || {
+    # Xtrace must not print the reversible hexadecimal representation.
+    case $- in *x*) trace_enabled=1; set +x ;; esac
+    if bytes=$(sa_exec od -- -An -v -t x1 -N "$size" -- "$fd_path" 2>/dev/null); then
+        [[ $bytes =~ (^|[[:space:]])00([[:space:]]|$) ]] && binary_found=1
+    else
+        scan_rc=$?
+    fi
+    unset bytes
+    if (( trace_enabled )); then set -x; fi
+    if (( scan_rc != 0 )); then
+        if (( scan_rc == 69 )); then
+            _sa_validate_text_file_fail "$file_fd" "od_unavailable" 69
+            return $?
+        fi
         _sa_validate_text_file_fail "$file_fd" "binary_scan_failed" 74
         return $?
-    }
-    if [[ $bytes =~ (^|[[:space:]])00([[:space:]]|$) ]]; then
-        unset bytes
+    fi
+    if (( binary_found )); then
         _sa_validate_text_file_fail "$file_fd" "binary" 65
         return $?
-    }
-    unset bytes
+    fi
 
     metadata_fd=$(/usr/bin/stat -Lc '%F|%d:%i:%s:%y:%z' -- "$fd_path" 2>/dev/null) || {
         _sa_validate_text_file_fail "$file_fd" "descriptor_metadata_unavailable" 74
