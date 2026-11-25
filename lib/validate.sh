@@ -67,3 +67,83 @@ sa_validate_path_under_root() {
         return 64
     }
 }
+
+
+# Stable reason code from sa_validate_text_file_under_root.
+SA_VALIDATE_FILE_REASON=""
+
+# Validate a bounded text file under an approved root before a caller reads it.
+# The caller must source lib/exec.sh first; od is used only to detect NUL bytes,
+# and receives no plaintext output. File contents are never stored by this helper.
+# Return codes: 0 valid, 64 invalid path/arguments, 65 rejected file,
+# 66 missing/unreadable, 69 required helper unavailable, 74 metadata failure,
+# 75 oversized or changed during inspection.
+sa_validate_text_file_under_root() {
+    local root=\${1-} candidate=\${2-} metadata_before metadata_after
+    local rest size bytes
+
+    SA_VALIDATE_FILE_REASON="invalid_arguments"
+    [ "$#" -eq 2 ] || return 64
+
+    if ! sa_validate_path_under_root "$root" "$candidate" >/dev/null 2>&1; then
+        SA_VALIDATE_FILE_REASON="invalid_path"
+        return 64
+    fi
+
+    if [ ! -e "$candidate" ] && [ ! -L "$candidate" ]; then
+        SA_VALIDATE_FILE_REASON="missing"
+        return 66
+    fi
+    if [ -L "$candidate" ] || [ ! -f "$candidate" ]; then
+        SA_VALIDATE_FILE_REASON="not_regular_or_symlink"
+        return 65
+    fi
+    if [ ! -r "$candidate" ]; then
+        SA_VALIDATE_FILE_REASON="not_readable"
+        return 66
+    fi
+    if ! declare -F sa_exec >/dev/null 2>&1; then
+        SA_VALIDATE_FILE_REASON="exec_wrapper_unavailable"
+        return 69
+    fi
+
+    metadata_before=$(/usr/bin/stat -c '%d:%i:%s:%y:%z' -- "$candidate" 2>/dev/null) || {
+        SA_VALIDATE_FILE_REASON="metadata_unavailable"
+        return 74
+    }
+    rest=\${metadata_before#*:}
+    rest=\${rest#*:}
+    size=\${rest%%:*}
+    [[ $size =~ ^[0-9]+$ ]] || {
+        SA_VALIDATE_FILE_REASON="invalid_size_metadata"
+        return 74
+    }
+    if (( size > 262144 )); then
+        SA_VALIDATE_FILE_REASON="oversized"
+        return 75
+    }
+
+    # od emits hexadecimal bytes, never plaintext. The 256 KiB pre-check
+    # bounds both the read and command-substitution output.
+    bytes=$(sa_exec od -- -An -v -t x1 -N "$size" -- "$candidate" 2>/dev/null) || {
+        SA_VALIDATE_FILE_REASON="binary_scan_failed"
+        return 74
+    }
+    if [[ $bytes =~ (^|[[:space:]])00([[:space:]]|$) ]]; then
+        SA_VALIDATE_FILE_REASON="binary"
+        return 65
+    }
+    unset bytes
+
+    metadata_after=$(/usr/bin/stat -c '%d:%i:%s:%y:%z' -- "$candidate" 2>/dev/null) || {
+        SA_VALIDATE_FILE_REASON="metadata_unavailable"
+        return 74
+    }
+    if [[ $metadata_before != "$metadata_after" ]]; then
+        SA_VALIDATE_FILE_REASON="changed_during_validation"
+        return 75
+    }
+
+    SA_VALIDATE_FILE_REASON="ok"
+    return 0
+}
