@@ -128,4 +128,35 @@ if [[ $trace_hex == *"$canary_hex"* || $trace_hex == *"$username_hex"* ]]; then
     echo "FAIL: reversible secret bytes leaked under xtrace" >&2; exit 1
 fi
 
+sa_db_discover() {
+    printf '%s\n' \
+        'engine: MariaDB' \
+        'distribution: MariaDB Server' \
+        'version: 10.11.6-MariaDB' \
+        'server_port: 3306' \
+        'server_socket: /var/lib/mysql/mysql.sock' \
+        'configured_bind_address: 127.0.0.1' \
+        'actual_listener: UNKNOWN'
+}
+
+doctor_possible="$APP_ROOT/doctor-possible.php"
+printf '%s\n' '<?php' "define('DB_NAME', 'wordpress');" "define('DB_HOST', 'localhost:3306');" '?>' > "$doctor_possible"
+doctor_output=$(sa_db_doctor "$APP_ROOT" "$doctor_possible")
+printf '%s\n' "$doctor_output" | /usr/bin/grep -Fq 'matches_server: POSSIBLE_MATCH'
+printf '%s\n' "$doctor_output" | /usr/bin/grep -Fq 'matches_server_confidence: UNKNOWN'
+printf '%s\n' "$doctor_output" | /usr/bin/grep -Fq 'application_connection: UNKNOWN'
+printf '%s\n' "$doctor_output" | /usr/bin/grep -Fq 'actual_listener: UNKNOWN'
+
+doctor_mismatch="$APP_ROOT/doctor-mismatch.php"
+printf '%s\n' '<?php' "define('DB_NAME', 'wordpress');" "define('DB_HOST', 'localhost:3307');" '?>' > "$doctor_mismatch"
+doctor_output=$(sa_db_doctor "$APP_ROOT" "$doctor_mismatch")
+printf '%s\n' "$doctor_output" | /usr/bin/grep -Fq 'matches_server: MISMATCH_CANDIDATE'
+printf '%s\n' "$doctor_output" | /usr/bin/grep -Fq 'matches_server_confidence: UNKNOWN'
+
+doctor_unknown="$APP_ROOT/doctor-unknown.php"
+printf '%s\n' '<?php' "define('DB_HOST', 'auth.example.com');" '?>' > "$doctor_unknown"
+doctor_output=$(sa_db_doctor "$APP_ROOT" "$doctor_unknown")
+printf '%s\n' "$doctor_output" | /usr/bin/grep -Fq 'matches_server: UNKNOWN'
+printf '%s\n' "$doctor_output" | /usr/bin/grep -Fq 'application_connection: UNKNOWN'
+
 echo "WordPress application inventory tests: PASS"
