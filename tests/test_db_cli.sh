@@ -5,7 +5,6 @@
 # Repository: https://github.com/ljrseals-dev/StackAlign
 # CLI-level plan, validation, and destructive-operation gate tests.
 set -euo pipefail
-trap 'printf "test_db_cli: failure at line %s\\n" "$LINENO" >&2' ERR
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMP=$(mktemp -d)
 trap 'rm -rf -- "$TMP"' EXIT
