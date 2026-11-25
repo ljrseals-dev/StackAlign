@@ -301,10 +301,12 @@ cmd_site() {
 }
 
 cmd_db() {
+  local sub="${1-}"
+  [ "$#" -gt 0 ] && shift
   local allowed="--plan --apply"
   [ "$sub" = applications ] && allowed="--plan --apply --root --wordpress"
   _sa_parse "$allowed" "$@"
-  local sub=${POS[0]:-}
+  sub="${POS[0]-$sub}"
   source "$SA_ROOT/lib/db.sh"
   case "$sub" in
     list)
