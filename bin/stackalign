@@ -106,7 +106,7 @@ _sa_cmd_help() {
     rollback) printf 'stackalign rollback  [M2a]\n  snapshot restore: rollback [--list] [--to <id>]\n' ;;
     update) printf 'stackalign update  [M5]\n  update engine: check|plan|apply|pin|status\n' ;;
     site) printf 'stackalign site  [M3]\n  read-only vhost inventory/doctor; lifecycle actions gated\n' ;;
-    db) printf 'stackalign db  [M3]\n  read-only discovery, WordPress inventory, and database alignment doctor\n  applications|doctor --root <approved-root> --wordpress <wp-config.php>\n  status/list/user inventory; create gated, drop blocked\n' ;;
+    db) printf 'stackalign db  [M3]\n  read-only discovery, WordPress inventory, and database alignment doctor\n  applications --root <approved-root> --wordpress <wp-config.php>\n  doctor --root <approved-root> --wordpress <wp-config.php>\n  status/list/user inventory; create gated, drop blocked\n' ;;
     tls) printf 'stackalign tls  [M3]\n  status, clients, plan-issue (Certbot HTTP-01 only), and scheduler preflight\n' ;;
     backup) printf 'stackalign backup  [M4]\n  backup driver: run|list|verify\n' ;;
     restore) printf 'stackalign restore  [M4]\n  restore driver: --from <id>\n' ;;
