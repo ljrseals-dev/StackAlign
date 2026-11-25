@@ -101,7 +101,8 @@ sa_db_discover() {
     socket=${fields[3]}
     bind_address=${fields[4]}
 
-    comment_pattern='^[A-Za-z0-9][A-Za-z0-9 ._()+,/:-]{0,127}
+    comment_pattern='^[A-Za-z0-9][A-Za-z0-9 ._()+,/:-]{0,127}$'
+    if [[ $comment =~ $comment_pattern ]]; then
         comment_safe=1
     fi
     comment_lc=${comment,,}
