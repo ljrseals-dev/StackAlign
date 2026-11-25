@@ -69,27 +69,55 @@ sa_validate_path_under_root() {
 }
 
 
-# Stable reason code from sa_validate_text_file_under_root.
-SA_VALIDATE_FILE_REASON=""
 
-# Validate a bounded text file under an approved root before a caller reads it.
-# The caller must source lib/exec.sh first; od is used only to detect NUL bytes,
-# and receives no plaintext output. File contents are never stored by this helper.
+
+# Stable reason and open descriptor from sa_validate_text_file_under_root.
+SA_VALIDATE_FILE_REASON=""
+SA_VALIDATE_FILE_FD=""
+
+# Validate and open a bounded text file under an approved root.
+# On success SA_VALIDATE_FILE_FD remains open; callers must read through
+# /proc/$BASHPID/fd/$SA_VALIDATE_FILE_FD and call sa_validate_close_text_file.
+# This pins the inspected inode so a path swap after validation cannot redirect
+# the parser to a different file. The caller must source lib/exec.sh first.
+# od receives only the pinned descriptor path and emits hexadecimal, not plaintext.
 # Return codes: 0 valid, 64 invalid path/arguments, 65 rejected file,
 # 66 missing/unreadable, 69 required helper unavailable, 74 metadata failure,
 # 75 oversized or changed during inspection.
+_sa_validate_text_file_fail() {
+    local fd=\${1-} reason=\${2-} rc=\${3-}
+    if [[ $fd =~ ^[0-9]+$ ]] && (( fd >= 10 )); then
+        exec {fd}<&- 2>/dev/null || :
+    fi
+    SA_VALIDATE_FILE_FD=""
+    SA_VALIDATE_FILE_REASON=$reason
+    return "$rc"
+}
+
+sa_validate_close_text_file() {
+    local fd=\${SA_VALIDATE_FILE_FD-}
+    if [[ $fd =~ ^[0-9]+$ ]] && (( fd >= 10 )); then
+        exec {fd}<&- 2>/dev/null || :
+    fi
+    SA_VALIDATE_FILE_FD=""
+    return 0
+}
+
 sa_validate_text_file_under_root() {
-    local root=${1-} candidate=${2-} metadata_before metadata_after
-    local rest size bytes
+    local root=\${1-} candidate=\${2-} metadata_path metadata_fd metadata_after
+    local fd_type fd_meta rest size bytes file_fd="" fd_path
 
     SA_VALIDATE_FILE_REASON="invalid_arguments"
     [ "$#" -eq 2 ] || return 64
+    if [[ -n $SA_VALIDATE_FILE_FD ]]; then
+        SA_VALIDATE_FILE_REASON="descriptor_already_open"
+        return 75
+    fi
 
     if ! sa_validate_path_under_root "$root" "$candidate" >/dev/null 2>&1; then
         SA_VALIDATE_FILE_REASON="invalid_path"
         return 64
     fi
-
     if [ ! -e "$candidate" ] && [ ! -L "$candidate" ]; then
         SA_VALIDATE_FILE_REASON="missing"
         return 66
@@ -107,43 +135,76 @@ sa_validate_text_file_under_root() {
         return 69
     fi
 
-    metadata_before=$(/usr/bin/stat -c '%d:%i:%s:%y:%z' -- "$candidate" 2>/dev/null) || {
+    metadata_path=$(/usr/bin/stat -c '%d:%i:%s:%y:%z' -- "$candidate" 2>/dev/null) || {
         SA_VALIDATE_FILE_REASON="metadata_unavailable"
         return 74
     }
-    rest=${metadata_before#*:}
-    rest=${rest#*:}
-    size=${rest%%:*}
+    exec {file_fd}< "$candidate" || {
+        SA_VALIDATE_FILE_REASON="open_failed"
+        return 66
+    }
+    fd_path="/proc/$BASHPID/fd/$file_fd"
+    metadata_fd=$(/usr/bin/stat -Lc '%F|%d:%i:%s:%y:%z' -- "$fd_path" 2>/dev/null) || {
+        _sa_validate_text_file_fail "$file_fd" "descriptor_metadata_unavailable" 74
+        return $?
+    }
+    fd_type=\${metadata_fd%%|*}
+    fd_meta=\${metadata_fd#*|}
+    if [[ $fd_type != "regular file" || $fd_meta != "$metadata_path" ]]; then
+        _sa_validate_text_file_fail "$file_fd" "file_changed_during_open" 75
+        return $?
+    fi
+    if ! sa_validate_path_under_root "$root" "$candidate" >/dev/null 2>&1 ||
+       [ -L "$candidate" ] || [ ! -f "$candidate" ]; then
+        _sa_validate_text_file_fail "$file_fd" "path_changed_during_open" 75
+        return $?
+    fi
+    metadata_after=$(/usr/bin/stat -c '%d:%i:%s:%y:%z' -- "$candidate" 2>/dev/null) || {
+        _sa_validate_text_file_fail "$file_fd" "metadata_unavailable" 74
+        return $?
+    }
+    if [[ $metadata_after != "$fd_meta" ]]; then
+        _sa_validate_text_file_fail "$file_fd" "path_changed_during_open" 75
+        return $?
+    fi
+
+    rest=\${fd_meta#*:}
+    rest=\${rest#*:}
+    size=\${rest%%:*}
     [[ $size =~ ^[0-9]+$ ]] || {
-        SA_VALIDATE_FILE_REASON="invalid_size_metadata"
-        return 74
+        _sa_validate_text_file_fail "$file_fd" "invalid_size_metadata" 74
+        return $?
     }
     if (( size > 262144 )); then
-        SA_VALIDATE_FILE_REASON="oversized"
-        return 75
-    }
+        _sa_validate_text_file_fail "$file_fd" "oversized" 75
+        return $?
+    fi
 
-    # od emits hexadecimal bytes, never plaintext. The 256 KiB pre-check
-    # bounds both the read and command-substitution output.
-    bytes=$(sa_exec od -- -An -v -t x1 -N "$size" -- "$candidate" 2>/dev/null) || {
-        SA_VALIDATE_FILE_REASON="binary_scan_failed"
-        return 74
+    # od opens the pinned /proc descriptor independently; it does not advance
+    # the descriptor offset that the caller will use to parse the file.
+    bytes=$(sa_exec od -- -An -v -t x1 -N "$size" -- "$fd_path" 2>/dev/null) || {
+        _sa_validate_text_file_fail "$file_fd" "binary_scan_failed" 74
+        return $?
     }
     if [[ $bytes =~ (^|[[:space:]])00([[:space:]]|$) ]]; then
-        SA_VALIDATE_FILE_REASON="binary"
-        return 65
+        unset bytes
+        _sa_validate_text_file_fail "$file_fd" "binary" 65
+        return $?
     }
     unset bytes
 
-    metadata_after=$(/usr/bin/stat -c '%d:%i:%s:%y:%z' -- "$candidate" 2>/dev/null) || {
-        SA_VALIDATE_FILE_REASON="metadata_unavailable"
-        return 74
+    metadata_fd=$(/usr/bin/stat -Lc '%F|%d:%i:%s:%y:%z' -- "$fd_path" 2>/dev/null) || {
+        _sa_validate_text_file_fail "$file_fd" "descriptor_metadata_unavailable" 74
+        return $?
     }
-    if [[ $metadata_before != "$metadata_after" ]]; then
-        SA_VALIDATE_FILE_REASON="changed_during_validation"
-        return 75
-    }
+    fd_type=\${metadata_fd%%|*}
+    metadata_after=\${metadata_fd#*|}
+    if [[ $fd_type != "regular file" || $metadata_after != "$fd_meta" ]]; then
+        _sa_validate_text_file_fail "$file_fd" "file_changed_during_validation" 75
+        return $?
+    fi
 
+    SA_VALIDATE_FILE_FD=$file_fd
     SA_VALIDATE_FILE_REASON="ok"
     return 0
 }
