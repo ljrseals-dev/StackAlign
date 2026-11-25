@@ -57,6 +57,106 @@ sa_db_status() {
     printf 'server_version: %s\nauthenticated_account: %s\n' "$version" "$account"
 }
 
+# sa_db_discover -- read-only database server metadata; never changes server state.
+sa_db_discover() {
+    local query='SELECT @@version_comment, @@version, @@port, @@socket, @@bind_address;'
+    local result rest comment version port socket bind_address
+    local comment_lc version_lc engine="UNKNOWN" engine_conf="UNKNOWN"
+    local distribution="UNKNOWN" distribution_conf="UNKNOWN"
+    local version_out="UNKNOWN" version_conf="UNKNOWN"
+    local port_out="UNKNOWN" port_conf="UNKNOWN"
+    local socket_out="UNKNOWN" socket_conf="UNKNOWN"
+    local bind_out="UNKNOWN" bind_conf="UNKNOWN" comment_safe=0
+    local -a fields=()
+
+    _sa_db_require_client || return $?
+
+    if ! result=$(sa_exec mysql -- \
+        --defaults-extra-file="$SA_MYSQL_DEFAULTS_FILE" \
+        --batch --skip-column-names --execute="$query" 2>/dev/null); then
+        echo "db: discovery query failed" >&2
+        return 1
+    fi
+
+    # mysql --batch escapes embedded tabs/newlines in values. Preserve empty
+    # columns while splitting the five expected tab-delimited fields.
+    [[ $result != *$'\n'* && $result != *$'\r'* ]] || {
+        echo "db: invalid discovery response" >&2
+        return 1
+    }
+    rest=$result
+    while [[ $rest == *$'\t'* ]]; do
+        fields+=("${rest%%$'\t'*}")
+        rest=${rest#*$'\t'}
+    done
+    fields+=("$rest")
+    [ "${#fields[@]}" -eq 5 ] || {
+        echo "db: invalid discovery response" >&2
+        return 1
+    }
+
+    comment=${fields[0]}
+    version=${fields[1]}
+    port=${fields[2]}
+    socket=${fields[3]}
+    bind_address=${fields[4]}
+
+    if [[ $comment =~ ^[A-Za-z0-9][A-Za-z0-9 ._()+,/:-]{0,127}$ ]]; then
+        comment_safe=1
+    fi
+    comment_lc=${comment,,}
+    version_lc=${version,,}
+
+    if [[ $comment_lc == *percona* || $version_lc == *percona* ]]; then
+        engine="MySQL"
+        engine_conf="CONFIRMED"
+        distribution="Percona Server"
+        distribution_conf="CONFIRMED"
+    elif [[ $comment_lc == *mariadb* || $version_lc == *mariadb* ]]; then
+        engine="MariaDB"
+        engine_conf="CONFIRMED"
+        if (( comment_safe )) && [[ $comment_lc != "null" ]]; then
+            distribution=$comment
+            distribution_conf="CONFIRMED"
+        fi
+    elif [[ $comment_lc == *mysql* || $version_lc == *mysql* ]]; then
+        engine="MySQL"
+        engine_conf="CONFIRMED"
+        if (( comment_safe )) && [[ $comment_lc != "null" ]]; then
+            distribution=$comment
+            distribution_conf="CONFIRMED"
+        fi
+    fi
+
+    if [[ $version =~ ^[0-9][A-Za-z0-9._+-]*$ ]]; then
+        version_out=$version
+        version_conf="CONFIRMED"
+    fi
+
+    if [[ $port != "" && $port != "NULL" ]] && sa_validate_port "$port" >/dev/null 2>&1; then
+        port_out=$port
+        port_conf="CONFIRMED"
+    fi
+
+    if [[ $socket == /* && $socket != *$'\n'* && $socket != *$'\r'* && $socket != *$'\t'* ]]; then
+        socket_out=$socket
+        socket_conf="CONFIRMED"
+    fi
+
+    if [[ $bind_address =~ ^[A-Za-z0-9_.:,*-]+$ ]]; then
+        bind_out=$bind_address
+        bind_conf="CONFIRMED"
+    fi
+
+    printf 'engine: %s\nengine_confidence: %s\n' "$engine" "$engine_conf"
+    printf 'distribution: %s\ndistribution_confidence: %s\n' "$distribution" "$distribution_conf"
+    printf 'version: %s\nversion_confidence: %s\n' "$version_out" "$version_conf"
+    printf 'server_port: %s\nserver_port_confidence: %s\n' "$port_out" "$port_conf"
+    printf 'server_socket: %s\nserver_socket_confidence: %s\n' "$socket_out" "$socket_conf"
+    printf 'configured_bind_address: %s\nconfigured_bind_address_confidence: %s\n' "$bind_out" "$bind_conf"
+    printf 'actual_listener: UNKNOWN\nactual_listener_confidence: UNKNOWN\n'
+}
+
 # sa_db_list -- read-only schema inventory.
 sa_db_list() {
     _sa_db_require_client || return $?
