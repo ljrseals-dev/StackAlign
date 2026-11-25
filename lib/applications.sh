@@ -114,7 +114,7 @@ sa_db_parse_wordpress_config() {
     local db_socket="UNKNOWN" db_socket_conf="UNKNOWN"
     local db_user="UNKNOWN" db_user_conf="UNKNOWN"
     local trace_enabled=0 close_rc=0
-    local fd_path
+    local fd_path user_pattern
 
     [ "$#" -eq 2 ] || {
         echo "applications: usage: sa_db_parse_wordpress_config <root> <wp-config.php>" >&2
@@ -129,13 +129,13 @@ sa_db_parse_wordpress_config() {
         effective="UNKNOWN"
         unset line trimmed
         if (( trace_enabled )); then set -x; fi
-        printf 'application: WordPress\\nconfig_file: %s\\nstatus: UNKNOWN\\nreason: %s\\neffective_config: UNKNOWN\\n' "$config" "$reason"
-        printf 'app_db_name: UNKNOWN\\napp_db_name_confidence: UNKNOWN\\n'
-        printf 'app_db_host: UNKNOWN\\napp_db_host_confidence: UNKNOWN\\n'
-        printf 'app_db_port: UNKNOWN\\napp_db_port_confidence: UNKNOWN\\n'
-        printf 'app_db_socket: UNKNOWN\\napp_db_socket_confidence: UNKNOWN\\n'
-        printf 'app_db_user: UNKNOWN\\napp_db_user_confidence: UNKNOWN\\n'
-        printf 'application_connection: UNKNOWN\\napplication_connection_confidence: UNKNOWN\\n'
+        printf 'application: WordPress\nconfig_file: %s\nstatus: UNKNOWN\nreason: %s\neffective_config: UNKNOWN\n' "$config" "$reason"
+        printf 'app_db_name: UNKNOWN\napp_db_name_confidence: UNKNOWN\n'
+        printf 'app_db_host: UNKNOWN\napp_db_host_confidence: UNKNOWN\n'
+        printf 'app_db_port: UNKNOWN\napp_db_port_confidence: UNKNOWN\n'
+        printf 'app_db_socket: UNKNOWN\napp_db_socket_confidence: UNKNOWN\n'
+        printf 'app_db_user: UNKNOWN\napp_db_user_confidence: UNKNOWN\n'
+        printf 'application_connection: UNKNOWN\napplication_connection_confidence: UNKNOWN\n'
         return 0
     fi
 
@@ -150,7 +150,7 @@ sa_db_parse_wordpress_config() {
                 ;;
         esac
 
-        trimmed=${line#" ${line%%[![:space:]]*}"}
+        trimmed=${line#"${line%%[![:space:]]*}"}
         trimmed=${trimmed%"${trimmed##*[![:space:]]}"}
         case $trimmed in
             ''|'#'*|'//'*) continue ;;
@@ -164,7 +164,15 @@ sa_db_parse_wordpress_config() {
         fi
 
         # Record only presence. Never extract or retain the username.
-        if [[ $trimmed =~ ^define[[:space:]]*\\([[:space:]]*['\\"]DB_USER['\\"][[:space:]]*, ]]; then
+        user_pattern="^define[[:space:]]*\\([[:space:]]*'DB_USER'[[:space:]]*,"
+        if [[ $trimmed =~ $user_pattern ]]; then
+            db_user="PRESENT"
+            db_user_conf="CONFIRMED"
+            effective="UNKNOWN"
+            continue
+        fi
+        user_pattern="^define[[:space:]]*\\([[:space:]]*\\"DB_USER\\"[[:space:]]*,"
+        if [[ $trimmed =~ $user_pattern ]]; then
             db_user="PRESENT"
             db_user_conf="CONFIRMED"
             effective="UNKNOWN"
@@ -249,16 +257,16 @@ sa_db_parse_wordpress_config() {
     if (( trace_enabled )); then set -x; fi
 
     if (( close_rc != 0 )); then
-        printf 'application: WordPress\\nconfig_file: %s\\nstatus: UNKNOWN\\nreason: %s\\n' "$config" "$reason"
+        printf 'application: WordPress\nconfig_file: %s\nstatus: UNKNOWN\nreason: %s\n' "$config" "$reason"
     else
-        printf 'application: WordPress\\nconfig_file: %s\\nstatus: INVENTORIED\\nreason: none\\n' "$config"
+        printf 'application: WordPress\nconfig_file: %s\nstatus: INVENTORIED\nreason: none\n' "$config"
     fi
-    printf 'effective_config: %s\\n' "$effective"
-    printf 'app_db_name: %s\\napp_db_name_confidence: %s\\n' "$db_name" "$db_name_conf"
-    printf 'app_db_host: %s\\napp_db_host_confidence: %s\\n' "$db_host" "$db_host_conf"
-    printf 'app_db_port: %s\\napp_db_port_confidence: %s\\n' "$db_port" "$db_port_conf"
-    printf 'app_db_socket: %s\\napp_db_socket_confidence: %s\\n' "$db_socket" "$db_socket_conf"
-    printf 'app_db_user: %s\\napp_db_user_confidence: %s\\n' "$db_user" "$db_user_conf"
-    printf 'application_connection: UNKNOWN\\napplication_connection_confidence: UNKNOWN\\n'
+    printf 'effective_config: %s\n' "$effective"
+    printf 'app_db_name: %s\napp_db_name_confidence: %s\n' "$db_name" "$db_name_conf"
+    printf 'app_db_host: %s\napp_db_host_confidence: %s\n' "$db_host" "$db_host_conf"
+    printf 'app_db_port: %s\napp_db_port_confidence: %s\n' "$db_port" "$db_port_conf"
+    printf 'app_db_socket: %s\napp_db_socket_confidence: %s\n' "$db_socket" "$db_socket_conf"
+    printf 'app_db_user: %s\napp_db_user_confidence: %s\n' "$db_user" "$db_user_conf"
+    printf 'application_connection: UNKNOWN\napplication_connection_confidence: UNKNOWN\n'
     return 0
 }
