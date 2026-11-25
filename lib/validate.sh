@@ -77,6 +77,7 @@ SA_VALIDATE_FILE_FD=""
 SA_VALIDATE_FILE_METADATA=""
 
 # Validate and open a bounded text file under an approved root.
+# Call directly in the current shell, never via command substitution/subshell.
 # On success SA_VALIDATE_FILE_FD remains open; callers must read through
 # /proc/$BASHPID/fd/$SA_VALIDATE_FILE_FD and call sa_validate_close_text_file.
 # This pins the inspected inode so a path swap after validation cannot redirect
