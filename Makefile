@@ -12,7 +12,7 @@ all: lint headers test
 # Preserve the legacy two-field check for this branch's inherited baseline.
 HDR_FILES := $(SH_FILES) Makefile tests/test_tune_math.py .github/workflows/ci.yml .gitea/workflows/ci.yml
 # Apply the full four-field contract to every file changed or introduced by this PR.
-HDR_STRICT_FILES := Makefile bin/stackalign lib/state.sh tests/test_state.sh schema/001-initial.sql .github/workflows/ci.yml
+HDR_STRICT_FILES := Makefile bin/stackalign lib/state.sh lib/llm.sh lib/llm_host.sh tests/test_state.sh tests/test_agent.sh tests/test_llm.sh tests/test_llm_host.sh scripts/validate_llm_plan.py schema/001-initial.sql .github/workflows/ci.yml
 headers:
 	@bad=0; for f in $(HDR_FILES); do \
 	  head -6 "$$f" | grep -q 'SPDX-License-Identifier:' && head -6 "$$f" | grep -q 'Author: Lewis James Seals Jr.' \
