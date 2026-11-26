@@ -1,5 +1,17 @@
 # Pinecone Neural sidecar harness evidence
 
+## Current status update — 2026-11-22
+
+The 2026-11-18 evidence below is a historical snapshot. A fresh repository check found:
+
+- Pinecone Neural `main` is now `30a2b5bf5b002b2454dc28f8f33ae633e5d9aa1c`.
+- `app/harness.py` at blob `3802a3642ca75fe518184e277629c0be507fb5bb` states that model output is data only and is never compiled, evaluated, or executed. Its response path accepts registered tool calls or final answers.
+- `app/tools/builtin.py` at blob `29fdd4d1b22ca87fc612a9593e12c0ebcb5f9f63` uses a bounded AST arithmetic evaluator rather than Python `eval`.
+- Pinecone Neural PR #1 merged on 2026-11-20 at `a57e6e1c5cfea2231a9562e3f133ea961e0eb9fb`. PR #2 and PR #3 remain open and stacked; PR #3 head is `49d5dbdc713dc5fe3c779a5c5d8fe472c5530747`.
+- The PR #3 CI run `44073253827` remains the latest recorded cumulative harness run: compileall plus 34 tests. Provider-backed end-to-end and production deployment validation remain NOT RUN.
+
+This supersedes the historical statements below that all three PRs were unmerged and that Pinecone Neural `main` still contained the unsafe model-generated Python path. It does not establish provider-backed behavior or production deployment safety.
+
 **Evidence refresh:** 2026-11-18 UTC  
 **StackAlign target:** ljrseals-dev/StackAlign, audit branch audit/prompt-coverage-sidecar-2026-11-18  
 **Sidecar repository:** ljrseals-dev/pinecone-neural  
@@ -9,7 +21,7 @@
 
 The sidecar provides a useful, credential-free regression harness for its own agent runtime, memory pipeline, API resource controls and session behavior. The latest inspected cumulative branch, PR #3 head 49d5dbdc713dc5fe3c779a5c5d8fe472c5530747, passed Python compilation and 34 pytest tests in GitHub Actions run [#44073253827](https://github.com/ljrseals-dev/pinecone-neural/actions/runs/44073253827).
 
-This does not mean StackAlign's A–O hosting capabilities have been tested by the sidecar, that a live sidecar was contacted, or that provider-backed behavior works. The three sidecar PRs are stacked and remain open/unmerged. CI uses placeholder provider credentials explicitly marked unused.
+This does not mean StackAlign's A–O hosting capabilities have been tested by the sidecar, that a live sidecar was contacted, or that provider-backed behavior works. PR #1 is merged; PR #2 and PR #3 remain stacked and open. CI uses placeholder provider credentials explicitly marked unused.
 
 ## Pinned source chain and CI evidence
 
@@ -19,7 +31,7 @@ This does not mean StackAlign's A–O hosting capabilities have been tested by t
 | [PR #2 — Fix neural memory pipeline and enforce runtime budgets](https://github.com/ljrseals-dev/pinecone-neural/pull/2) | 78334bac420d778ef30fe5c3b4f0ffaf6b5f3702 | PR #1 head | [#44039697690](https://github.com/ljrseals-dev/pinecone-neural/actions/runs/44039697690) | compileall + 30 tests passed |
 | [PR #3 — Avoid blocking API loop and serialize session updates](https://github.com/ljrseals-dev/pinecone-neural/pull/3) | 49d5dbdc713dc5fe3c779a5c5d8fe472c5530747 | PR #2 head | [#44073253827](https://github.com/ljrseals-dev/pinecone-neural/actions/runs/44073253827) | compileall + 34 tests passed |
 
-All three PRs were open and unmerged at this evidence refresh. Test counts are cumulative snapshots, not additive: do not report 74 unique tests. The latest single run is 34 passed.
+At the original 2026-11-18 evidence refresh, all three PRs were open and unmerged. PR #1 later merged; see the current-status update above. Test counts are cumulative snapshots, not additive: do not report 74 unique tests. The latest single run is 34 passed.
 
 ## What the harness exercises
 
@@ -63,7 +75,7 @@ All three PRs were open and unmerged at this evidence refresh. Test counts are c
 - StackAlign lib/agent.sh sends read-only doctor/repository output and prints the answer. Its tests use fake curl, not a live API.
 - The current StackAlign client does not pass/persist a session_id across CLI invocations; do not infer CLI-level conversation continuity from the sidecar's internal history tests.
 - Sidecar tests validate sidecar code paths, not StackAlign prompt categories A–O such as Nginx/PHP/TLS/database lifecycle, backups/restores, tenant isolation or host recovery.
-- Sidecar main SHA 8260ee84fc6deb96aeebe46079d47948a30cd84d still contains the unsafe model-generated Python execution path identified in the original review. The hardening chain is not yet merged into main.
+- At the 2026-11-18 snapshot, sidecar main SHA 8260ee84fc6deb96aeebe46079d47948a30cd84 contained the unsafe model-generated Python path. PR #1 merged on 2026-11-20; current main SHA 30a2b5bf5b002b2454dc28f8f33ae633e5d9aa1c was inspected and its harness now treats model output as data and dispatches only registered tools. PR #2 and PR #3 remain unmerged.
 
 ## Safe use for StackAlign
 

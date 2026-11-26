@@ -1,6 +1,6 @@
 # Egress firewall and passive LAN audit
 
-The `egress` CLI is an opt-in Linux/nftables control for a studio host. It is separate from `lib/firewall.sh`, which manages StackAlign's existing inbound firewall table. The egress table is named `inet stackalign_egress` by default and has an OUTPUT chain with a default-drop policy.
+The `egress` CLI is an opt-in Linux/nftables control for a studio host. It is separate from `lib/firewall.sh`, an unexposed library-only inbound-firewall helper; there is no inbound-firewall CLI. That helper's `sa_fw_apply_nft` installs an INPUT chain with a default-drop policy but has no automatic timed revert. Do not call it on a remote host; it needs a separate safety review, rollback design, and disposable-host validation before it can be exposed. The egress table is named `inet stackalign_egress` by default and has an OUTPUT chain with a default-drop policy.
 
 ## Commands
 

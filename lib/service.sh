@@ -30,9 +30,9 @@ sa_service_check() {
 
 sa_service_health() {
   case $1 in
-    nginx)   sa_exec nginx -- -t >/dev/null 2>&1 ;;
-    php-fpm) sa_exec php-fpm -- -t >/dev/null 2>&1 ;;
-    mariadb|mysql) sa_exec mysqladmin -- ping >/dev/null 2>&1 ;;
+    nginx)   sa_exec nginx -- -t >/dev/null 2>&1 && sa_service_check "$1" ;;
+    php-fpm) sa_exec php-fpm -- -t >/dev/null 2>&1 && sa_service_check "$1" ;;
+    mariadb|mysql) sa_exec mysqladmin -- ping >/dev/null 2>&1 && sa_service_check "$1" ;;
     *) echo "sa_service_health: unknown service $1" >&2; return 64 ;;
   esac
 }
@@ -64,8 +64,14 @@ sa_service_reload_safe() {  # <name> <snapshot-id>
     return 0
   fi
   echo "reload_safe: $name unhealthy, rolling back $snap" >&2
-  sa_history_rollback "$snap" || echo "reload_safe: rollback command failed" >&2
-  sa_service_restart "$name" || true
+  if ! sa_history_rollback "$snap"; then
+    echo "CRITICAL: rollback failed; manual intervention required ($name)" >&2
+    exit 99
+  fi
+  if ! sa_service_restart "$name"; then
+    echo "CRITICAL: restart failed after rollback; manual intervention required ($name)" >&2
+    exit 99
+  fi
   if sa_service_health "$name"; then
     echo "reload_safe: $name healthy after rollback; change NOT applied" >&2
     return 1

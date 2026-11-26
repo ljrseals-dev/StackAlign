@@ -49,6 +49,21 @@ sa_internet_show_saved_plan >/dev/null 2>&1; rc=$?
 XDG_CONFIG_HOME=relative sa_internet_config_path >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 64 ] && ok "rejects relative XDG_CONFIG_HOME" || bad "relative XDG path"
 
+# A final symlink to a directory must not redirect the atomic publish.
+mkdir -p "$T/outside"
+ln -s "$T/outside" "$XDG_CONFIG_HOME/stackalign/publish-target"
+printf 'version=2\\n' > "$T/publish.tmp"
+rc=0; sa_internet_publish_config "$T/publish.tmp" "$XDG_CONFIG_HOME/stackalign/publish-target" >/dev/null 2>&1 || rc=$?
+[ "$rc" -ne 0 ] && [ -L "$XDG_CONFIG_HOME/stackalign/publish-target" ] && [ -z "$(find "$T/outside" -mindepth 1 -maxdepth 1 -print -quit)" ] && ok "refuses symlink-to-directory publish target" || bad "symlink-to-directory publish target"
+rm "$XDG_CONFIG_HOME/stackalign/publish-target"
+mkdir "$XDG_CONFIG_HOME/stackalign/publish-dir"
+printf 'version=2\\n' > "$T/publish.tmp"
+rc=0; sa_internet_publish_config "$T/publish.tmp" "$XDG_CONFIG_HOME/stackalign/publish-dir" >/dev/null 2>&1 || rc=$?
+[ "$rc" -ne 0 ] && [ -d "$XDG_CONFIG_HOME/stackalign/publish-dir" ] && ok "refuses directory publish target" || bad "directory publish target"
+rm -rf "$XDG_CONFIG_HOME/stackalign/publish-dir"
+printf 'version=2\\n' > "$T/publish.tmp"
+sa_internet_publish_config "$T/publish.tmp" "$XDG_CONFIG_HOME/stackalign/internet.conf" && [ -f "$XDG_CONFIG_HOME/stackalign/internet.conf" ] && ok "publishes regular config target atomically" || bad "regular config publish"
+
 
 out=$(sa_internet_plan both other cloudflare_tunnel tailscale example.com "" 2>&1); rc=$?
 { [ "$rc" -eq 0 ] && [[ "$out" == *"DNS action: MANUAL"* ]] && [[ "$out" == *"Do not point an A record"* ]]; } && ok "Cloudflare Tunnel is not confused with direct-origin A records" || bad "tunnel DNS distinction"

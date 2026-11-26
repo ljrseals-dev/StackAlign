@@ -41,9 +41,16 @@ _sa_hist_root_prepare() {
 
 # sa_history_snapshot <path> [slug] -> prints snapshot id
 sa_history_snapshot() {
-  local path slug=${2:-snap} ts id dir path_real secret_real
+  local path slug=${2-snap} ts id dir path_real secret_real
   [ $# -ge 1 ] || { echo "sa_history_snapshot: path required" >&2; return 64; }
   path=$(_sa_hist_abs "$1")
+  [[ $path != *[[:cntrl:]]* ]] || { echo "sa_history_snapshot: refusing control characters in path" >&2; return 64; }
+  case $slug in
+    ""|.|..|*[!A-Za-z0-9_.-]*)
+      echo "sa_history_snapshot: bad slug" >&2
+      return 64 ;;
+  esac
+  [ "${#slug}" -le 64 ] || { echo "sa_history_snapshot: slug too long" >&2; return 64; }
   path_real=$(/usr/bin/realpath -m -- "$path" 2>/dev/null) || return 1
   [[ $path_real == "$path" ]] || { echo "sa_history_snapshot: refusing non-canonical or symlinked path" >&2; return 64; }
   secret_real=$(/usr/bin/realpath -m -- "$SA_SECRETS_DIR" 2>/dev/null) || return 1
@@ -53,7 +60,6 @@ sa_history_snapshot() {
       return 3 ;;
   esac
   _sa_hist_root_prepare || { echo "sa_history_snapshot: history root is unsafe or not privately owned" >&2; return 1; }
-  case $slug in *[!A-Za-z0-9_.-]*) echo "sa_history_snapshot: bad slug" >&2; return 64 ;; esac
   ts=$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)
   id="$ts-$slug"
   dir="$SA_HISTORY_ROOT/$id"

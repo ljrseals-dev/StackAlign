@@ -42,7 +42,7 @@ cat > "$T/bin/rpm" <<'EOF'
 #!/usr/bin/env bash
 echo "rpm $*" >> "$FAKE_LOG"
 case $1 in
-  --import) exit 0 ;;
+  --import) [ "${FAKE_RPM_IMPORT_FAIL:-0}" = 1 ] && exit 1; exit 0 ;;
   -q) shift; [ "${1-}" = -- ] && shift; [ -e "$FAKE_STATE/installed.$1" ] ;;
 esac
 EOF
@@ -88,6 +88,26 @@ out=$(sa_repo_setup remi "$URL" "$FPR" "$KEY")
   && ! grep -q 'rpm --import' "$FAKE_LOG"; } \
   && ok "setup idempotent (file untouched, no redundant key import)" \
   || bad "setup idempotent"
+
+# A failed key import must not publish or replace an enabled repository definition.
+reset; export FAKE_RPM_IMPORT_FAIL=1; sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; export FAKE_RPM_IMPORT_FAIL=0
+{ [ "$rc" -ne 0 ] && [ ! -e "$SA_YUM_REPOS_DIR/stackalign-remi.repo" ]; } \
+  && ok "key import failure leaves new repo unpublished" || bad "key import failure leaves new repo unpublished"
+reset; mkdir -p "$SA_YUM_REPOS_DIR"; printf 'old repo definition\n' > "$SA_YUM_REPOS_DIR/stackalign-remi.repo"; chmod 644 "$SA_YUM_REPOS_DIR/stackalign-remi.repo"
+export FAKE_RPM_IMPORT_FAIL=1; sa_repo_setup remi "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?; export FAKE_RPM_IMPORT_FAIL=0
+{ [ "$rc" -ne 0 ] && [ "$(cat "$SA_YUM_REPOS_DIR/stackalign-remi.repo")" = "old repo definition" ]; } \
+  && ok "key import failure preserves prior repo definition" || bad "key import failure preserves prior repo definition"
+
+# A final symlink must never redirect repo-file publication outside the repo directory.
+reset; mkdir -p "$T/outside" "$SA_YUM_REPOS_DIR"; ln -s "$T/outside" "$SA_YUM_REPOS_DIR/stackalign-escape.repo"
+sa_repo_setup escape "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?
+{ [ "$rc" -ne 0 ] && [ -L "$SA_YUM_REPOS_DIR/stackalign-escape.repo" ] && [ -z "$(find "$T/outside" -mindepth 1 -maxdepth 1 -print -quit)" ] && ! grep -q 'rpm --import' "$FAKE_LOG"; } \
+  && ok "refuses symlink-to-directory repo target" || bad "symlink-to-directory repo target"
+reset; mkdir -p "$T/outside" "$SA_YUM_REPOS_DIR"; printf 'outside sentinel\n' > "$T/outside/target.repo"
+ln -s "$T/outside/target.repo" "$SA_YUM_REPOS_DIR/stackalign-escape.repo"
+sa_repo_setup escape "$URL" "$FPR" "$KEY" >/dev/null 2>&1; rc=$?
+{ [ "$rc" -ne 0 ] && [ -L "$SA_YUM_REPOS_DIR/stackalign-escape.repo" ] && [ "$(cat "$T/outside/target.repo")" = "outside sentinel" ]; } \
+  && ok "refuses symlink-to-file repo target" || bad "symlink-to-file repo target"
 
 # fingerprint with spaces + lowercase accepted
 reset; sa_repo_setup remi "$URL" "0123 4567 89ab cdef 0123 4567 89ab cdef 0123 4567" "$KEY" >/dev/null 2>&1; rc=$?

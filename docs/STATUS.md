@@ -1,5 +1,7 @@
 # Project status
 
+> **Historical status ledger — not the live project status.** Entries below are dated snapshots and may describe feature branches, pull requests, or checks that have since changed. The opening 2026-11-12 M2a reconciliation is superseded by later source and changelog updates. For current capabilities, start with [README.md](../README.md), then verify the relevant source and CI result for the exact commit. Do not use an older entry here as evidence that a feature is currently implemented or validated.
+
 **2026-11-12 — post-M2a merge status reconciliation**
 
 ## Verified repository facts

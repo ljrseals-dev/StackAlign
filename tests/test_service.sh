@@ -14,7 +14,12 @@ mkdir -p "$T/bin" "$FAKE_STATE"
 cat > "$T/bin/systemctl" <<'EOF'
 #!/usr/bin/env bash
 echo "systemctl $*" >> "$FAKE_LOG"
-case $1 in is-active) [ -e "$FAKE_STATE/$3.active" ] ;; *) exit 0 ;; esac
+case $1 in
+  is-active) [ -e "$FAKE_STATE/$3.active" ] ;;
+  reload) [ ! -e "$FAKE_STATE/reload_fail" ] ;;
+  restart) [ ! -e "$FAKE_STATE/restart_fail" ] && touch "$FAKE_STATE/$2.active" ;;
+  *) exit 0 ;;
+esac
 EOF
 cat > "$T/bin/nginx" <<'EOF'
 #!/usr/bin/env bash
@@ -38,7 +43,7 @@ sa_exec() {
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "ok   - $1"; }
 bad() { fail=$((fail+1)); echo "FAIL - $1"; }
-reset() { : > "$FAKE_LOG"; rm -f "$FAKE_STATE"/*; touch "$FAKE_STATE/nginx.active"; printf 'good\n' > "$FAKE_CONF"; }
+reset() { : > "$FAKE_LOG"; rm -f "$FAKE_STATE"/*; touch "$FAKE_STATE/nginx.active" "$FAKE_STATE/php-fpm.active" "$FAKE_STATE/mariadb.active"; printf 'good\n' > "$FAKE_CONF"; }
 
 # Service operation names are allowlisted before reaching systemctl.
 reset
@@ -59,6 +64,18 @@ reset; id=$(sa_history_snapshot "$FAKE_CONF" t); printf 'BAD\n' > "$FAKE_CONF"
 sa_service_reload_safe nginx "$id" 2>/dev/null; rc=$?
 { [ $rc -eq 1 ] && [ "$(cat "$FAKE_CONF")" = good ] && grep -q 'systemctl restart nginx' "$FAKE_LOG" && ! grep -q 'systemctl reload' "$FAKE_LOG"; } \
   && ok "bad config: rolled back, restarted, rc=1, never reloaded" || bad "bad config: rolled back, restarted, rc=1, never reloaded"
+
+# A failed rollback must never be reported as a successful recovery.
+reset; id=$(sa_history_snapshot "$FAKE_CONF" t); touch "$FAKE_STATE/reload_fail"
+msg=$( ( sa_history_rollback() { return 1; }; sa_service_reload_safe nginx "$id" ) 2>&1 ); rc=$?
+{ [ "$rc" -eq 99 ] && [[ "$msg" == *"CRITICAL: rollback failed"* ]] && [[ "$msg" != *"change NOT applied"* ]]; } \
+  && ok "rollback failure is critical and never reported as recovered" || bad "rollback failure is critical"
+
+# A failed restart after a successful rollback is also critical.
+reset; id=$(sa_history_snapshot "$FAKE_CONF" t); touch "$FAKE_STATE/reload_fail" "$FAKE_STATE/restart_fail"
+msg=$( ( sa_service_reload_safe nginx "$id" ) 2>&1 ); rc=$?
+{ [ "$rc" -eq 99 ] && [[ "$msg" == *"CRITICAL: restart failed after rollback"* ]]; } \
+  && ok "restart failure after rollback is critical" || bad "restart failure after rollback is critical"
 
 # still unhealthy after rollback -> exit 99 + CRITICAL
 reset; id=$(sa_history_snapshot "$FAKE_CONF" t); touch "$FAKE_STATE/always_fail"

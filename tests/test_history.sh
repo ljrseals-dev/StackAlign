@@ -45,6 +45,12 @@ SA_HISTORY_ROOT="$T/history-link" sa_history_snapshot "$T/etc/a.conf" linkroot >
 [ "$rc" -ne 0 ] && ok "symlinked history root rejected" || bad "symlinked history root rejected"
 sa_history_snapshot "$T/etc/../etc/a.conf" traversal >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 64 ] && ok "non-canonical snapshot path rejected" || bad "non-canonical snapshot path rejected"
+bad_path="$T/etc/line
+0	/etc/passwd"
+sa_history_snapshot "$bad_path" injection >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 64 ] && ok "snapshot path control characters rejected" || bad "snapshot path control characters rejected"
+sa_history_snapshot "$T/etc/a.conf" "" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 64 ] && ok "empty snapshot slug rejected" || bad "empty snapshot slug rejected"
 
 # idempotent within the same second for the same path+slug
 a=$(sa_history_snapshot "$T/etc/a.conf" same); b=$(sa_history_snapshot "$T/etc/a.conf" same)
